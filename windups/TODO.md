@@ -61,7 +61,7 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 Do not build the Daniel tasks table yet (schema planned in WINDUPS.md).
 
 1. **Daniel** (DB + handoffs; tasks table later)
-2. **Lauren** — role TBD
+2. **Lauren** — writes tags and embeds art from the database (takes over from Jack)
 3. **Suzan** (write-to-file; at most one open Suzan task per entry)
 4. **Mary**
 5. **Kate**
