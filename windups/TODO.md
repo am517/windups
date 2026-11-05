@@ -55,3 +55,21 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - Tom, Mary, Kate: real implementations (Kate converts Jack's art).
 
 - Later: other windups may also call Walter (e.g. when a new source is added, or after meta-analysis).
+
+## Build order (Adam, 2026-11-01)
+
+Do not build the Daniel tasks table yet (schema planned in WINDUPS.md).
+
+1. **Daniel** (DB + handoffs; tasks table later)
+2. **Lauren** — role TBD
+3. **Suzan** (write-to-file; at most one open Suzan task per entry)
+4. **Mary**
+5. **Kate**
+6. **Tom**
+7. **Larry**
+8. **Julie**
+9. **John** (device group: pair / list / remove, keys, trust) — just before Walter
+10. **Walter** (already working; stays after John in the dependency sense)
+
+Later / related: Beth (LoRA trainer), Sammy LoRAs (manual until Beth).
+

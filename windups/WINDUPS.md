@@ -326,3 +326,62 @@ state (stage, latest reason, `last_checked`, its return) and decides when to cal
 - **`walter pending` is read-only**: it lists scheduled returns and nothing else (no patrol, no
   capability discovery, no Jack). Walter patrols only when called to patrol (`patrol` or `note`).
 - **One repo**: all windups live in one Cargo workspace (github.com/am517/windups), one folder each.
+
+## Efficiency rule (Adam, 2026-11-01)
+
+Windups will run on phones and small devices. Aim for the most efficient solution at every step:
+tight, fast, low-memory Rust with minimal deps and small binaries (release profile: LTO, opt-level,
+strip, `panic = abort` where sensible). Avoid needless allocations and clones, stream files rather
+than loading them whole, and benchmark hot paths.
+
+## Sammy as a shared thinking service (Adam, 2026-11-01)
+
+Sammy is a shared thinking service. Each windup thinks for itself with its own LoRA, keeping one LoRA
+per base model it has seen (keyed by model+version), and falls back to the base model plus a system
+prompt until it has one. **Beth** trains LoRAs from each windup's own training phrases and parameters.
+Beth comes later; LoRAs are made manually at first.
+
+## Packaging: one binary, one portable store (Adam, 2026-11-01)
+
+One shared executable with no self-modifying binaries, plus one portable SQLite file per windup
+(e.g. `jack.windup`) holding config, LoRA blobs, training phrases and memory. Every windup gets the
+universal commands `export` (to a readable TOML/JSON folder), `import`, and `show config`.
+
+## A windup is an identity, not a file (Adam, 2026-11-01)
+
+Copies on paired devices sync their `.windup` data in the style of Syncthing and share a job list.
+Windups move only within the approved private device group and never spread on their own. **John**
+manages the device group (pair, list and remove devices, keys, trust checks). John comes just before
+Walter.
+
+## Jack (Adam, 2026-11-01; supersedes the never-best-guess rule for Jack)
+
+Before going online, Jack checks the DB. On an exact match (by id, or by name plus year), he updates
+only what's needed. For a related item (same show, channel or podcast), he reuses its shared details
+and records which entry he copied them from. He produces one JSON per entry with his best guess plus
+flags (`unresolved`, `ambiguous`) and passes it to Daniel, or saves it next to the media if there is
+no DB. He saves good and bad hits and identified entities as-is, uncompleted, and completes only the
+main search. Sources become plugins, and new sources are on hold. Cast/entities wait, and so does the
+embedding model, which gets only a plugin hook until Sammy exists. User corrections and preferences
+belong to other windups.
+
+(The global "no guessing" rule still applies to every other windup. Jack alone may emit a best-guess
+JSON with explicit flags for Daniel.)
+
+## Daniel tasks table (planned; do not build yet) (Adam, 2026-11-01)
+
+Each row: `entry`, `task_type`, `assigned` windup, `status`, `depends_on`, `confidence` (stays open
+until 100%), `resources_used` (don't retry unless new resources exist), `claimed_by`, `claimed_at`
+and a lease timeout. A claim atomically sets `status=active`. When Jack submits an entry, Daniel adds
+all the tasks it needs and tracks which windup to call next. An entry is complete when it has no open
+tasks, and it reopens when a new task type is added or a correction is made. Any task that changes an
+entry adds a **Suzan** (write-to-file) task, with at most one open Suzan task per entry. User-tunable
+config with sane defaults: `max_windups` (global), `max_instances` (per windup, overridable),
+`priority` (nice level) and lease timeout. Daniel counts active rows before calling a windup.
+
+## Daniel schema: canonical entities (Adam, 2026-11-01)
+
+Canonical tables for entities (people and orgs), genres and groups, each with an alias table mapping
+alias → canonical entry. Files store only canonical ids. Ambiguous aliases are flagged for the user,
+never mapped automatically. Composite labels are data rules, for example
+`anime = Animation AND Japanese`.
