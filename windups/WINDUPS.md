@@ -19,19 +19,19 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 - **Tom**: vectors/embeddings for meaning search.
 - **Larry**: hashing: exact BLAKE3 (partial first, full later) and the perceptual fingerprint.
 - **Julie**: verification against evidence; calls Sammy when judgment is needed.
-- **Ruth**: builds the APA 7 work reference and work key.
-- **Walter**: patrol; called by windups, schedules returns and calls windups back, then exits.
 - **John**: device group (pair, list and remove, keys, trust); comes just before Walter.
+- **Walter**: patrol; called by windups, schedules returns and calls windups back, then exits.
 - **Sammy**: the shared LLM thinking service (local or remote models); judgment when evidence alone can't decide.
 - **Steve**: search the database.
 - **Sally**: organizes files (rename, move, sort).
 - **Tammy**: super windup; ingests new media by orchestrating the others.
 - **Margaret**: directory of windups and their capabilities (PATH + `--capabilities` is enough until she is needed).
 - **Oliver**: matchmaker; breaks requests down and teams windups up; when a windup is missing, asks Ben to fetch and install it.
+- **Flora**: the user-facing talker (terminal, GUI app, OS assistant) and the receptionist. She understands via Sammy, asks Margaret who can help, hands off via Oliver, and reports back. A personality LoRA matters for her. She comes later in the build order, after the file-pipeline windups and after Sammy.
+- **Ruth**: builds the APA 7 work reference and work key.
 - **Ben**: rebuilds the windups for new platforms; fetches and installs a missing windup when Oliver asks.
 - **Rover**: refines other windups, bound by each one's purpose and success checks; proposes and tests, never applies unreviewed.
 - **Beth**: trains LoRAs from each windup's training phrases and parameters (later; until then LoRAs are made manually).
-- **Flora**: the user-facing talker (terminal, GUI app, OS assistant) and the receptionist. She understands via Sammy, asks Margaret who can help, hands off via Oliver, and reports back. A personality LoRA matters for her. Far later: after Jack, Daniel, Lauren and Sammy at least.
 
 ## Roster
 
@@ -46,7 +46,6 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 | Tom | vectors/embeddings for meaning search | stub crate |
 | Larry | hashing: exact (BLAKE3, partial first, full later) and perceptual | stub crate (hashing works, perceptual placeholder) |
 | Julie | verification: checks entries against evidence, calls Sammy when judgment is needed | stub crate |
-| Ruth | references: APA 7 work reference and key from gathered facts | library (real code) |
 | John | device group: pair, list and remove devices, keys, trust checks | later (just before Walter) |
 | Walter | patrol: watches the database for unfinished work and calls windups back | working |
 | Sammy | shared LLM thinking service (local or remote models); judgment when evidence alone can't decide | stub crate |
@@ -55,10 +54,36 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 | Tammy | super windup: ingests new media by orchestrating the others | later |
 | Margaret | directory: knows every windup and its capabilities, points callers to the right one | stub crate |
 | Oliver | matchmaker: breaks down messy requests, teams windups up; when a windup is missing, asks Ben to fetch and install it | stub crate |
+| Flora | user-facing talker (terminal, GUI app, OS assistant) and receptionist: understands via Sammy, asks Margaret who can help, hands off via Oliver, reports back; a personality LoRA matters | later (profile only; after the file pipeline and Sammy) |
+| Ruth | references: APA 7 work reference and key from gathered facts | library (real code) |
 | Ben | builds: rebuilds the windups for new platforms; fetches and installs a missing windup when Oliver asks | stub crate |
 | Rover | refining: proposes and tests improvements to other windups, within their profiles; never applies unreviewed | stub crate |
 | Beth | trains LoRAs from each windup's training phrases and parameters | later |
-| Flora | user-facing talker (terminal, GUI app, OS assistant) and receptionist: understands via Sammy, asks Margaret who can help, hands off via Oliver, reports back; a personality LoRA matters | far later (profile only; after Jack, Daniel, Lauren and Sammy at least) |
+
+## Build order
+
+One sequence. The simpler file-pipeline windups (for example Lauren, Suzan, Larry's hashing, and Kate's image conversion) are easy wins that help replace iVI4 Pro sooner; Sammy and Flora are more complex and come after.
+
+1. Jack (done-ish)
+2. Daniel (current)
+3. Lauren
+4. Suzan
+5. Mary
+6. Kate
+7. Tom
+8. Larry
+9. Julie
+10. John (just before Walter)
+11. Walter (already working)
+12. Sammy
+13. Steve
+14. Sally
+15. Tammy
+16. Margaret
+17. Oliver
+18. Flora
+
+Ruth, Ben, Rover and Beth sit outside this numbered sequence (Ruth and the stubs already exist; Beth trains LoRAs later). See `TODO.md` for the same list with notes.
 
 ## Rules
 

@@ -33,21 +33,36 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - [ ] Signed apt repo (aptly + GitHub Pages; needs a GPG signing key) for jack and the SaiKanji fonts, so `apt upgrade` works
 - [ ] Homebrew bottles for jack (brew builds from source for now)
 
-## Later / related (not the file pipeline)
+## Build order
 
-Thinking and user-facing, after Lauren (a different track from Suzan → … → Walter):
-- **Sammy**: shared LLM thinking service (local or remote models); judgment when evidence alone can't decide. A list of available models is future work. Needed before Flora.
-- **Steve**: search the database (genres, people, dates, full text, meaning; graph later)
-- **Sally**: organizes files (takes over Jack's built-in sorting; Jack keeps a fallback)
-- **Tammy**: super windup; ingests new media by orchestrating the others
-- **Margaret**: directory of windups and their capabilities (stub crate)
-- **Oliver**: matchmaker (stub crate); when a windup is missing, asks Ben to fetch and install it
-- **Flora**: user-facing talker (terminal, GUI app, OS assistant) and receptionist. Understands via Sammy, asks Margaret who can help, hands off via Oliver, reports back. A personality LoRA matters. Far later: after Jack, Daniel, Lauren and Sammy at least.
+One sequence. The simpler file-pipeline windups (for example Lauren, Suzan, Larry's hashing, and Kate's image conversion) are easy wins that help replace iVI4 Pro sooner; Sammy and Flora are more complex and come after.
 
-- **Beth** later (trains LoRAs); until then LoRAs are made manually
+Do not build the Daniel tasks table or the alias tables yet (schema planned in WINDUPS.md).
+
+1. **Jack** (done-ish): fetch and verify; hands JSON / in-process entries to Daniel
+2. **Daniel** (current): database + ingest; tasks table later
+3. **Lauren**: writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback)
+4. **Suzan**: write-to-file; at most one open Suzan task per entry
+5. **Mary**: summaries (before Tom only)
+6. **Kate**: image conversion
+7. **Tom**: embeddings
+8. **Larry**: hashing
+9. **Julie**: verification
+10. **John**: device group (pair / list / remove, keys, trust) — just before Walter
+11. **Walter** (already working; stays after John)
+12. **Sammy**: shared LLM thinking service (local or remote models); judgment when evidence alone can't decide. A list of available models is future work.
+13. **Steve**: search the database (genres, people, dates, full text, meaning; graph later)
+14. **Sally**: organizes files (takes over Jack's built-in sorting; Jack keeps a fallback)
+15. **Tammy**: super windup; ingests new media by orchestrating the others
+16. **Margaret**: directory of windups and their capabilities (stub crate)
+17. **Oliver**: matchmaker (stub crate); when a windup is missing, asks Ben to fetch and install it
+18. **Flora**: user-facing talker (terminal, GUI app, OS assistant) and receptionist. Understands via Sammy, asks Margaret who can help, hands off via Oliver, reports back. A personality LoRA matters.
+
+Already working or later, outside this numbered sequence:
+- **Ruth**: APA 7 references (library, already working)
 - **Ben**: rebuilds for new platforms; also fetches/installs when Oliver asks (stub crate)
 - **Rover**: refining windup (stub crate)
-- **Ruth**: APA 7 references (library, already working)
+- **Beth**: trains LoRAs later; until then LoRAs are made manually
 - Update windup (files and database together), name TBD
 
 - Real perceptual fingerprinter (jack `fingerprint.rs`): sampled-frame pHashes via ffmpeg (robust to
@@ -63,23 +78,3 @@ Thinking and user-facing, after Lauren (a different track from Suzan → … →
 - Tom, Mary, Kate: real implementations (Kate converts Jack's art).
 
 - Later: other windups may also call Walter (e.g. when a new source is added, or after meta-analysis).
-
-## Build order
-
-Do not build the Daniel tasks table or the alias tables yet (schema planned in WINDUPS.md).
-
-File pipeline (Adam, 2026-11-01):
-1. **Jack** (done-ish): fetch and verify; hands JSON / in-process entries to Daniel
-2. **Daniel** (current): database + ingest; tasks table later
-3. **Lauren**: writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback)
-4. **Suzan**: write-to-file; at most one open Suzan task per entry
-5. **Mary**: summaries (before Tom only)
-6. **Kate**: image conversion
-7. **Tom**: embeddings
-8. **Larry**: hashing
-9. **Julie**: verification
-10. **John**: device group (pair / list / remove, keys, trust) — just before Walter
-11. **Walter** (already working; stays after John in the dependency sense)
-
-After Lauren, the thinking and user-facing track is Sammy → Steve → Sally → Tammy, then Margaret and Oliver, then Flora (after Sammy at least). Beth trains LoRAs later.
-
