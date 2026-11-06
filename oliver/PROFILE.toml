@@ -1,6 +1,6 @@
 name = "oliver"
 role = "matchmaker"
-summary = "Oliver breaks messy requests down, decides which windups team up, and spots gaps that need a new windup."
+summary = "Oliver breaks messy requests down, decides which windups team up, and spots gaps that need a new windup. When a windup is missing, he asks Ben to fetch and install it."
 purpose = "Turn messy requests into the right team of windups."
 status = "stub"
 command = "oliver --capabilities"
@@ -10,5 +10,5 @@ check = "every plan names the windups used and why"
 pending = "stub: no test yet"
 
 [[success_checks]]
-check = "a need no windup covers is reported as a gap, not improvised"
+check = "a need no windup covers is reported as a gap, not improvised; Ben is asked to fetch and install a missing windup"
 pending = "stub: no test yet"

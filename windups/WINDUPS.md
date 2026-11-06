@@ -10,43 +10,55 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 
 ## Cast list
 
-- **Jack**: fetches and verifies metadata for a file (gathers facts), hands one entry to Daniel.
-- **Daniel**: the database; takes handoffs, asks Larry and Ruth, stores, calls Walter.
-- **Walter**: patrol; called by windups, schedules returns and calls windups back, then exits.
-- **Larry**: hashing: exact BLAKE3 (partial first, full later) and the perceptual fingerprint.
-- **Tom**: vectors/embeddings for meaning search.
-- **Mary**: summaries (before Tom only).
+- **Jack**: fetches and verifies metadata for a file, hands one entry to Daniel (in-process and/or versioned JSON).
+- **Daniel**: the database; takes handoffs (`accept` in-process or `daniel ingest`), asks Larry and Ruth, stores, calls Walter.
+- **Lauren**: writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback).
+- **Suzan**: write-to-file; at most one open Suzan task per entry.
+- **Mary**: summaries (before Tom only; never blocks Larry).
 - **Kate**: image conversion (JPEG to embed, JPEG XL to archive).
-- **Sammy**: judgment, when evidence alone can't decide.
+- **Tom**: vectors/embeddings for meaning search.
+- **Larry**: hashing: exact BLAKE3 (partial first, full later) and the perceptual fingerprint.
 - **Julie**: verification against evidence; calls Sammy when judgment is needed.
 - **Ruth**: builds the APA 7 work reference and work key.
-- **Margaret**: directory; knows every windup's capabilities.
-- **Oliver**: matchmaker; breaks requests down and teams windups up.
-- **Ben**: rebuilds the windups for new platforms.
+- **Walter**: patrol; called by windups, schedules returns and calls windups back, then exits.
+- **John**: device group (pair, list and remove, keys, trust); comes just before Walter.
+- **Sammy**: the shared LLM thinking service (local or remote models); judgment when evidence alone can't decide.
+- **Steve**: search the database.
+- **Sally**: organizes files (rename, move, sort).
+- **Tammy**: super windup; ingests new media by orchestrating the others.
+- **Margaret**: directory of windups and their capabilities (PATH + `--capabilities` is enough until she is needed).
+- **Oliver**: matchmaker; breaks requests down and teams windups up; when a windup is missing, asks Ben to fetch and install it.
+- **Ben**: rebuilds the windups for new platforms; fetches and installs a missing windup when Oliver asks.
 - **Rover**: refines other windups, bound by each one's purpose and success checks; proposes and tests, never applies unreviewed.
+- **Beth**: trains LoRAs from each windup's training phrases and parameters (later; until then LoRAs are made manually).
+- **Flora**: the user-facing talker (terminal, GUI app, OS assistant) and the receptionist. She understands via Sammy, asks Margaret who can help, hands off via Oliver, and reports back. A personality LoRA matters for her. Far later: after Jack, Daniel, Lauren and Sammy at least.
 
 ## Roster
 
 | Windup | Job | Status |
 |---|---|---|
-| Jack | fetches and verifies metadata for a file, hands one complete entry to Daniel | building |
-| Lauren | tags and embeds (writes metadata/art into files) | later |
-| Sammy | judgment: decides when evidence alone can't (a resource entries wait for) | stub crate |
-| Julie | verification: checks entries against evidence, calls Sammy when judgment is needed | stub crate |
-| Ruth | references: APA 7 work reference and key from gathered facts | library (real code) |
-| Ben | builds: rebuilds the windups for new platforms | stub crate |
-| Rover | refining: proposes and tests improvements to other windups, within their profiles; never applies unreviewed | stub crate |
+| Jack | fetches and verifies metadata for a file, hands one complete entry to Daniel (in-process or versioned JSON) | building |
 | Daniel | database manager: populates and keeps everything (an archive-ophile); takes Jack's handoff (in-process or `daniel ingest`) | own crate (real store + ingest CLI) |
-| Larry | hashing: exact (BLAKE3, partial first, full later) and perceptual | stub crate (hashing works, perceptual placeholder) |
-| Tom | vectors/embeddings for meaning search | stub crate |
+| Lauren | writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback) | later |
+| Suzan | write-to-file; at most one open Suzan task per entry | later |
 | Mary | summaries; runs before Tom only, never blocks Larry | stub crate |
 | Kate | image conversion: JPEG to embed, JPEG XL to archive | stub crate |
+| Tom | vectors/embeddings for meaning search | stub crate |
+| Larry | hashing: exact (BLAKE3, partial first, full later) and perceptual | stub crate (hashing works, perceptual placeholder) |
+| Julie | verification: checks entries against evidence, calls Sammy when judgment is needed | stub crate |
+| Ruth | references: APA 7 work reference and key from gathered facts | library (real code) |
+| John | device group: pair, list and remove devices, keys, trust checks | later (just before Walter) |
 | Walter | patrol: watches the database for unfinished work and calls windups back | working |
-| Steve | finds local information in the database (search) | later |
-| Sally | organizes files (rename, move, sort) | later |
+| Sammy | shared LLM thinking service (local or remote models); judgment when evidence alone can't decide | stub crate |
+| Steve | search the database (genres, people, dates, full text, meaning; graph later) | later |
+| Sally | organizes files (rename, move, sort); takes over Jack's built-in sorting (Jack keeps a fallback) | later |
 | Tammy | super windup: ingests new media by orchestrating the others | later |
-| Oliver | manager/matchmaker: breaks down messy requests, decides which windups team up, spots gaps needing a new windup (revisit once Margaret exists; fold in if redundant) | much later |
-| Margaret | receptionist/directory: knows every windup and its capabilities, points callers to the right one (until needed, PATH + `--capabilities` is enough) | later |
+| Margaret | directory: knows every windup and its capabilities, points callers to the right one | stub crate |
+| Oliver | matchmaker: breaks down messy requests, teams windups up; when a windup is missing, asks Ben to fetch and install it | stub crate |
+| Ben | builds: rebuilds the windups for new platforms; fetches and installs a missing windup when Oliver asks | stub crate |
+| Rover | refining: proposes and tests improvements to other windups, within their profiles; never applies unreviewed | stub crate |
+| Beth | trains LoRAs from each windup's training phrases and parameters | later |
+| Flora | user-facing talker (terminal, GUI app, OS assistant) and receptionist: understands via Sammy, asks Margaret who can help, hands off via Oliver, reports back; a personality LoRA matters | far later (profile only; after Jack, Daniel, Lauren and Sammy at least) |
 
 ## Rules
 
@@ -339,10 +351,11 @@ than loading them whole, and benchmark hot paths.
 
 ## Sammy as a shared thinking service (Adam, 2026-11-01)
 
-Sammy is a shared thinking service. Each windup thinks for itself with its own LoRA, keeping one LoRA
-per base model it has seen (keyed by model+version), and falls back to the base model plus a system
-prompt until it has one. **Beth** trains LoRAs from each windup's own training phrases and parameters.
-Beth comes later; LoRAs are made manually at first.
+Sammy is a shared LLM thinking service (local or remote models). Each windup thinks for itself with
+its own LoRA, keeping one LoRA per base model it has seen (keyed by model+version), and falls back
+to the base model plus a system prompt until it has one. A list of available models is future work.
+**Beth** trains LoRAs from each windup's own training phrases and parameters. Beth comes later;
+LoRAs are made manually at first. **Flora**'s personality LoRA matters for how she talks with the user.
 
 ## Packaging: one binary, one portable store (Adam, 2026-11-01)
 
@@ -361,9 +374,11 @@ Walter.
 
 Before going online, Jack checks the DB. On an exact match (by id, or by name plus year), he updates
 only what's needed. For a related item (same show, channel or podcast), he reuses its shared details
-and records which entry he copied them from. He produces one JSON per entry with his best guess plus
-flags (`unresolved`, `ambiguous`) and passes it to Daniel, or saves it next to the media if there is
-no DB. He saves good and bad hits and identified entities as-is, uncompleted, and completes only the
+and records which entry he copied them from. He produces one versioned handoff JSON (`schema/handoff_v1.md`, `"v": 1`) per entry with his best
+guess plus flags (`unresolved`, `ambiguous`) and passes it to Daniel (`daniel ingest`, or in-process
+`accept`). `[store] handoff_json` (`auto` / `always` / `off`) controls the beside-media file
+`<file>.jack.json` (used when there is no DB); `--emit-json -` or `--emit-json DIR` writes the same
+JSON to stdout or a directory. He saves good and bad hits and identified entities as-is, uncompleted, and completes only the
 main search. Sources become plugins, and new sources are on hold. Cast/entities wait, and so does the
 embedding model, which gets only a plugin hook until Sammy exists. User corrections and preferences
 belong to other windups.

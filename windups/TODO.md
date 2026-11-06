@@ -18,7 +18,7 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - [ ] Embeddings: plug in a small local model (fastembed-rs) behind `Embedder`; embed texts, media, windup profiles; sqlite-vec index when size needs it (waits for Sammy)
 - [x] Tidy-up / unresolved-retry windup (unnamed): superseded by Walter (`walter pending`, `walter patrol`). No separate name.
 - [ ] Review what a windup did to a given file (e.g. a macOS QuickLook metadata plugin, or similar). Implementation TBD
-- [ ] Refusal-monitor windup — TBD/later
+- [ ] Refusal-monitor windup — TBD (no role from Adam yet)
 - [ ] Sammy: implement Jack's `Escalation` (per-step decide-or-defer, recorded in `decisions`) and `Explainer`
 - [ ] Post-run review pass (Jack `[review]`, off by default): Sammy implements `Reviewer`; per field in chunks with minimal context; flags only, never rewrites; record flags in `decisions` (step=review) once media ids are at hand
 - [ ] Wikidata and YouTube searches still take one result (srlimit=1 / maxResults=1); keep the full list like the others
@@ -33,19 +33,21 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - [ ] Signed apt repo (aptly + GitHub Pages; needs a GPG signing key) for jack and the SaiKanji fonts, so `apt upgrade` works
 - [ ] Homebrew bottles for jack (brew builds from source for now)
 
-## Later, in order
-1. **Jack** (done-ish): fetch and verify; hands JSON / in-process entries to Daniel
-2. **Daniel**: database + ingest (this cut); tasks table and alias tables later (do not start them yet)
-3. **Lauren**: tags and embeds from the database (takes over Jack's built-in tagging; Jack keeps a fallback)
-4. **Sammy**: judgment: chooses between sources (description, titles, dates, art) and summarizes; local model or opt-in remote API (`allow_remote_metadata`)
-5. **Steve**: search the database (genres, people, dates, full text, meaning; graph later)
-6. **Sally**: organizes files (takes over Jack's built-in sorting; Jack keeps a fallback)
-7. **Tammy**: super windup; ingests new media by orchestrating the others
+## Later / related (not the file pipeline)
 
-- **John** comes just before Walter (device group: pair / list / remove, keys, trust)
-- **Beth** later (LoRA trainer); Sammy LoRAs are manual until then
-- **Oliver**: manager/matchmaker (stub crate; much later)
-- **Margaret**: receptionist/directory of windups and capabilities (stub crate)
+Thinking and user-facing, after Lauren (a different track from Suzan → … → Walter):
+- **Sammy**: shared LLM thinking service (local or remote models); judgment when evidence alone can't decide. A list of available models is future work. Needed before Flora.
+- **Steve**: search the database (genres, people, dates, full text, meaning; graph later)
+- **Sally**: organizes files (takes over Jack's built-in sorting; Jack keeps a fallback)
+- **Tammy**: super windup; ingests new media by orchestrating the others
+- **Margaret**: directory of windups and their capabilities (stub crate)
+- **Oliver**: matchmaker (stub crate); when a windup is missing, asks Ben to fetch and install it
+- **Flora**: user-facing talker (terminal, GUI app, OS assistant) and receptionist. Understands via Sammy, asks Margaret who can help, hands off via Oliver, reports back. A personality LoRA matters. Far later: after Jack, Daniel, Lauren and Sammy at least.
+
+- **Beth** later (trains LoRAs); until then LoRAs are made manually
+- **Ben**: rebuilds for new platforms; also fetches/installs when Oliver asks (stub crate)
+- **Rover**: refining windup (stub crate)
+- **Ruth**: APA 7 references (library, already working)
 - Update windup (files and database together), name TBD
 
 - Real perceptual fingerprinter (jack `fingerprint.rs`): sampled-frame pHashes via ffmpeg (robust to
@@ -62,20 +64,22 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 
 - Later: other windups may also call Walter (e.g. when a new source is added, or after meta-analysis).
 
-## Build order (Adam, 2026-11-01)
+## Build order
 
-Do not build the Daniel tasks table yet (schema planned in WINDUPS.md).
+Do not build the Daniel tasks table or the alias tables yet (schema planned in WINDUPS.md).
 
-1. **Daniel** (DB + handoffs; tasks table later)
-2. **Lauren** — writes tags and embeds art from the database (takes over from Jack)
-3. **Suzan** (write-to-file; at most one open Suzan task per entry)
-4. **Mary**
-5. **Kate**
-6. **Tom**
-7. **Larry**
-8. **Julie**
-9. **John** (device group: pair / list / remove, keys, trust) — just before Walter
-10. **Walter** (already working; stays after John in the dependency sense)
+File pipeline (Adam, 2026-11-01):
+1. **Jack** (done-ish): fetch and verify; hands JSON / in-process entries to Daniel
+2. **Daniel** (current): database + ingest; tasks table later
+3. **Lauren**: writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback)
+4. **Suzan**: write-to-file; at most one open Suzan task per entry
+5. **Mary**: summaries (before Tom only)
+6. **Kate**: image conversion
+7. **Tom**: embeddings
+8. **Larry**: hashing
+9. **Julie**: verification
+10. **John**: device group (pair / list / remove, keys, trust) — just before Walter
+11. **Walter** (already working; stays after John in the dependency sense)
 
-Later / related: Beth (LoRA trainer), Sammy LoRAs (manual until Beth).
+After Lauren, the thinking and user-facing track is Sammy → Steve → Sally → Tammy, then Margaret and Oliver, then Flora (after Sammy at least). Beth trains LoRAs later.
 

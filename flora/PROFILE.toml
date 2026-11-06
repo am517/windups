@@ -1,0 +1,14 @@
+name = "flora"
+role = "talker"
+summary = "Flora is the user-facing talker (terminal, GUI app, OS assistant) and the receptionist: she understands via Sammy, asks Margaret who can help, hands the work off via Oliver, and reports back. A personality LoRA matters for her."
+purpose = "Talk with the user, find the right help, and report back."
+status = "stub"
+command = "flora --capabilities"
+
+[[success_checks]]
+check = "a request is understood via Sammy and routed through Margaret and Oliver"
+pending = "stub: no test yet"
+
+[[success_checks]]
+check = "the user hears back what was done"
+pending = "stub: no test yet"

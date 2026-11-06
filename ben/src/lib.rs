@@ -1,4 +1,4 @@
-//! Ben (builds), stub. Ben rebuilds the windups for new platforms (cross-compiles and packages them) so they stay portable with no system services.
+//! Ben (builds), stub. Ben rebuilds the windups for new platforms, and fetches and installs a missing windup when Oliver asks.
 pub const PROFILE: &str = include_str!("../PROFILE.toml");
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-//! Sammy (judgment), stub. Sammy is the thinking windup: when evidence alone can't settle it (ambiguous candidates, conflicting sources), Sammy weighs it and decides. A resource like any other: entries wait for him.
+//! Sammy (thinking), stub. Sammy is the shared LLM thinking service (local or remote models): when evidence alone can't settle it, Sammy weighs it and decides.
 pub const PROFILE: &str = include_str!("../PROFILE.toml");
 
 /// A question that needs judgment, and the options.

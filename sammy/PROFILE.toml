@@ -1,7 +1,7 @@
 name = "sammy"
-role = "judgment"
-summary = "Sammy is the thinking windup: when evidence alone can't settle it (ambiguous candidates, conflicting sources), Sammy weighs it and decides. A resource like any other: entries wait for him."
-purpose = "Decide well when evidence alone can't."
+role = "thinking"
+summary = "Sammy is the shared LLM thinking service (local or remote models). When evidence alone can't settle it (ambiguous candidates, conflicting sources), Sammy weighs it and decides. A resource like any other: entries wait for him. A list of available models is future work."
+purpose = "Think and decide well when evidence alone can't."
 status = "stub"
 command = "sammy --capabilities"
 
