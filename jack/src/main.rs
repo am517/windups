@@ -49,8 +49,8 @@ fn main() {
     }
     match run::run(&cli, &providers::Ureq) {
         Ok((s, printed, failed)) => {
-            // with --print, stdout carries only the metadata; the report goes to stderr
-            if printed.is_empty() {
+            // with --print or --emit-json -, stdout carries only the data; the report goes to stderr
+            if printed.is_empty() && cli.emit_json.as_deref() != Some("-") {
                 print!("{s}");
             } else {
                 eprint!("{s}");

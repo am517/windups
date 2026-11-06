@@ -36,7 +36,7 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 | Ruth | references: APA 7 work reference and key from gathered facts | library (real code) |
 | Ben | builds: rebuilds the windups for new platforms | stub crate |
 | Rover | refining: proposes and tests improvements to other windups, within their profiles; never applies unreviewed | stub crate |
-| Daniel | database manager: populates and keeps everything (an archive-ophile); takes Jack's handoff | own crate (real store code) |
+| Daniel | database manager: populates and keeps everything (an archive-ophile); takes Jack's handoff (in-process or `daniel ingest`) | own crate (real store + ingest CLI) |
 | Larry | hashing: exact (BLAKE3, partial first, full later) and perceptual | stub crate (hashing works, perceptual placeholder) |
 | Tom | vectors/embeddings for meaning search | stub crate |
 | Mary | summaries; runs before Tom only, never blocks Larry | stub crate |
@@ -96,7 +96,7 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 - macOS first, Linux supported, Windows not a goal. File/folder names max 255 (characters on macOS, bytes on Linux).
 
 ## Design rules (Adam, 2026-10-28)
-- **Treat each windup like a person.** When the right behavior is unclear, ask what a person would do. Example: with no database reachable, Jack writes a JSON next to the media (like jotting a note) — the one allowed exception to "no sidecars", and it is imported into media.db once available.
+- **Treat each windup like a person.** When the right behavior is unclear, ask what a person would do. Example: with no database reachable, Jack writes a versioned handoff JSON (`schema/handoff_v1.md`, `"v": 1`) next to the media (like jotting a note) — the one allowed exception to "no sidecars". Daniel imports it with `daniel ingest` (alias `accept`) once the database is available.
 - **Modular.** One file does one thing (within reason); small focused modules.
 
 Naming: traditional American English names for now (Adam, 2026-10-28).
@@ -116,8 +116,8 @@ data) as unresolved, and changes nothing. Ambiguous cases are for a future LLM w
 
 ## Unresolved, names and conflicts (schema v2, 2026-10-28)
 - Unresolved items live in `unresolved` with a reason from `unresolved_reasons`. Time-based reasons
-  (no_match, ambiguous, source_error) are retried after `unresolved_retry_days` (default 7) by a future
-  tidy-up windup; resource-based reasons (conflict, needs_llm_windup) wait for the windup that can settle them.
+  (no_match, ambiguous, source_error) are retried after `unresolved_retry_days` (default 7) by Walter
+  (`pending` / `patrol`); there is no separate tidy-up windup. Resource-based reasons (conflict, needs_llm_windup) wait for the windup that can settle them.
 - Every source's name is kept untouched in `source_names`; `display_name` is the user's own name
   (auto-filled from a source name, `display_name_set_by` = `auto:<source>` or `user`).
 - When sources about the same work disagree, a `conflicts` row records all values. Nothing is settled by assumption.
@@ -262,7 +262,10 @@ downgraded). Online videos are never provisional.
 
 **Architecture.** Jack ONLY fetches and verifies metadata for a file and hands one complete entry
 (`windups::handoff::Handoff`) to Daniel (`windups::handoff::Daniel`). Processing lives elsewhere:
-- **Daniel** stores it (own crate since round 7).
+- **Daniel** stores it (own crate since round 7). The portable form is a versioned JSON file
+  (`schema/handoff_v1.md`); Jack writes `<file>.jack.json` when there is no database (and can
+  `--emit-json`), and `daniel ingest` loads those files into media.db. The in-process `accept`
+  path stays. Long term, Jack does not own database writes.
 - **Larry** hashes: exact BLAKE3, `partial` by default (head + tail + size), full later as resources
   permit; and the perceptual fingerprint (still a placeholder). Daniel calls Larry before storing.
 - **Mary** summarises, before Tom only. **Tom** embeds. **Kate** converts

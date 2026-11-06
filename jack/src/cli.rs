@@ -119,6 +119,9 @@ pub(crate) struct Cli {
     pub(crate) dry_run: bool,
     #[arg(long, overrides_with = "dry_run")]
     pub(crate) no_dry_run: bool,
+    /// Write one versioned handoff JSON per entry to stdout (`-`) or to a directory
+    #[arg(long, value_name = "DIR|-")]
+    pub(crate) emit_json: Option<String>,
 }
 
 /// `--x` / `--no-x` (last wins) -> Some(true) / Some(false) / None.

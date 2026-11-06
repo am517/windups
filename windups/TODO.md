@@ -7,16 +7,18 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - [x] Jack: no sidecars, filename_max 255 (chars on macOS, bytes on Linux), longest description fallback
 - [x] Adam reviewed schema v1 and communication proposal (2026-10-28)
 - [x] Shared `windups` crate: settings, paths, open/migrate media.db (user_version), raw pruning
-- [ ] Jack writes everything it fetches into media.db (candidates, all art, texts, entities, genres), then tags from it
-- [ ] Jack: new free sources in order: Wikidata (groupings, cross-ids), TVmaze, iTunes art, YouTube trailers; Wikipedia text as a description fallback
+- [x] Jack hands each entry to Daniel (`windups::handoff`); Daniel writes media.db (in-process). Long term, Jack does not own DB writes.
+- [x] Versioned handoff JSON (`schema/handoff_v1.md`, `"v": 1`): Jack writes `<file>.jack.json` when there is no DB (`[store] handoff_json = "auto"|"always"|"off"`) and can `--emit-json <-|dir>`; `daniel ingest` (alias `accept`) loads it into media.db without duplicating rows
+- [ ] Jack: new free sources in order: Wikidata (groupings, cross-ids), TVmaze, iTunes art, YouTube trailers; Wikipedia text as a description fallback (sources-as-plugins is on hold)
 - [ ] Jack: cast/crew and studios into entities
 - [x] Jack: `--capabilities` (prints PROFILE.toml)
 - [ ] Jack: registry entry and task ledger in media.db
 - [x] Schema v2: unresolved (reason, time/resource, last_checked), source_names + display names, conflicts, embeddings, windups profiles
 - [x] Vectors: f32 BLOB storage + brute-force cosine search + `Embedder` trait (shared crate, no heavy deps)
-- [ ] Embeddings: plug in a small local model (fastembed-rs) behind `Embedder`; embed texts, media, windup profiles; sqlite-vec index when size needs it
-- [ ] Tidy-up windup (name TBD): retry time-based unresolved items after `unresolved_retry_days`
+- [ ] Embeddings: plug in a small local model (fastembed-rs) behind `Embedder`; embed texts, media, windup profiles; sqlite-vec index when size needs it (waits for Sammy)
+- [x] Tidy-up / unresolved-retry windup (unnamed): superseded by Walter (`walter pending`, `walter patrol`). No separate name.
 - [ ] Review what a windup did to a given file (e.g. a macOS QuickLook metadata plugin, or similar). Implementation TBD
+- [ ] Refusal-monitor windup — TBD/later
 - [ ] Sammy: implement Jack's `Escalation` (per-step decide-or-defer, recorded in `decisions`) and `Explainer`
 - [ ] Post-run review pass (Jack `[review]`, off by default): Sammy implements `Reviewer`; per field in chunks with minimal context; flags only, never rewrites; record flags in `decisions` (step=review) once media ids are at hand
 - [ ] Wikidata and YouTube searches still take one result (srlimit=1 / maxResults=1); keep the full list like the others
@@ -31,15 +33,19 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - [ ] Signed apt repo (aptly + GitHub Pages; needs a GPG signing key) for jack and the SaiKanji fonts, so `apt upgrade` works
 - [ ] Homebrew bottles for jack (brew builds from source for now)
 
-## Later, in order (not started)
-1. **Lauren**: tags and embeds from the database (takes over Jack's built-in tagging; Jack keeps a fallback)
-2. **Sammy**: chooses between sources (description, titles, dates, art) and summarizes; local model or opt-in remote API (`allow_remote_metadata`)
-3. **Daniel**: database manager; populates and keeps everything
-4. **Steve**: search the database (genres, people, dates, full text, meaning; graph later)
-5. **Sally**: organizes files (takes over Jack's built-in sorting; Jack keeps a fallback)
-6. **Tammy**: super windup; ingests new media by orchestrating the others
-7. **Oliver**: manager/matchmaker (stub crate; much later)
-8. **Margaret**: receptionist/directory of windups and capabilities (stub crate)
+## Later, in order
+1. **Jack** (done-ish): fetch and verify; hands JSON / in-process entries to Daniel
+2. **Daniel**: database + ingest (this cut); tasks table and alias tables later (do not start them yet)
+3. **Lauren**: tags and embeds from the database (takes over Jack's built-in tagging; Jack keeps a fallback)
+4. **Sammy**: judgment: chooses between sources (description, titles, dates, art) and summarizes; local model or opt-in remote API (`allow_remote_metadata`)
+5. **Steve**: search the database (genres, people, dates, full text, meaning; graph later)
+6. **Sally**: organizes files (takes over Jack's built-in sorting; Jack keeps a fallback)
+7. **Tammy**: super windup; ingests new media by orchestrating the others
+
+- **John** comes just before Walter (device group: pair / list / remove, keys, trust)
+- **Beth** later (LoRA trainer); Sammy LoRAs are manual until then
+- **Oliver**: manager/matchmaker (stub crate; much later)
+- **Margaret**: receptionist/directory of windups and capabilities (stub crate)
 - Update windup (files and database together), name TBD
 
 - Real perceptual fingerprinter (jack `fingerprint.rs`): sampled-frame pHashes via ffmpeg (robust to

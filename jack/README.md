@@ -42,7 +42,7 @@ jack movie.mp4 -p --print-format json > m.json     # JSON array on stdout (repor
 ## Config
 
 - Main config: `~/.config/windups/jack/config.toml` or `--config <path>`; deep-merged over the built-in defaults in `config/jack.toml`, which documents every key.
-- No sidecars: per-file values (`--name`, `--year`, ids, `--grouping`) are flags; jack never reads `<file>.*` files. `-d` output is for you; jack doesn't read it back. Art is a temp file, deleted after embedding (kept beside the file only with `-d`).
+- No sidecars: per-file values (`--name`, `--year`, ids, `--grouping`) are flags; jack never reads `<file>.*` files. `-d` output is for you; jack doesn't read it back. Art is a temp file, deleted after embedding (kept beside the file only with `-d`). The one exception is the versioned handoff JSON (`<file>.jack.json`) Jack writes when there is no database, so Daniel can ingest it later.
 - Precedence: flags > main config > built-in defaults. `~` is expanded in paths.
 - Tweakable there: extensions, tag tool and paths, provider order, keys and base URLs, per-field merge priority, filename regexes, sort templates, move/copy.
 
@@ -84,6 +84,21 @@ with a warning.
 ### Choosing art (`--ask-art`)
 
 `--ask-art` fetches the full image lists (TMDB posters/backdrops/season posters/stills in your language, the original language and untagged; TheTVDB artworks; the OMDb poster), orders them by art style, `[merge]` provider preference, language and resolution, and downloads up to `ask_art_max` into a folder named after the media file (e.g. `Evolution.2001/01.jpg`, `02.jpg`, ...), lists them on stderr (provider, kind, language, width x height), opens the folder (default on macOS only; `ask_art_open_folder`), and asks which to embed: a number, Enter for #1, or `s` to skip. Without a terminal it uses #1. The folder is deleted afterwards unless `-d` or `ask_art_keep = true`. Save as default with `--set --ask-art`; undo with `--no-ask-art`.
+
+### Handoff JSON (Daniel)
+
+Jack hands each entry to Daniel in-process (`daniel::Store::accept`). He can also write a versioned handoff JSON (`"v": 1`; see `../windups/schema/handoff_v1.md`):
+
+- `[store] handoff_json` in `config/jack.toml`: `auto` (default) writes `<file>.jack.json` beside the media only when the database is disabled or unavailable; `always` writes it as well as calling Daniel; `off` never writes the beside-media file.
+- `--emit-json -` writes one JSON object per entry to stdout (the run report goes to stderr, so this can be piped). `--emit-json DIR` writes `<filename>.jack.json` into that directory.
+- Do not combine `--emit-json -` with `--print` if you need a clean JSON stream.
+
+```zsh
+daniel ingest --db ~/.local/share/windups/media.db movie.mkv.jack.json
+jack movie.mkv --emit-json - | daniel ingest --db ~/.local/share/windups/media.db -
+```
+
+Re-ingesting the same file updates its entry; it does not create duplicates.
 
 ## API keys
 

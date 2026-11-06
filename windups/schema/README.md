@@ -28,3 +28,5 @@ Decisions (Adam, 2026-10-27):
 - **Built for search later** (Steve): indexes on kind/year/names, full-text on texts, sub-genres,
   entities with roles, relations for graph queries, vectors for meaning ("gay vampire movies").
   `examples.sql` shows the queries; `./check.sh` runs them.
+
+The portable handoff file (one entry, written by Jack, ingested by Daniel) is documented in [`handoff_v1.md`](handoff_v1.md).

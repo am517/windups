@@ -168,6 +168,9 @@ pub struct Config {
     pub sort: crate::sorter::SortCfg,
     pub naming: crate::sorter::NamingCfg,
     pub store: daniel::StoreCfg,
+    /// `--emit-json`; not a config file key (skipped on load).
+    #[serde(skip)]
+    pub emit_json: Option<String>,
     pub online: crate::online::OnlineCfg,
     pub embedded: crate::filemeta::EmbeddedCfg,
     pub explain: crate::explain::ExplainCfg,

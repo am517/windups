@@ -2,15 +2,19 @@ name = "daniel"
 role = "database"
 summary = "Daniel takes one entry per file from any windup, adds Larry's hash and Ruth's reference, stores everything in media.db (or JSON beside the file if there's no database), then alerts Walter when enough has changed (thresholds in daniel.toml), never for work Walter started."
 purpose = "Keep everything the windups learn, safely and whole, in one shared database."
-status = "library (real store code); called by Jack through windups::handoff::Daniel"
-reads = ["handoffs"]
-writes = ["media.db (media, candidates, texts, art, ids, ratings, names, conflicts, unresolved, decisions, lifecycle, files and hashes, works and their ids, proposals, last_checked)", "JSON beside the file when no database"]
+status = "library (real store code) plus `daniel ingest` CLI; called by Jack through windups::handoff::Daniel"
+reads = ["handoffs", "versioned handoff JSON"]
+writes = ["media.db (media, candidates, texts, art, ids, ratings, names, conflicts, unresolved, decisions, lifecycle, files and hashes, works and their ids, proposals, last_checked)"]
 calls = ["larry", "ruth", "walter (optional)"]
 never = ["guess", "overwrite a source's data", "merge entries on a fingerprint hint"]
 
 [[success_checks]]
-check = "every handoff is stored, or saved as JSON beside the file when there is no database"
-test = "daniel/src/store.rs::save_uses_db_else_json_beside_media"
+check = "every handoff is stored in media.db; a missing database is an error (Jack writes the sidecar)"
+test = "daniel/src/store.rs::save_errors_when_database_unavailable"
+
+[[success_checks]]
+check = "a versioned handoff JSON is ingested into media.db without duplicating rows"
+test = "daniel/tests/ingest.rs::ingest_fixture_then_again_does_not_duplicate"
 
 [[success_checks]]
 check = "re-storing the same file updates its entry; ids never change or get reused"

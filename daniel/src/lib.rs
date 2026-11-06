@@ -3,10 +3,11 @@
 //! Walter. Windups hand entries to Daniel; only Daniel writes them.
 pub mod alert;
 pub mod config;
+pub mod ingest;
 pub mod store;
 pub mod walter;
 
-pub use store::StoreCfg;
+pub use store::{HandoffJson, StoreCfg};
 use windups::handoff::{Daniel, Handoff};
 
 pub const PROFILE: &str = include_str!("../PROFILE.toml");
@@ -104,6 +105,7 @@ mod tests {
             database: d.path().join("m.db").to_string_lossy().into(),
             fallback_suffix: ".json".into(),
             busy_timeout_secs: 1,
+            ..Default::default()
         };
         let mut dan = Store::new(&cfg);
         dan.config.walter.enabled = false;
@@ -157,6 +159,7 @@ mod tests {
             database: d.path().join("m.db").to_string_lossy().into(),
             fallback_suffix: ".json".into(),
             busy_timeout_secs: 1,
+            ..Default::default()
         };
         let mut dan = Store::new(&cfg);
         dan.config.walter.command = vec![fake.to_string_lossy().into(), "patrol".into()];

@@ -30,3 +30,7 @@ test = "jack/src/stage.rs::only_an_id_reaches_complete"
 [[success_checks]]
 check = "every source answer is kept as a candidate, never overwritten"
 test = "jack/src/candidates.rs::whole_lists_kept"
+
+[[success_checks]]
+check = "with no database, a versioned handoff JSON is written beside the media and round-trips"
+test = "jack/src/daniel.rs::auto_with_no_db_writes_json_that_round_trips"

@@ -24,6 +24,7 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
         return Err("no files or directories given (see --help)".into());
     }
     let mut cfg = config::load(cli.config.as_deref())?;
+    cfg.emit_json = cli.emit_json.clone();
     if let Some(p) = &cli.providers {
         cfg.providers.order = p.clone();
     }

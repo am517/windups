@@ -4,6 +4,16 @@ use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use windups::handoff::Fields as Meta;
 
+/// When Jack writes a versioned handoff JSON beside the media (`<file><fallback_suffix>`).
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum HandoffJson {
+    #[default]
+    Auto,
+    Always,
+    Off,
+}
+
 #[derive(Deserialize, Debug, Default, Clone)]
 #[serde(default)]
 pub struct StoreCfg {
@@ -11,6 +21,9 @@ pub struct StoreCfg {
     pub database: String,
     pub fallback_suffix: String,
     pub busy_timeout_secs: u64,
+    /// Jack only: `auto` writes `<file>.jack.json` when the DB is disabled or unavailable;
+    /// `always` also writes it when handing over in-process; `off` never writes it.
+    pub handoff_json: HandoffJson,
 }
 
 /// rating_<source> meta keys stored in ratings.
@@ -138,7 +151,8 @@ pub fn db_path(cfg: &StoreCfg) -> Result<PathBuf, String> {
     }
 }
 
-/// Like a person: write it in the shared book; if the book isn't there, jot it down beside the file.
+/// Writes the entry into media.db. If the database cannot be opened, returns an error;
+/// Jack then writes the versioned handoff JSON beside the media when configured to.
 pub fn save(
     path: &Path,
     meta: &Meta,
@@ -162,24 +176,7 @@ pub fn save(
             }
             Ok(format!("database: media #{id} in {}", p.display()))
         }
-        Err(e) => {
-            let f = {
-                let mut s = path.as_os_str().to_owned();
-                s.push(&cfg.fallback_suffix);
-                PathBuf::from(s)
-            };
-            let cands: Vec<_> = found
-                .iter()
-                .map(|(s, m)| serde_json::json!({"source": s, "metadata": m}))
-                .collect();
-            let j = serde_json::json!({"file": path.to_string_lossy(), "metadata": meta, "candidates": cands});
-            std::fs::write(
-                &f,
-                serde_json::to_string_pretty(&j).map_err(|e| e.to_string())? + "\n",
-            )
-            .map_err(|e| format!("{}: {e}", f.display()))?;
-            Ok(format!("no database ({e}); saved {}", f.display()))
-        }
+        Err(e) => Err(format!("no database ({e})")),
     }
 }
 
@@ -737,7 +734,7 @@ mod tests {
     }
 
     #[test]
-    fn save_uses_db_else_json_beside_media() {
+    fn save_errors_when_database_unavailable() {
         let d = tempfile::tempdir().unwrap();
         let m = d.path().join("a.mp4");
         let meta = mk(&[("title", "T")]);
@@ -747,6 +744,7 @@ mod tests {
             database: d.path().join("db/media.db").to_string_lossy().into(),
             fallback_suffix: ".jack.json".into(),
             busy_timeout_secs: 1,
+            ..Default::default()
         };
         assert!(
             save(
@@ -762,36 +760,24 @@ mod tests {
             .starts_with("database: media #1")
         );
         assert!(!d.path().join("a.mp4.jack.json").exists());
-        // unopenable database (its folder is a file): JSON beside the media
+        // unopenable database (its folder is a file): Jack writes the sidecar, save itself errors
         std::fs::write(d.path().join("blocker"), "").unwrap();
         let bad = StoreCfg {
             database: d.path().join("blocker/media.db").to_string_lossy().into(),
             ..cfg
         };
-        assert!(
-            save(
-                &m,
-                &meta,
-                &found,
-                &[],
-                &bad,
-                &larry::fingerprint::NoFingerprint,
-                &Default::default()
-            )
-            .unwrap()
-            .contains("no database")
-        );
-        let j: serde_json::Value = serde_json::from_str(
-            &std::fs::read_to_string(d.path().join("a.mp4.jack.json")).unwrap(),
+        let e = save(
+            &m,
+            &meta,
+            &found,
+            &[],
+            &bad,
+            &larry::fingerprint::NoFingerprint,
+            &Default::default(),
         )
-        .unwrap();
-        assert_eq!(
-            (
-                j["metadata"]["title"].as_str(),
-                j["candidates"][0]["source"].as_str()
-            ),
-            (Some("T"), Some("tmdb"))
-        );
+        .unwrap_err();
+        assert!(e.contains("no database"), "{e}");
+        assert!(!d.path().join("a.mp4.jack.json").exists());
     }
 
     #[test]
