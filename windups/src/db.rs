@@ -31,27 +31,11 @@ pub fn open(path: &Path) -> Result<Connection, String> {
 }
 
 pub fn version(conn: &Connection) -> Result<i64, String> {
-    conn.query_row("PRAGMA user_version", [], |r| r.get(0))
-        .map_err(|e| e.to_string())
+    crate::base::schema::version(conn)
 }
 
 pub fn migrate(conn: &mut Connection) -> Result<(), String> {
-    let current = version(conn)?;
-    if current > latest_version() {
-        return Err(format!(
-            "media.db is version {current}, newer than this windup knows ({}); please update",
-            latest_version()
-        ));
-    }
-    for (i, sql) in MIGRATIONS.iter().enumerate().skip(current as usize) {
-        let tx = conn.transaction().map_err(|e| e.to_string())?;
-        tx.execute_batch(sql)
-            .map_err(|e| format!("migration {}: {e}", i + 1))?;
-        tx.pragma_update(None, "user_version", (i + 1) as i64)
-            .map_err(|e| e.to_string())?;
-        tx.commit().map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    crate::base::schema::migrate(conn, "media.db", MIGRATIONS).map(|_| ())
 }
 
 #[cfg(test)]
