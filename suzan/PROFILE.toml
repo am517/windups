@@ -1,0 +1,14 @@
+name = "suzan"
+role = "write-to-file"
+summary = "Suzan writes pending changes to the file; at most one open Suzan task per entry."
+purpose = "Write pending file changes, with at most one open task per entry."
+status = "stub"
+command = "suzan --capabilities"
+
+[[success_checks]]
+check = "a change to an entry adds at most one open Suzan task"
+pending = "stub: no test yet"
+
+[[success_checks]]
+check = "Suzan writes only what the task says to write"
+pending = "stub: no test yet"

@@ -1,0 +1,14 @@
+name = "tammy"
+role = "ingest"
+summary = "Tammy is the super windup: she ingests new media by orchestrating the others."
+purpose = "Ingest new media by orchestrating the other windups."
+status = "stub"
+command = "tammy --capabilities"
+
+[[success_checks]]
+check = "an ingest run calls other windups rather than doing their jobs itself"
+pending = "stub: no test yet"
+
+[[success_checks]]
+check = "when Tammy cannot figure it out, she says so plainly and drops nothing"
+pending = "stub: no test yet"

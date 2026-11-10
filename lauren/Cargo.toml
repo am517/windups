@@ -1,0 +1,8 @@
+[package]
+name = "lauren"
+version = "0.1.0"
+edition = "2024"
+description = "Lauren: writes tags and embeds art from the database (stub)"
+license = "MIT"
+
+[dependencies]

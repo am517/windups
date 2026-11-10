@@ -1,0 +1,8 @@
+[package]
+name = "suzan"
+version = "0.1.0"
+edition = "2024"
+description = "Suzan: write-to-file (stub)"
+license = "MIT"
+
+[dependencies]

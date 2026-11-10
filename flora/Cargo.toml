@@ -1,0 +1,8 @@
+[package]
+name = "flora"
+version = "0.1.0"
+edition = "2024"
+description = "Flora: user-facing talker and receptionist (stub)"
+license = "MIT"
+
+[dependencies]

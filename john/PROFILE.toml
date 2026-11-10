@@ -1,0 +1,14 @@
+name = "john"
+role = "devices"
+summary = "John manages the device group (pair, list and remove devices, keys, trust checks). He comes just before Walter."
+purpose = "Manage the private device group: pair, list and remove devices, keys, and trust."
+status = "stub"
+command = "john --capabilities"
+
+[[success_checks]]
+check = "devices can be paired, listed and removed"
+pending = "stub: no test yet"
+
+[[success_checks]]
+check = "windups move only within the approved private device group"
+pending = "stub: no test yet"

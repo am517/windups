@@ -12,7 +12,7 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 
 ## Cast
 
-The full cast, roles and build order live in [`windups/WINDUPS.md`](windups/WINDUPS.md) and [`windups/TODO.md`](windups/TODO.md). Flora is the receptionist and user-facing talker; Margaret is the directory of windups and capabilities.
+The full cast, roles and build order live in [`windups/WINDUPS.md`](windups/WINDUPS.md) and [`windups/TODO.md`](windups/TODO.md). The name registry is [`windups/NAMES.md`](windups/NAMES.md). Flora is the receptionist and user-facing talker; Margaret is the directory of windups and capabilities.
 
 ## Layout
 

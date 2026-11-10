@@ -1,0 +1,14 @@
+name = "beth"
+role = "lora-trainer"
+summary = "Beth trains LoRAs from each windup's training phrases and parameters (later; until then LoRAs are made manually)."
+purpose = "Train each windup's LoRA from its own training phrases and parameters."
+status = "stub"
+command = "beth --capabilities"
+
+[[success_checks]]
+check = "a LoRA is trained only from that windup's own phrases and parameters"
+pending = "stub: no test yet"
+
+[[success_checks]]
+check = "until Beth exists, LoRAs can still be made manually"
+pending = "stub: no test yet"

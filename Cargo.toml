@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "windups", "jack", "daniel", "walter", "larry", "ruth", "tom", "mary", "kate",
     "sammy", "julie", "margaret", "oliver", "ben", "rover",
+    "lauren", "suzan", "john", "beth", "steve", "sally", "tammy", "flora",
 ]
 
 [workspace.package]

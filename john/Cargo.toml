@@ -1,0 +1,8 @@
+[package]
+name = "john"
+version = "0.1.0"
+edition = "2024"
+description = "John: device group (stub)"
+license = "MIT"
+
+[dependencies]

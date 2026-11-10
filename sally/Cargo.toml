@@ -1,0 +1,8 @@
+[package]
+name = "sally"
+version = "0.1.0"
+edition = "2024"
+description = "Sally: organizes files (stub)"
+license = "MIT"
+
+[dependencies]

@@ -35,30 +35,32 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 
 ## Roster
 
-| Windup | Job | Status |
-|---|---|---|
-| Jack | fetches and verifies metadata for a file, hands one complete entry to Daniel (in-process or versioned JSON) | building |
-| Daniel | database manager: populates and keeps everything (an archive-ophile); takes Jack's handoff (in-process or `daniel ingest`) | own crate (real store + ingest CLI) |
-| Lauren | writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback) | later |
-| Suzan | write-to-file; at most one open Suzan task per entry | later |
-| Mary | summaries; runs before Tom only, never blocks Larry | stub crate |
-| Kate | image conversion: JPEG to embed, JPEG XL to archive | stub crate |
-| Tom | vectors/embeddings for meaning search | stub crate |
-| Larry | hashing: exact (BLAKE3, partial first, full later) and perceptual | stub crate (hashing works, perceptual placeholder) |
-| Julie | verification: checks entries against evidence, calls Sammy when judgment is needed | stub crate |
-| John | device group: pair, list and remove devices, keys, trust checks | later (just before Walter) |
-| Walter | patrol: watches the database for unfinished work and calls windups back | working |
-| Sammy | shared LLM thinking service (local or remote models); judgment when evidence alone can't decide | stub crate |
-| Steve | search the database (genres, people, dates, full text, meaning; graph later) | later |
-| Sally | organizes files (rename, move, sort); takes over Jack's built-in sorting (Jack keeps a fallback) | later |
-| Tammy | super windup: ingests new media by orchestrating the others | later |
-| Margaret | directory: knows every windup and its capabilities, points callers to the right one | stub crate |
-| Oliver | matchmaker: breaks down messy requests, teams windups up; when a windup is missing, asks Ben to fetch and install it | stub crate |
-| Flora | user-facing talker (terminal, GUI app, OS assistant) and receptionist: understands via Sammy, asks Margaret who can help, hands off via Oliver, reports back; a personality LoRA matters | later (profile only; after the file pipeline and Sammy) |
-| Ruth | references: APA 7 work reference and key from gathered facts | library (real code) |
-| Ben | builds: rebuilds the windups for new platforms; fetches and installs a missing windup when Oliver asks | stub crate |
-| Rover | refining: proposes and tests improvements to other windups, within their profiles; never applies unreviewed | stub crate |
-| Beth | trains LoRAs from each windup's training phrases and parameters | later |
+Every named windup has a crate. The name registry is [`NAMES.md`](NAMES.md).
+
+| Windup | Job | Status | Position |
+|---|---|---|---|
+| Jack | fetches and verifies metadata for a file, hands one complete entry to Daniel (in-process or versioned JSON) | building | 1 |
+| Daniel | database manager: populates and keeps everything (an archive-ophile); takes Jack's handoff (in-process or `daniel ingest`) | own crate (real store + ingest CLI) | 2 |
+| Lauren | writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback) | stub crate | 3 |
+| Suzan | write-to-file; at most one open Suzan task per entry | stub crate | 4 |
+| Mary | summaries; runs before Tom only, never blocks Larry | stub crate | 5 |
+| Kate | image conversion: JPEG to embed, JPEG XL to archive | stub crate | 6 |
+| Tom | vectors/embeddings for meaning search | stub crate | 7 |
+| Larry | hashing: exact (BLAKE3, partial first, full later) and perceptual | stub crate (hashing works, perceptual placeholder) | 8 |
+| Julie | verification: checks entries against evidence, calls Sammy when judgment is needed | stub crate | 9 |
+| John | device group: pair, list and remove devices, keys, trust checks | stub crate | 10 |
+| Walter | patrol: watches the database for unfinished work and calls windups back | working | 11 |
+| Sammy | shared LLM thinking service (local or remote models); judgment when evidence alone can't decide | stub crate | 12 |
+| Steve | search the database (genres, people, dates, full text, meaning; graph later) | stub crate | 13 |
+| Sally | organizes files (rename, move, sort); takes over Jack's built-in sorting (Jack keeps a fallback) | stub crate | 14 |
+| Tammy | super windup: ingests new media by orchestrating the others | stub crate | 15 |
+| Margaret | directory: knows every windup and its capabilities, points callers to the right one | stub crate | 16 |
+| Oliver | matchmaker: breaks down messy requests, teams windups up; when a windup is missing, asks Ben to fetch and install it | stub crate | 17 |
+| Flora | user-facing talker (terminal, GUI app, OS assistant) and receptionist: understands via Sammy, asks Margaret who can help, hands off via Oliver, reports back; a personality LoRA matters | stub crate | 18 |
+| Ruth | references: APA 7 work reference and key from gathered facts | library (real code) | — |
+| Ben | builds: rebuilds the windups for new platforms; fetches and installs a missing windup when Oliver asks | stub crate | — |
+| Rover | refining: proposes and tests improvements to other windups, within their profiles; never applies unreviewed | stub crate | — |
+| Beth | trains LoRAs from each windup's training phrases and parameters | stub crate | — |
 
 ## Build order
 
@@ -83,7 +85,7 @@ One sequence. The simpler file-pipeline windups (for example Lauren, Suzan, Larr
 17. Oliver
 18. Flora
 
-Ruth, Ben, Rover and Beth sit outside this numbered sequence (Ruth and the stubs already exist; Beth trains LoRAs later). See `TODO.md` for the same list with notes.
+Ruth, Ben, Rover and Beth sit outside this numbered sequence (Ruth and the stubs already exist; Beth trains LoRAs later). See `TODO.md` for the same list with notes, and `NAMES.md` for the name registry.
 
 ## Rules
 

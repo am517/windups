@@ -1,0 +1,14 @@
+name = "lauren"
+role = "tags"
+summary = "Lauren writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback)."
+purpose = "Write tags and embed art into files from what the database already knows."
+status = "stub"
+command = "lauren --capabilities"
+
+[[success_checks]]
+check = "tags and art written into a file come from the database, not a fresh guess"
+pending = "stub: no test yet"
+
+[[success_checks]]
+check = "Jack's own tagging still works as a fallback when Lauren is not installed"
+pending = "stub: no test yet"

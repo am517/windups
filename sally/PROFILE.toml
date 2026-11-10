@@ -1,0 +1,14 @@
+name = "sally"
+role = "organizer"
+summary = "Sally organizes files (rename, move, sort); she takes over Jack's built-in sorting (Jack keeps a fallback)."
+purpose = "Organize files: rename, move, and sort them."
+status = "stub"
+command = "sally --capabilities"
+
+[[success_checks]]
+check = "files are renamed, moved or sorted only when asked"
+pending = "stub: no test yet"
+
+[[success_checks]]
+check = "Jack's own sorting still works as a fallback when Sally is not installed"
+pending = "stub: no test yet"

@@ -1,0 +1,14 @@
+name = "steve"
+role = "search"
+summary = "Steve searches the database (genres, people, dates, full text, meaning; graph later)."
+purpose = "Find local information in the database."
+status = "stub"
+command = "steve --capabilities"
+
+[[success_checks]]
+check = "a search returns only what is in the database"
+pending = "stub: no test yet"
+
+[[success_checks]]
+check = "no result is dropped silently"
+pending = "stub: no test yet"
