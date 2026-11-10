@@ -189,7 +189,10 @@ fn every_windup_has_a_personality_matching_its_profile() {
             "{name}: proposed in one place, set in the other"
         );
         assert!(
-            matches!(status.as_str(), "set" | "proposed"),
+            matches!(
+                status.as_str(),
+                "set" | "set (work in progress)" | "proposed"
+            ),
             "{name}: {status}"
         );
     }

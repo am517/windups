@@ -2,8 +2,8 @@ name = "tammy"
 role = "ingest"
 summary = "Tammy is the super windup: she ingests new media by orchestrating the others."
 purpose = "Ingest new media by orchestrating the other windups."
-personality = "Decisive"
-personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
+personality = "Media Buff"
+personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
 command = "tammy --capabilities"
 

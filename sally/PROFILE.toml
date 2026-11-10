@@ -3,7 +3,7 @@ role = "organizer"
 summary = "Sally organizes files (rename, move, sort); she takes over Jack's built-in sorting (Jack keeps a fallback)."
 purpose = "Organize files: rename, move, and sort them."
 personality = "Orderly"
-personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
+personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
 command = "sally --capabilities"
 

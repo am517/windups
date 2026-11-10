@@ -449,7 +449,7 @@ never mapped automatically. Composite labels are data rules, for example
 
 ## Answers to the core design questions (Adam, 2026-11-10, 12:21 AM ET)
 
-1. **Personalities** stay proposals (except Daniel and Walter, set by Adam).
+1. **Personalities** stay proposals (except Daniel and Walter, set by Adam). *Superseded 12:33 AM ET: all 22 set, "work in progress" (NAMES.md).*
 2. **Packaging:** per-user `~/windups/<name>/` with `~/.local/bin/<name>` a symlink. A .deb can't
    write into home folders, so it ships the binary and the first run (or `jack setup`) makes the
    folder and links ([LAYOUT.md](LAYOUT.md)). `~/windups/<name>/` is the default ahead of the old

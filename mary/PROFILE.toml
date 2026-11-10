@@ -2,8 +2,8 @@ name = "mary"
 role = "summaries"
 summary = "Mary writes short summaries of entries from their stored texts. Runs before Tom (he embeds her summary); never blocks Larry."
 purpose = "Give every entry a short, faithful summary."
-personality = "Concise"
-personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
+personality = "Articulate"
+personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
 reads = ["entry texts (descriptions, plots)"]
 writes = ["summary (via Daniel)"]

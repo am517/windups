@@ -2,8 +2,8 @@ name = "suzan"
 role = "write-to-file"
 summary = "Suzan writes pending changes to the file; at most one open Suzan task per entry."
 purpose = "Write pending file changes, with at most one open task per entry."
-personality = "Focused"
-personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
+personality = "Persistent"
+personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
 command = "suzan --capabilities"
 
