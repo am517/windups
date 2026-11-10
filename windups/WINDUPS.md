@@ -10,8 +10,8 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 
 ## Cast list
 
-- **Jack**: fetches and verifies metadata for a file, hands one entry to Daniel (in-process and/or versioned JSON).
-- **Daniel**: the database; takes handoffs (`accept` in-process or `daniel ingest`), asks Larry and Ruth, stores, calls Walter.
+- **Jack**: fetches and verifies metadata for a file, keeps it in his own `jack.db` and syncs it to Daniel.
+- **Daniel**: the record keeper; owns the shared catalog (media.db), its schema and all writes to it. Receives synced records (`daniel::receive`, or `daniel ingest`), asks Larry and Ruth, stores.
 - **Lauren**: writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback).
 - **Suzan**: write-to-file; at most one open Suzan task per entry.
 - **Mary**: summaries (before Tom only; never blocks Larry).
@@ -20,7 +20,7 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 - **Larry**: hashing: exact BLAKE3 (partial first, full later) and the perceptual fingerprint.
 - **Julie**: verification against evidence; calls Sammy when judgment is needed.
 - **John**: device group (pair, list and remove, keys, trust); comes just before Walter.
-- **Walter**: patrol; called by windups, schedules returns and calls windups back, then exits.
+- **Walter**: the auditor; reads every windup's DB (read-only), finds gaps, unsynced records, stale backups and unfinished tasks, and sends the right windup back to fix them; keeps no full duplicate archive. Called by windups, then exits.
 - **Sammy**: the shared LLM thinking service (local or remote models); judgment when evidence alone can't decide.
 - **Steve**: search the database.
 - **Sally**: organizes files (rename, move, sort).
@@ -39,8 +39,8 @@ Every named windup has a crate. The name registry is [`NAMES.md`](NAMES.md).
 
 | Windup | Job | Status | Position |
 |---|---|---|---|
-| Jack | fetches and verifies metadata for a file, hands one complete entry to Daniel (in-process or versioned JSON) | building | 1 |
-| Daniel | database manager: populates and keeps everything (an archive-ophile); takes Jack's handoff (in-process or `daniel ingest`) | own crate (real store + ingest CLI) | 2 |
+| Jack | fetches and verifies metadata for a file, keeps it in jack.db and syncs it to Daniel | building | 1 |
+| Daniel | record keeper: owns the shared catalog, its schema and all writes; receives synced records (library call, or `daniel ingest`) | own crate (real store + ingest CLI) | 2 |
 | Lauren | writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback) | stub crate | 3 |
 | Suzan | write-to-file; at most one open Suzan task per entry | stub crate | 4 |
 | Mary | summaries; runs before Tom only, never blocks Larry | stub crate | 5 |
@@ -49,7 +49,7 @@ Every named windup has a crate. The name registry is [`NAMES.md`](NAMES.md).
 | Larry | hashing: exact (BLAKE3, partial first, full later) and perceptual | stub crate (hashing works, perceptual placeholder) | 8 |
 | Julie | verification: checks entries against evidence, calls Sammy when judgment is needed | stub crate | 9 |
 | John | device group: pair, list and remove devices, keys, trust checks | stub crate | 10 |
-| Walter | patrol: watches the database for unfinished work and calls windups back | working | 11 |
+| Walter | auditor: reads every windup's DB, finds what is missing or stale, sends the right windup back | working | 11 |
 | Sammy | shared LLM thinking service (local or remote models); judgment when evidence alone can't decide | stub crate | 12 |
 | Steve | search the database (genres, people, dates, full text, meaning; graph later) | stub crate | 13 |
 | Sally | organizes files (rename, move, sort); takes over Jack's built-in sorting (Jack keeps a fallback) | stub crate | 14 |
@@ -136,7 +136,7 @@ Ruth, Ben, Rover and Beth sit outside this numbered sequence (Ruth and the stubs
 - macOS first, Linux supported, Windows not a goal. File/folder names max 255 (characters on macOS, bytes on Linux).
 
 ## Design rules (Adam, 2026-10-28)
-- **Treat each windup like a person.** When the right behavior is unclear, ask what a person would do. Example: like a person keeping their own notebook, Jack writes every record into his own `jack.db` first and keeps it after giving Walter a copy; with no database reachable nothing is lost and nothing is jotted beside the media.
+- **Treat each windup like a person.** When the right behavior is unclear, ask what a person would do. Example: like a person keeping their own notebook, Jack writes every record into his own `jack.db` first and keeps it after giving Daniel a copy; with no database reachable nothing is lost and nothing is jotted beside the media.
 - **Modular.** One file does one thing (within reason); small focused modules.
 
 Naming: traditional American English names for now (Adam, 2026-10-28).
@@ -431,3 +431,18 @@ Canonical tables for entities (people and orgs), genres and groups, each with an
 alias → canonical entry. Files store only canonical ids. Ambiguous aliases are flagged for the user,
 never mapped automatically. Composite labels are data rules, for example
 `anime = Animation AND Japanese`.
+
+## Shared core, roles and culture (Adam, 2026-11-10)
+
+- **Roles.** Daniel is the record keeper (owns the shared catalog, its schema and all writes).
+  Walter is the auditor (reads every windup's DB read-only, finds gaps, unsynced records, stale
+  backups and unfinished tasks, sends the right windup back; no full duplicate archive). Jack syncs
+  to Daniel, not Walter: a library call now, a socket later; Daniel answers per batch with one result
+  per record. This supersedes the in-process `accept` hand-off from Jack (one route now). The older
+  "Walter the data freak / patrol" notes above describe his current code, not his role.
+- **Shared core** (`windups::base`): universal commands and `talk` ([COMMANDS.md](COMMANDS.md)),
+  append-only event log, checked snapshots, forward migrations, the folder layout
+  ([LAYOUT.md](LAYOUT.md)), the sync-target trait and the read-only audit.
+- **Culture.** Every windup follows [CULTURE.md](CULTURE.md); its personality
+  ([NAMES.md](NAMES.md)) is style and priorities, never an exception.
+
