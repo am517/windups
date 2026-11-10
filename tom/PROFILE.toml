@@ -2,6 +2,8 @@ name = "tom"
 role = "vectors"
 summary = "Tom embeds texts (Mary's summary first, else the description) as vectors for meaning search."
 purpose = "Make entries findable by meaning, not just by words."
+personality = "Thoughtful"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 reads = ["summaries", "descriptions"]
 writes = ["vectors (via Daniel)"]

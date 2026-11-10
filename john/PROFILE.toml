@@ -2,6 +2,8 @@ name = "john"
 role = "devices"
 summary = "John manages the device group (pair, list and remove devices, keys, trust checks). He comes just before Walter."
 purpose = "Manage the private device group: pair, list and remove devices, keys, and trust."
+personality = "Guarded"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 command = "john --capabilities"
 

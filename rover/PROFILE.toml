@@ -2,6 +2,8 @@ name = "rover"
 role = "refining"
 summary = "Rover refines other windups: strictly bound by each windup's purpose and success checks, he proposes changes and tests them, and never applies anything unreviewed."
 purpose = "Make each windup better at its own purpose, and only that."
+personality = "Restless"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 command = "rover --capabilities"
 rules = [

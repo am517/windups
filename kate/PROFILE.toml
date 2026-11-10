@@ -2,6 +2,8 @@ name = "kate"
 role = "images"
 summary = "Kate converts artwork: JPEG for embedding in media files, JPEG XL for the archive."
 purpose = "Keep artwork in the right format for each use."
+personality = "Crafty"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 reads = ["artwork files"]
 writes = ["converted images"]

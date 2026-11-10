@@ -2,6 +2,8 @@ name = "lauren"
 role = "tags"
 summary = "Lauren writes tags and embeds art from the database (takes over from Jack; Jack keeps a fallback)."
 purpose = "Write tags and embed art into files from what the database already knows."
+personality = "Artistic"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 command = "lauren --capabilities"
 

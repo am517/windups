@@ -5,6 +5,8 @@ use std::collections::BTreeMap;
 #[derive(Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(default)]
 pub struct BaseCfg {
+    /// Overrides the PROFILE.toml personality; empty = the profile's.
+    pub personality: String,
     pub events: super::events::EventsCfg,
     pub snapshots: super::snapshot::SnapshotCfg,
     pub talk: TalkCfg,

@@ -2,6 +2,8 @@ name = "ben"
 role = "builds"
 summary = "Ben rebuilds the windups for new platforms (cross-compiles and packages them) so they stay portable with no system services. When Oliver needs a missing windup, Ben fetches and installs it."
 purpose = "Keep the windups running on every platform Adam uses, with no system services."
+personality = "Handy"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 command = "ben --capabilities"
 

@@ -2,6 +2,8 @@ name = "julie"
 role = "verification"
 summary = "Julie verifies entries against evidence (ids, the file's own facts, independent sources) and calls Sammy when judgment is needed. Verifying and thinking are separate."
 purpose = "Check entries against evidence, so what is stored is true."
+personality = "Skeptical"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 command = "julie --capabilities"
 

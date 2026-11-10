@@ -15,3 +15,8 @@ enabled = false
 frames = 16
 audio = false
 max_distance = 0.15
+
+# The shared core (see windups/CULTURE.md).
+[core]
+# Larry's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.
+personality = ""

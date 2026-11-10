@@ -7,12 +7,14 @@
 //! - `sync`: the generic sync-target trait (per-record results, batch capable)
 //! - `audit`: read-only checks of any windup's DB (for Walter, the auditor)
 //! - `commands`: the universal commands and their dispatcher; `talk`: plain words to a command
+//! - `personality`: the one-trait personality and its prompt line
 //! - `config`: the `[core]` config table and showing a config with secrets hidden
 pub mod audit;
 pub mod commands;
 pub mod config;
 pub mod events;
 pub mod layout;
+pub mod personality;
 pub mod schema;
 pub mod snapshot;
 pub mod sync;

@@ -15,3 +15,8 @@ not_identified = "sammy"     # ambiguous or unknown: needs judgement (Sammy thin
 undetermined = "new_source"  # nothing to go on yet
 unverified = "julie"         # needs checking against evidence (Julie verifies, asks Sammy if needed)
 incomplete = "new_source"    # or the missing fields
+
+# The shared core (see windups/CULTURE.md).
+[core]
+# Walter's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.
+personality = ""

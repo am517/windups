@@ -2,6 +2,8 @@ name = "steve"
 role = "search"
 summary = "Steve searches the database (genres, people, dates, full text, meaning; graph later)."
 purpose = "Find local information in the database."
+personality = "Eager"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 command = "steve --capabilities"
 

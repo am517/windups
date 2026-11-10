@@ -16,3 +16,8 @@ max_hours = 24          # or this long since the last patrol (or the first chang
 new_entry = 3           # an entry Daniel hadn't seen
 stage_change = 2        # an entry moved lifecycle stage
 update = 1              # anything else re-stored
+
+# The shared core (see windups/CULTURE.md).
+[core]
+# Daniel's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.
+personality = ""

@@ -2,6 +2,8 @@ name = "walter"
 role = "patrol"
 summary = "Windups call Walter (e.g. Daniel when enough has changed); whatever he is called for, he patrols the whole database, then exits; no daemon or timers. Walter patrols the shared database for unfinished work. Every entry that isn't complete has a scheduled return; Walter decides from its stage, reason, last check and returns when to call the right windup again, and wakes waiting entries when a new windup or source appears."
 purpose = "Make sure nothing unfinished is forgotten: every incomplete entry is revisited."
+personality = "Data Fiend"
+personality_status = "set"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "working (note, pending, patrol)"
 reads = ["media.db (media lifecycle, last_checked, status_history, returns, windups, capabilities)"]
 writes = ["media.db (returns, capabilities)"]

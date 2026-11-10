@@ -163,3 +163,34 @@ fn crate_folders_match_the_name_registry() {
         "registry vs WINDUPS.md roster disagree: roster only {extra_cast:?}; registry only {missing_cast:?}"
     );
 }
+
+#[test]
+fn every_windup_has_a_personality_matching_its_profile() {
+    let root = workspace_root();
+    let names_md = std::fs::read_to_string(root.join("windups/NAMES.md")).unwrap();
+    assert!(names_md.contains("CULTURE.md"), "NAMES.md links CULTURE.md");
+    let (head, rows) = header_and_rows(&names_md, "## Registry");
+    for row in &rows {
+        let name = col(&head, row, "Name");
+        let cell = col(&head, row, "Personality");
+        let (word, proposed) = match cell.strip_suffix(" (proposed)") {
+            Some(w) => (w.to_string(), true),
+            None => (cell.clone(), false),
+        };
+        assert!(!word.trim().is_empty(), "{name}: no personality");
+        let profile =
+            std::fs::read_to_string(root.join(name.to_lowercase()).join("PROFILE.toml")).unwrap();
+        let (p, status) = windups::base::personality::from_profile(&profile)
+            .unwrap_or_else(|| panic!("{name}: PROFILE.toml has no personality"));
+        assert_eq!(p, word, "{name}: NAMES.md and PROFILE.toml disagree");
+        assert_eq!(
+            status == "proposed",
+            proposed,
+            "{name}: proposed in one place, set in the other"
+        );
+        assert!(
+            matches!(status.as_str(), "set" | "proposed"),
+            "{name}: {status}"
+        );
+    }
+}

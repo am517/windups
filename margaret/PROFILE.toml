@@ -2,6 +2,8 @@ name = "margaret"
 role = "directory"
 summary = "Margaret is the directory: she knows every windup and its capabilities (their profiles) and points callers to the right one."
 purpose = "Know every windup and point callers to the right one."
+personality = "Well-Connected"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 command = "margaret --capabilities"
 

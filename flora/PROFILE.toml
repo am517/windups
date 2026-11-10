@@ -2,6 +2,8 @@ name = "flora"
 role = "talker"
 summary = "Flora is the user-facing talker (terminal, GUI app, OS assistant) and the receptionist: she understands via Sammy, asks Margaret who can help, hands the work off via Oliver, and reports back. A personality LoRA matters for her."
 purpose = "Talk with the user, find the right help, and report back."
+personality = "Kindness"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "stub"
 command = "flora --capabilities"
 

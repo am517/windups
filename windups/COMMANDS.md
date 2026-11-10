@@ -1,7 +1,7 @@
 # Universal commands
 
 Every windup answers these, so one client can talk to any windup: `<windup> <command> [args]`.
-They live in the shared core (`windups::base::commands`); a windup adds only what is special to
+Answering them is one of the society rules in [`CULTURE.md`](CULTURE.md). They live in the shared core (`windups::base::commands`); a windup adds only what is special to
 it (its status lines, how it syncs and exports, and its own actions). This is a living list:
 when a command is added or changes, update this file in the same commit (`base::commands` tests
 fail if a universal command is missing here).
@@ -29,5 +29,7 @@ fail if a universal command is missing here).
 
 - `talk` helper: `base::talk::Helper` (Flora, or a local model on small devices).
 - Off-device snapshot copies: `base::snapshot::OffDevice` (Walter or a later windup).
-- Sync transport: `base::sync::SyncTarget` (library call today; a socket later).
-- Audit: `base::audit::audit` + `Check` (Walter reads any windup's DB, read-only).
+- Sync transport: `base::sync::SyncTarget` (library call to Daniel today; a socket later). Daniel
+  answers per batch with one result per record (`send_batch`).
+- Audit: `base::audit::audit` + `Check` (Walter, the auditor, reads any windup's DB, read-only).
+- Personality: `base::personality::prompt_line` builds "Your name is X and you are <Trait>. Your job is Y."
