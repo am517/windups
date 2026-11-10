@@ -7,6 +7,7 @@
 //! - `sync`: the generic sync-target trait (per-record results, batch capable)
 //! - `wire` + `sync_socket`: the length-prefixed JSON protocol over a Unix socket, and its client
 //! - `migrate`: the explicit move from `~/.config/windups/<name>/` into `~/windups/<name>/`
+//! - `relocate`: config paths into a migrated folder (rewritten in the new copy only)
 //! - `install`: first run makes `~/windups/<name>/` and the `~/.local/bin/<name>` link
 //! - `audit`: read-only checks of any windup's DB (for Walter, the auditor)
 //! - `commands`: the universal commands and their dispatcher; `talk`: plain words to a command
@@ -20,6 +21,7 @@ pub mod install;
 pub mod layout;
 pub mod migrate;
 pub mod personality;
+pub mod relocate;
 pub mod schema;
 pub mod snapshot;
 pub mod sync;

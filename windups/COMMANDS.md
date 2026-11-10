@@ -52,6 +52,11 @@ migrate` (or `--dry-run` to see what it would do; `talk` words only ever preview
    SQLite's online backup, so a copy is consistent even while open; journals and sockets skipped).
 3. Verifies: `PRAGMA integrity_check` and every table's row count on each database; byte
    comparison and an FNV-1a-128 hash for every other file; links point at the same place.
+   Absolute paths in `config.toml` that point inside the old folder (absolute or `~/` spelling)
+   are rewritten to the new folder in the NEW copy's config only; the original is never touched.
+   That config is verified against the expected rewritten text, not the original bytes. Paths
+   outside the old folder are only warned about. Each rewrite (old -> new) and warning goes into
+   `MIGRATED.txt` and the `migrate` event; `--dry-run` lists them too.
 4. Only if everything passes, renames the staging folder to `~/windups/<name>/`, so the lookup
    prefers it from then on. On a failed check the staging copy is removed and nothing switches.
 5. Leaves the old folder as it was, plus `MIGRATED.txt`: where the data went, when (UTC), and every

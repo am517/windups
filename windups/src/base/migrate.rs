@@ -17,6 +17,8 @@ pub struct Outcome {
     pub text: String,
     /// The new folder, once switched over (None for a dry run or nothing to do).
     pub switched_to: Option<PathBuf>,
+    /// Config paths rewritten in the new copy, and warnings about paths left alone.
+    pub notes: Vec<String>,
 }
 
 /// (legacy folder, target folder) for windup `name` under `home`.
@@ -43,6 +45,7 @@ fn run_with(
         Ok(Outcome {
             text,
             switched_to: None,
+            notes: vec![],
         })
     };
     if old.join(NOTE).is_file() && new.is_dir() {
@@ -65,6 +68,18 @@ fn run_with(
             new.display()
         ));
     }
+    let paths = config_plan(name, home, &old, &new);
+    let notes: Vec<String> = paths
+        .rewrites
+        .iter()
+        .map(|r| format!("config.toml: rewrote {r}"))
+        .chain(
+            paths
+                .warnings
+                .iter()
+                .map(|w| format!("config.toml: warning: {w}")),
+        )
+        .collect();
     if dry_run {
         let mut t = format!(
             "dry run: would copy {} item(s) from {} to {}, verify, then switch over:\n",
@@ -74,6 +89,9 @@ fn run_with(
         );
         for e in &entries {
             let _ = writeln!(t, "  {}", e.display());
+        }
+        for n in &notes {
+            let _ = writeln!(t, "  would: {n}");
         }
         return nothing(t);
     }
@@ -86,10 +104,18 @@ fn run_with(
             stage.display()
         ));
     }
-    let result = copy_all(&old, &stage, &entries).and_then(|()| {
-        tamper(&stage);
-        verify(&old, &stage, &entries)
-    });
+    let expected = paths.text.as_deref();
+    let result = copy_all(&old, &stage, &entries)
+        .and_then(|()| match expected {
+            Some(t) => {
+                std::fs::write(stage.join(CONFIG), t).map_err(|e| format!("config.toml: {e}"))
+            }
+            None => Ok(()),
+        })
+        .and_then(|()| {
+            tamper(&stage);
+            verify(&old, &stage, &entries, expected)
+        });
     let checks = match result {
         Ok(c) => c,
         Err(e) => {
@@ -119,13 +145,19 @@ fn run_with(
     for c in &checks {
         let _ = writeln!(note, "  {c}");
     }
+    if !notes.is_empty() {
+        note += "\nConfig paths (only the new copy's config changed):\n";
+        for n in &notes {
+            let _ = writeln!(note, "  {n}");
+        }
+    }
     let mut text = format!(
         "migrated {} item(s) from {} to {}; all checks passed:\n",
         entries.len(),
         old.display(),
         new.display()
     );
-    for c in &checks {
+    for c in checks.iter().chain(&notes) {
         let _ = writeln!(text, "  {c}");
     }
     if let Err(e) = std::fs::write(old.join(NOTE), note) {
@@ -138,7 +170,27 @@ fn run_with(
     Ok(Outcome {
         text,
         switched_to: Some(new),
+        notes,
     })
+}
+
+const CONFIG: &str = super::layout::CONFIG_NAME;
+
+/// Rewrites for the old folder's config.toml: its absolute and `~/` spellings move to the new ones.
+fn config_plan(name: &str, home: &Path, old: &Path, new: &Path) -> super::relocate::Plan {
+    let Ok(text) = std::fs::read_to_string(old.join(CONFIG)) else {
+        return super::relocate::Plan::default();
+    };
+    let tilde = |p: &Path| {
+        p.strip_prefix(home)
+            .map(|r| format!("~/{}", r.display()))
+            .unwrap_or_else(|_| format!("~/.config/windups/{name}"))
+    };
+    let moves = [
+        (old.display().to_string(), new.display().to_string()),
+        (tilde(old), tilde(new)),
+    ];
+    super::relocate::plan(&text, &moves)
 }
 
 fn is_empty_dir(p: &Path) -> bool {
@@ -222,7 +274,13 @@ fn symlink(_: &Path, _: &Path) -> std::io::Result<()> {
 }
 
 /// One line per checked item, or the first failure.
-fn verify(from: &Path, to: &Path, entries: &[PathBuf]) -> Result<Vec<String>, String> {
+/// `config` is the expected rewritten config.toml, when paths in it were rewritten.
+fn verify(
+    from: &Path,
+    to: &Path,
+    entries: &[PathBuf],
+    config: Option<&str>,
+) -> Result<Vec<String>, String> {
     let mut lines = Vec::new();
     for rel in entries {
         let (s, d) = (from.join(rel), to.join(rel));
@@ -251,6 +309,17 @@ fn verify(from: &Path, to: &Path, entries: &[PathBuf]) -> Result<Vec<String>, St
             }
             let rows: Vec<String> = a.iter().map(|(t, n)| format!("{t}={n}")).collect();
             lines.push(format!("{r}: integrity ok; rows {}", rows.join(" ")));
+        } else if let (Some(want), true) = (config, rel.as_os_str() == CONFIG) {
+            let (a, b) = (fnv(want.as_bytes()), hash(&d)?);
+            if a != b {
+                return Err(format!(
+                    "{r}: doesn't match the expected rewrite (hash {a:032x} vs {b:032x})"
+                ));
+            }
+            lines.push(format!(
+                "{r}: {} bytes, fnv1a-128 {a:032x} (matches the expected rewrite)",
+                want.len()
+            ));
         } else {
             let (a, b) = (hash(&s)?, hash(&d)?);
             if a != b {
@@ -282,10 +351,23 @@ fn counts(c: &Connection) -> Result<Vec<(String, i64)>, String> {
         .collect()
 }
 
+const FNV_PRIME: u128 = 0x0000000001000000000000000000013B;
+const FNV_START: u128 = 0x6c62272e07bb014262b821756295c58d;
+
+fn fnv_more(mut h: u128, bytes: &[u8]) -> u128 {
+    for &b in bytes {
+        h = (h ^ u128::from(b)).wrapping_mul(FNV_PRIME);
+    }
+    h
+}
+
+fn fnv(bytes: &[u8]) -> u128 {
+    fnv_more(FNV_START, bytes)
+}
+
 /// FNV-1a 128, streamed in 64 KiB pieces (low memory; for equality, not security).
 fn hash(p: &Path) -> Result<u128, String> {
-    const PRIME: u128 = 0x0000000001000000000000000000013B;
-    let mut h: u128 = 0x6c62272e07bb014262b821756295c58d;
+    let mut h = FNV_START;
     let mut f = std::fs::File::open(p).map_err(|e| format!("{}: {e}", p.display()))?;
     let mut buf = vec![0u8; 64 << 10];
     loop {
@@ -295,9 +377,7 @@ fn hash(p: &Path) -> Result<u128, String> {
         if n == 0 {
             return Ok(h);
         }
-        for &b in &buf[..n] {
-            h = (h ^ u128::from(b)).wrapping_mul(PRIME);
-        }
+        h = fnv_more(h, &buf[..n]);
     }
 }
 
@@ -427,6 +507,71 @@ mod tests {
         // an empty target folder is fine
         std::fs::remove_file(new.join("toy.db")).unwrap();
         assert!(run("toy", d.path(), false).unwrap().switched_to.is_some());
+    }
+
+    #[test]
+    fn config_paths_into_the_old_folder_are_rewritten_in_the_copy_only() {
+        let d = tempfile::tempdir().unwrap();
+        let old = legacy(d.path());
+        let new = d.path().join("windups/toy");
+        let orig = format!(
+            "[archive]\ndatabase = \"{}/toy.db\"\nmedia = \"/srv/media\"\n",
+            old.display()
+        );
+        std::fs::write(old.join("config.toml"), &orig).unwrap();
+        let dry = run("toy", d.path(), true).unwrap();
+        assert!(
+            dry.text
+                .contains("would: config.toml: rewrote archive.database"),
+            "{}",
+            dry.text
+        );
+        let o = run("toy", d.path(), false).unwrap();
+        let rw = format!(
+            "config.toml: rewrote archive.database: {0}/toy.db -> {1}/toy.db",
+            old.display(),
+            new.display()
+        );
+        let warn = "config.toml: warning: archive.media = /srv/media is outside the old folder; left as is";
+        assert_eq!(o.notes, [rw.clone(), warn.to_string()]);
+        assert!(
+            o.text.contains("(matches the expected rewrite)"),
+            "{}",
+            o.text
+        );
+        assert_eq!(
+            std::fs::read_to_string(old.join("config.toml")).unwrap(),
+            orig,
+            "original untouched"
+        );
+        let copy = std::fs::read_to_string(new.join("config.toml")).unwrap();
+        assert_eq!(
+            copy,
+            orig.replace(&old.display().to_string(), &new.display().to_string())
+        );
+        let note = std::fs::read_to_string(old.join(NOTE)).unwrap();
+        assert!(note.contains(&rw) && note.contains(warn), "{note}");
+    }
+
+    #[test]
+    fn a_config_that_doesnt_match_the_expected_rewrite_fails() {
+        let d = tempfile::tempdir().unwrap();
+        let old = legacy(d.path());
+        std::fs::write(
+            old.join("config.toml"),
+            "dir = \"~/.config/windups/toy/b\"\n",
+        )
+        .unwrap();
+        let e = run_with("toy", d.path(), false, &|s: &Path| {
+            std::fs::write(s.join("config.toml"), "dir = \"~/.config/windups/toy/b\"\n").unwrap();
+        })
+        .err()
+        .unwrap();
+        assert!(
+            e.contains("config.toml: doesn't match the expected rewrite"),
+            "{e}"
+        );
+        assert!(!d.path().join("windups/toy").exists());
     }
 
     #[test]

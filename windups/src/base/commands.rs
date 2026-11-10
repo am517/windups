@@ -250,6 +250,10 @@ fn migrate(w: &mut dyn Windup, dry_run: bool) -> Result<String, String> {
                     .unwrap_or("")
                     .trim_end_matches(':')
                     .to_string();
+                let summary = std::iter::once(summary)
+                    .chain(o.notes.iter().cloned())
+                    .collect::<Vec<_>>()
+                    .join("; ");
                 let db = new.join(l.db.file_name().unwrap_or_default());
                 let logged = Connection::open(&db)
                     .map_err(|e| e.to_string())
@@ -428,6 +432,8 @@ pub(crate) mod tests {
         std::fs::create_dir_all(&old).unwrap();
         let mut c = Connection::open(old.join("toy.db")).unwrap();
         crate::base::schema::migrate(&mut c, "toy.db", crate::base::CORE_V1).unwrap();
+        let cfg = format!("[x]\ndb = \"{}/toy.db\"\n", old.display());
+        std::fs::write(old.join("config.toml"), cfg).unwrap();
         let probe = Probe {
             home: Some(d.path().to_path_buf()),
             ..Default::default()
@@ -446,11 +452,16 @@ pub(crate) mod tests {
             "a dry run writes nothing"
         );
         let r = run(&mut t, &["migrate"]);
-        assert!(r.text.starts_with("migrated 1 item(s)"), "{}", r.text);
+        assert!(r.text.starts_with("migrated 2 item(s)"), "{}", r.text);
         let new = Connection::open(d.path().join("windups/toy/toy.db")).unwrap();
         let e = events::recent(&new, 1).unwrap().remove(0);
         assert_eq!(e.kind, "migrate");
-        assert!(e.detail.starts_with("migrated 1 item(s)"), "{}", e.detail);
+        assert!(e.detail.starts_with("migrated 2 item(s)"), "{}", e.detail);
+        assert!(
+            e.detail.contains("; config.toml: rewrote x.db: "),
+            "{}",
+            e.detail
+        );
         assert_eq!(
             events::last_seq(&t.c).unwrap(),
             0,
