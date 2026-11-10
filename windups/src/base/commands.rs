@@ -9,7 +9,7 @@ use rusqlite::Connection;
 use std::fmt::Write as _;
 
 /// (name, what it does). Order is the help order.
-pub const UNIVERSAL: [(&str, &str); 10] = [
+pub const UNIVERSAL: [(&str, &str); 11] = [
     ("status", "what I hold and how far along I am"),
     ("health", "integrity check, schema version, backup age"),
     ("sync", "send records the sync target doesn't have yet"),
@@ -22,6 +22,10 @@ pub const UNIVERSAL: [(&str, &str); 10] = [
     ),
     ("log", "recent events (log [N])"),
     ("help", "this list, plus what only I can do"),
+    (
+        "migrate",
+        "move me from ~/.config/windups/ into ~/windups/ (migrate [--dry-run])",
+    ),
     (
         "talk",
         "say it in plain words; I say what I ran (talk WORDS...)",
@@ -39,6 +43,10 @@ pub enum Command {
     Config,
     Log(usize),
     Help,
+    /// Move from the legacy folder into `~/windups/<name>/` (see `migrate`).
+    Migrate {
+        dry_run: bool,
+    },
     Talk(String),
     /// Something only this windup does (name, rest of the words).
     Action(String, String),
@@ -65,6 +73,9 @@ pub fn parse(args: &[String]) -> Option<Command> {
         "config" => Command::Config,
         "log" => Command::Log(rest.first().and_then(|n| n.parse().ok()).unwrap_or(20)),
         "help" => Command::Help,
+        "migrate" => Command::Migrate {
+            dry_run: rest.iter().any(|a| a == "--dry-run" || a == "-n"),
+        },
         "talk" => Command::Talk(rest.join(" ")),
         _ => return None,
     })
@@ -75,6 +86,7 @@ pub fn line(c: &Command) -> String {
         Command::Export(Some(d)) => format!("export {d}"),
         Command::Export(None) => "export".into(),
         Command::Log(n) => format!("log {n}"),
+        Command::Migrate { dry_run: true } => "migrate --dry-run".into(),
         Command::Talk(t) => format!("talk {t}"),
         Command::Action(a, r) if r.is_empty() => a.clone(),
         Command::Action(a, r) => format!("{a} {r}"),
@@ -198,10 +210,67 @@ pub fn dispatch(w: &mut dyn Windup, cmd: Command, hooks: &Hooks) -> Result<Reply
             }
             t
         }
+        Command::Migrate { dry_run } => migrate(w, dry_run)?,
         Command::Talk(words) => return talk(w, &words, hooks),
         Command::Action(a, rest) => logged(w, "action", |w| w.action(&a, &rest))?,
     };
     Ok(Reply { ran, text })
+}
+
+/// Logged in the new folder's database after a switch (the old folder stays as it was); a
+/// refusal or failure is logged where the windup is now. A dry run writes nothing.
+fn migrate(w: &mut dyn Windup, dry_run: bool) -> Result<String, String> {
+    let l = w.layout().clone();
+    let up = match l.source {
+        super::layout::Source::Legacy => 3,
+        super::layout::Source::Home => 2,
+        _ => {
+            return Err(format!(
+                "migrate only moves ~/.config/windups/{0}/ to ~/windups/{0}/; I run from {1} \
+                 (chosen by --config, {2}_HOME or my binary's folder)",
+                l.name,
+                l.dir.display(),
+                l.name.to_ascii_uppercase()
+            ));
+        }
+    };
+    let home = l
+        .dir
+        .ancestors()
+        .nth(up)
+        .ok_or("no home folder")?
+        .to_path_buf();
+    match super::migrate::run(&l.name, &home, dry_run) {
+        Ok(o) => {
+            if let Some(new) = &o.switched_to {
+                let summary = o
+                    .text
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .trim_end_matches(':')
+                    .to_string();
+                let db = new.join(l.db.file_name().unwrap_or_default());
+                let logged = Connection::open(&db)
+                    .map_err(|e| e.to_string())
+                    .and_then(|c| events::append(&c, "migrate", &summary));
+                if let Err(e) = logged {
+                    return Ok(format!(
+                        "{}warning: couldn't log it in {}: {e}",
+                        o.text,
+                        db.display()
+                    ));
+                }
+            }
+            Ok(o.text)
+        }
+        Err(e) => {
+            if !dry_run {
+                events::append(w.conn(), "migrate", &format!("failed: {e}"))?;
+            }
+            Err(e)
+        }
+    }
 }
 
 fn logged(
@@ -350,6 +419,46 @@ pub(crate) mod tests {
     fn run(t: &mut Toy, args: &[&str]) -> Reply {
         let a: Vec<String> = args.iter().map(|s| s.to_string()).collect();
         dispatch(t, parse(&a).unwrap(), &H).unwrap()
+    }
+
+    #[test]
+    fn migrate_moves_a_legacy_windup_and_logs_it_in_the_new_folder() {
+        let d = tempfile::tempdir().unwrap();
+        let old = d.path().join(".config/windups/toy");
+        std::fs::create_dir_all(&old).unwrap();
+        let mut c = Connection::open(old.join("toy.db")).unwrap();
+        crate::base::schema::migrate(&mut c, "toy.db", crate::base::CORE_V1).unwrap();
+        let probe = Probe {
+            home: Some(d.path().to_path_buf()),
+            ..Default::default()
+        };
+        let mut t = Toy {
+            layout: resolve("toy", &probe),
+            cfg: BaseCfg::default(),
+            c,
+        };
+        assert_eq!(t.layout.dir, old);
+        let r = run(&mut t, &["migrate", "--dry-run"]);
+        assert_eq!(r.ran, "migrate --dry-run");
+        assert_eq!(
+            events::last_seq(&t.c).unwrap(),
+            0,
+            "a dry run writes nothing"
+        );
+        let r = run(&mut t, &["migrate"]);
+        assert!(r.text.starts_with("migrated 1 item(s)"), "{}", r.text);
+        let new = Connection::open(d.path().join("windups/toy/toy.db")).unwrap();
+        let e = events::recent(&new, 1).unwrap().remove(0);
+        assert_eq!(e.kind, "migrate");
+        assert!(e.detail.starts_with("migrated 1 item(s)"), "{}", e.detail);
+        assert_eq!(
+            events::last_seq(&t.c).unwrap(),
+            0,
+            "the old database stays as it was"
+        );
+        // talk only previews
+        let r = dispatch(&mut t, Command::Talk("please migrate".into()), &H).unwrap();
+        assert_eq!(r.ran, "migrate --dry-run");
     }
 
     #[test]

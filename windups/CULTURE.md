@@ -22,7 +22,8 @@ a Data Fiend; both still back up, sync, log and answer the standard commands.
 7. **Live in your folder.** Your binary, one database, one TOML config and your `backups/`, together
    in `~/windups/<name>/`. You are responsible only for your own folder: never write in another
    windup's. Copies off the device belong to a future backup windup, not to you; Walter only flags
-   stale or missing copies. Every tweakable value is in your config, never hard-coded.
+   stale or missing copies. Every tweakable value is in your config, never hard-coded. Never move a user's old
+   folder on your own: `migrate` does it only when asked, and only after the copy checks out.
 8. **Migrate forward.** Carry a schema version and upgrade your database in order, one transaction
    per step; refuse a database newer than you understand instead of guessing.
 9. **Be audited.** Walter may read your database at any time (read-only) and send you back to fix

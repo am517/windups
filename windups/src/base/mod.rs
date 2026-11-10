@@ -6,6 +6,7 @@
 //! - `snapshot`: checked online-backup snapshots and the off-device hook
 //! - `sync`: the generic sync-target trait (per-record results, batch capable)
 //! - `wire` + `sync_socket`: the length-prefixed JSON protocol over a Unix socket, and its client
+//! - `migrate`: the explicit move from `~/.config/windups/<name>/` into `~/windups/<name>/`
 //! - `install`: first run makes `~/windups/<name>/` and the `~/.local/bin/<name>` link
 //! - `audit`: read-only checks of any windup's DB (for Walter, the auditor)
 //! - `commands`: the universal commands and their dispatcher; `talk`: plain words to a command
@@ -17,6 +18,7 @@ pub mod config;
 pub mod events;
 pub mod install;
 pub mod layout;
+pub mod migrate;
 pub mod personality;
 pub mod schema;
 pub mod snapshot;

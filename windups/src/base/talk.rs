@@ -28,6 +28,10 @@ const WORDS: &[(&str, &[&str])] = &[
     ("config", &["config", "configuration", "settings", "setup"]),
     ("log", &["log", "history", "events", "happened", "recent"]),
     ("help", &["help", "commands", "what can you do"]),
+    (
+        "migrate",
+        &["migrate", "move house", "move folder", "move your folder"],
+    ),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,6 +112,8 @@ pub fn interpret(
     let number = t.split(' ').find_map(|w| w.parse::<usize>().ok());
     Intent::Run(match name.as_str() {
         "log" => Command::Log(number.unwrap_or(20)),
+        // plain words only preview a migration; `migrate` itself does it
+        "migrate" => Command::Migrate { dry_run: true },
         other => super::commands::parse(&[other.to_string()]).unwrap_or(Command::Help),
     })
 }

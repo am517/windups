@@ -27,7 +27,9 @@ The default folder is `~/windups/<name>/`, with `~/.local/bin/<name>` a symlink 
    follows symlinks on Linux, so `/usr/bin/jack -> /opt/windups/jack/jack` finds `/opt/windups/jack`.
 4. `~/windups/<name>/`, if it exists.
 5. Legacy split install: `~/.config/windups/<name>/`, if it holds a config or DB (and
-   `~/windups/<name>/` doesn't exist). Old installs keep working; move the folder to switch.
+   `~/windups/<name>/` doesn't exist). Old installs keep working and are never moved automatically;
+   `<name> migrate` moves one when asked (copy, verify, switch; the old folder stays, with a
+   `MIGRATED.txt`; see [COMMANDS.md](COMMANDS.md)).
 6. Otherwise the default, `~/windups/<name>/`, which the first run sets up (below).
 
 Inside the config, `[archive] database` (Jack) can still move the DB.

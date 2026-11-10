@@ -17,6 +17,7 @@ fail if a universal command is missing here).
 | `config` | Where my config is and what it says | Secret values (keys, tokens, PINs, passwords) are always hidden |
 | `log` | Recent events: `log [N]` (default 20) | From the append-only event log |
 | `help` | This list, plus what only I can do | |
+| `migrate` | Move from the old `~/.config/windups/<name>/` into `~/windups/<name>/`: `migrate [--dry-run]` | Copy, verify, then switch; old folder kept with `MIGRATED.txt` (below) |
 | `talk` | Plain words to a real command: `talk WORDS...` | Keyword matcher; says what it ran; unknown words go to a helper (later Flora or a local model) |
 
 ## Windup-specific actions
@@ -39,6 +40,25 @@ audited 3 windup(s): 2 finding(s)
 ```
 
 He writes only his own `walter.db` (event log); he never fixes another windup's data himself.
+
+## `migrate`
+
+Old `~/.config/windups/<name>/` folders keep working and are never moved automatically. `<windup>
+migrate` (or `--dry-run` to see what it would do; `talk` words only ever preview):
+
+1. Refuses if `~/windups/<name>/` already holds data (an empty folder is fine), or if the windup runs
+   from `--config`, `<NAME>_HOME` or its binary's folder.
+2. Copies the old folder into a staging folder `~/windups/.<name>.migrating` (databases through
+   SQLite's online backup, so a copy is consistent even while open; journals and sockets skipped).
+3. Verifies: `PRAGMA integrity_check` and every table's row count on each database; byte
+   comparison and an FNV-1a-128 hash for every other file; links point at the same place.
+4. Only if everything passes, renames the staging folder to `~/windups/<name>/`, so the lookup
+   prefers it from then on. On a failed check the staging copy is removed and nothing switches.
+5. Leaves the old folder as it was, plus `MIGRATED.txt`: where the data went, when (UTC), and every
+   check result. Logs a `migrate` event in the new folder's database (a failure is logged where the
+   windup is now).
+
+Running it again after success says "already migrated" and does nothing.
 
 ## Sync socket protocol (Daniel, `base::wire`)
 
