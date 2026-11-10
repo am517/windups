@@ -2,6 +2,8 @@ name = "daniel"
 role = "database"
 summary = "Daniel takes one entry per file from any windup, adds Larry's hash and Ruth's reference, stores everything in media.db (or JSON beside the file if there's no database), then alerts Walter when enough has changed (thresholds in daniel.toml), never for work Walter started."
 purpose = "Keep everything the windups learn, safely and whole, in one shared database."
+personality = "Meticulous"
+personality_status = "set"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "library (real store code) plus `daniel ingest` CLI; called by Jack through windups::handoff::Daniel"
 reads = ["handoffs", "versioned handoff JSON"]
 writes = ["media.db (media, candidates, texts, art, ids, ratings, names, conflicts, unresolved, decisions, lifecycle, files and hashes, works and their ids, proposals, last_checked)"]
@@ -9,7 +11,7 @@ calls = ["larry", "ruth", "walter (optional)"]
 never = ["guess", "overwrite a source's data", "merge entries on a fingerprint hint"]
 
 [[success_checks]]
-check = "every handoff is stored in media.db; a missing database is an error (Jack writes the sidecar)"
+check = "every handoff is stored in media.db; a missing database is an error (the sender keeps the record unsynced in its own DB and retries)"
 test = "daniel/src/store.rs::save_errors_when_database_unavailable"
 
 [[success_checks]]

@@ -95,19 +95,10 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
             let _ = writeln!(o, "    error: {e}");
         }
     }
-    // Jack's archive: send Walter whatever he doesn't have yet (records stay in jack.db either way)
+    // Jack's archive: sync what the target (Daniel) doesn't have yet; records stay in jack.db
     let handed = !dry && (Settings::flag(top.download_only) || !Settings::flag(top.print));
     if handed && !hk.done.is_empty() {
-        match crate::archive::Archive::open(&cfg.archive) {
-            Ok(a) => {
-                let mut link = crate::walter::connect();
-                let line = crate::walter::report(&a, link.as_deref_mut(), cfg.archive.sync_batch);
-                let _ = writeln!(o, "{line}");
-            }
-            Err(e) => {
-                let _ = writeln!(o, "warning: archive: {e}");
-            }
-        }
+        let _ = writeln!(o, "{}", crate::universal::sync_line(&cfg));
     }
     let flagged = crate::review::pass(&cfg.review, &crate::review::NoReview, &hk.done, &mut o);
     hk.open.extend(flagged);

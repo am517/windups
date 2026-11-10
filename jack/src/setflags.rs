@@ -3,14 +3,13 @@ use crate::config::{self, Settings};
 use crate::setcfg;
 use crate::{cli::*, secrets::*};
 use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub(crate) fn main_config_path(cli: &Cli) -> Result<PathBuf, String> {
     match &cli.config {
         Some(p) => Ok(config::expand(p)),
-        None => std::env::var_os("HOME")
-            .map(|h| Path::new(&h).join(config::MAIN_CONFIG))
-            .ok_or("HOME not set".into()),
+        None if std::env::var_os("HOME").is_none() => Err("HOME not set".into()),
+        None => Ok(config::layout(None).config),
     }
 }
 

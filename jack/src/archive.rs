@@ -1,6 +1,7 @@
 //! Jack's own database (`jack.db`): his archive and source of truth. Every record he creates goes
-//! here first, as handoff JSON v1, and stays here after Walter has a copy (the duplication is on
-//! purpose: either side can rebuild the other). Sync state is one nullable column, `synced_at`.
+//! here first, as handoff JSON v1, and stays here after the sync target (Daniel) has it (the
+//! duplication is on purpose: either side can rebuild the other). Sync state is one nullable
+//! column, `synced_at`. The shared core's tables (event log, snapshots) come in by migration.
 use rusqlite::{Connection, params};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -9,7 +10,8 @@ use windups::handoff::Handoff;
 /// File name of Jack's database inside his folder.
 pub const DB_NAME: &str = "jack.db";
 
-const SCHEMA: &str = "
+/// Jack's own tables (schema v1, as first shipped).
+const RECORDS_V1: &str = "
 CREATE TABLE IF NOT EXISTS records (
     seq        INTEGER PRIMARY KEY,
     id         TEXT NOT NULL UNIQUE,
@@ -19,8 +21,25 @@ CREATE TABLE IF NOT EXISTS records (
     synced_at  INTEGER
 );
 CREATE INDEX IF NOT EXISTS records_unsynced ON records(seq) WHERE synced_at IS NULL;
-PRAGMA user_version = 1;
 ";
+
+/// jack.db migrations in order; index + 1 is `PRAGMA user_version`. Append only.
+pub const MIGRATIONS: &[&str] = &[
+    RECORDS_V1,
+    windups::base::events::SCHEMA_V1,
+    windups::base::snapshot::SCHEMA_V1,
+];
+
+/// How a record's id is made.
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum IdStrategy {
+    /// From the record's own bytes: an identical re-run is the same record (default).
+    #[default]
+    Content,
+    /// Each run's records are new ones, even when identical.
+    PerRun,
+}
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(default)]
@@ -28,8 +47,11 @@ pub struct ArchiveCfg {
     /// Path of jack.db; empty = `jack.db` in Jack's folder (beside his config file).
     pub database: String,
     pub busy_timeout_secs: u64,
-    /// Records sent to Walter per batch (bounds memory while syncing).
+    /// Records sent per batch (bounds memory while syncing).
     pub sync_batch: usize,
+    /// Who gets copies: "daniel" (library call) or "none".
+    pub sync_target: String,
+    pub id: IdStrategy,
 }
 
 impl Default for ArchiveCfg {
@@ -38,11 +60,13 @@ impl Default for ArchiveCfg {
             database: String::new(),
             busy_timeout_secs: 5,
             sync_batch: 32,
+            sync_target: "daniel".into(),
+            id: IdStrategy::Content,
         }
     }
 }
 
-/// One record not yet acknowledged by Walter.
+/// One stored record (from `unsynced` or `page`).
 pub struct Unsynced {
     pub seq: i64,
     pub id: String,
@@ -62,19 +86,32 @@ pub fn now() -> i64 {
         .map_or(0, |d| d.as_secs() as i64)
 }
 
-/// Stable id from the record's own bytes (FNV-1a, 128-bit): the same record always gets the same
-/// id, so writing it twice or Walter receiving it twice changes nothing.
-pub fn record_id(json: &[u8]) -> String {
+/// Stable id from the record's own bytes (FNV-1a, 128-bit), plus a salt for `per_run`: the same
+/// record always gets the same id, so writing it twice or the target receiving it twice changes nothing.
+pub fn record_id(json: &[u8], salt: &[u8]) -> String {
     const OFFSET: u128 = 0x6c62272e07bb014262b821756295c58d;
     const PRIME: u128 = 0x0000000001000000000000000000013b;
-    let h = json
+    let h = salt
         .iter()
+        .chain(json)
         .fold(OFFSET, |h, b| (h ^ u128::from(*b)).wrapping_mul(PRIME));
     format!("jack-{h:032x}")
 }
 
+/// One value per process run (time + pid), for `id = "per_run"`.
+fn run_salt() -> &'static [u8] {
+    static S: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    S.get_or_init(|| {
+        let t = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos());
+        format!("run:{t}:{}|", std::process::id()).into_bytes()
+    })
+}
+
 pub struct Archive {
     c: Connection,
+    salt: &'static [u8],
 }
 
 impl Archive {
@@ -83,18 +120,32 @@ impl Archive {
         if let Some(dir) = Path::new(p).parent().filter(|d| !d.as_os_str().is_empty()) {
             std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         }
-        let c = Connection::open(p).map_err(|e| format!("{p}: {e}"))?;
+        let mut c = Connection::open(p).map_err(|e| format!("{p}: {e}"))?;
         c.busy_timeout(std::time::Duration::from_secs(cfg.busy_timeout_secs))
-            .and_then(|_| c.execute_batch(SCHEMA))
             .map_err(|e| format!("{p}: {e}"))?;
-        Ok(Self { c })
+        windups::base::schema::migrate(&mut c, DB_NAME, MIGRATIONS)?;
+        let salt = match cfg.id {
+            IdStrategy::Content => &[][..],
+            IdStrategy::PerRun => run_salt(),
+        };
+        Ok(Self { c, salt })
+    }
+
+    pub fn conn(&mut self) -> &mut Connection {
+        &mut self.c
+    }
+
+    #[cfg(test)]
+    pub fn with_salt(mut self, salt: &'static [u8]) -> Self {
+        self.salt = salt;
+        self
     }
 
     /// Writes one record (as handoff JSON v1). Returns its id and whether it was new.
     pub fn write(&self, h: &Handoff) -> Result<(String, bool), String> {
         let mut json = Vec::with_capacity(512);
         h.write_json(&mut json)?;
-        let id = record_id(&json);
+        let id = record_id(&json, self.salt);
         let json = String::from_utf8(json).map_err(|e| e.to_string())?;
         let n = self
             .c
@@ -104,6 +155,9 @@ impl Archive {
                 params![id, now(), h.file.to_string_lossy(), json],
             )
             .map_err(|e| e.to_string())?;
+        if n == 1 {
+            windups::base::events::append(&self.c, "record", &id)?;
+        }
         Ok((id, n == 1))
     }
 
@@ -128,7 +182,27 @@ impl Archive {
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
     }
 
-    /// Marks one record synced (only call after Walter acknowledged it). Keeps the record.
+    /// Up to `limit` records after `after_seq`, synced or not, oldest first (for export).
+    pub fn page(&self, after_seq: i64, limit: usize) -> Result<Vec<Unsynced>, String> {
+        let mut st = self
+            .c
+            .prepare_cached(
+                "SELECT seq, id, handoff FROM records WHERE seq > ?1 ORDER BY seq LIMIT ?2",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = st
+            .query_map(params![after_seq, limit as i64], |r| {
+                Ok(Unsynced {
+                    seq: r.get(0)?,
+                    id: r.get(1)?,
+                    handoff: r.get(2)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
+    /// Marks one record synced (only call after the target acknowledged it). Keeps the record.
     pub fn mark_synced(&self, seq: i64, at: i64) -> Result<(), String> {
         self.c
             .execute(
@@ -230,6 +304,51 @@ pub mod tests {
         assert_eq!(left, vec![first[1].seq, first[1].seq + 1]);
         assert_eq!(a.unsynced(first[1].seq, 10).unwrap().len(), 1);
         assert_eq!(a.counts().unwrap(), (3, 2));
+    }
+
+    #[test]
+    fn a_v1_jack_db_migrates_forward_keeping_its_records() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join(DB_NAME);
+        {
+            // exactly what the first jack.db looked like
+            let c = Connection::open(&p).unwrap();
+            c.execute_batch(RECORDS_V1).unwrap();
+            c.execute_batch("PRAGMA user_version = 1;").unwrap();
+            c.execute(
+                "INSERT INTO records(id, created_at, file, handoff) VALUES ('jack-old', 1, '/a', '{}')",
+                [],
+            )
+            .unwrap();
+        }
+        let mut a = open_temp(&d);
+        let v = windups::base::schema::version(a.conn()).unwrap();
+        assert_eq!(v, MIGRATIONS.len() as i64);
+        assert_eq!(a.counts().unwrap(), (1, 1));
+        a.write(&handoff("New")).unwrap();
+        let ev = windups::base::events::recent(a.conn(), 5).unwrap();
+        assert_eq!(
+            (ev.len(), ev[0].kind.as_str()),
+            (1, "record"),
+            "writes are logged"
+        );
+    }
+
+    #[test]
+    fn per_run_ids_make_identical_runs_separate_records() {
+        let d = tempfile::tempdir().unwrap();
+        let a = open_temp(&d).with_salt(b"run1|");
+        let (one, _) = a.write(&handoff("A")).unwrap();
+        let a = a.with_salt(b"run2|");
+        let (two, new) = a.write(&handoff("A")).unwrap();
+        assert!(new && one != two);
+        assert_eq!(a.counts().unwrap(), (2, 2));
+        let a = a.with_salt(b"");
+        let (plain, _) = a.write(&handoff("A")).unwrap();
+        assert_eq!(
+            plain,
+            record_id(a.unsynced(2, 1).unwrap()[0].handoff.as_bytes(), b"")
+        );
     }
 
     #[test]

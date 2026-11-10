@@ -4,6 +4,7 @@
 pub mod alert;
 pub mod config;
 pub mod ingest;
+pub mod receive;
 pub mod store;
 pub mod walter;
 

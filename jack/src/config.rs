@@ -2,9 +2,6 @@
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
-/// Main config location under $HOME (Windups group).
-pub const MAIN_CONFIG: &str = ".config/windups/jack/config.toml";
-
 /// Project keys embedded at build time (never committed). Config values win over these.
 pub const EMBED_TMDB_TOKEN: Option<&str> = option_env!("JACK_TMDB_TOKEN");
 pub const EMBED_TVDB_KEY: Option<&str> = option_env!("JACK_TVDB_KEY");
@@ -170,6 +167,8 @@ pub struct Config {
     pub store: daniel::StoreCfg,
     /// Jack's own database (his archive); see archive.rs.
     pub archive: crate::archive::ArchiveCfg,
+    /// The shared core: event log limits, snapshots, talk synonyms (`[core]`).
+    pub core: windups::base::config::BaseCfg,
     /// `--emit-json`; not a config file key (skipped on load).
     #[serde(skip)]
     pub emit_json: Option<String>,
@@ -178,6 +177,13 @@ pub struct Config {
     pub explain: crate::explain::ExplainCfg,
     pub review: crate::review::ReviewCfg,
     pub completeness: crate::completeness::CompletenessCfg,
+}
+
+/// Jack's folder: --config > JACK_HOME > the binary's folder (if it holds config.toml or jack.db)
+/// > the legacy ~/.config/windups/jack/ (see windups::base::layout).
+pub fn layout(explicit: Option<&Path>) -> windups::base::layout::Layout {
+    use windups::base::layout::{Probe, resolve};
+    resolve("jack", &Probe::real("jack", explicit))
 }
 
 pub fn expand(p: &Path) -> PathBuf {
@@ -224,7 +230,7 @@ pub fn load(explicit: Option<&Path>) -> Result<Config, String> {
         toml::from_str(DEFAULT_CONFIG).map_err(|e| format!("built-in config: {e}"))?;
     let path = match explicit {
         Some(p) => Some(expand(p)),
-        None => std::env::var_os("HOME").map(|h| Path::new(&h).join(MAIN_CONFIG)),
+        None => Some(layout(None).config),
     };
     if let Some(p) = &path {
         match read(p)? {

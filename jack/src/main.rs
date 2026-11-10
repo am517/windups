@@ -6,13 +6,13 @@ mod cli;
 mod completeness;
 mod config;
 mod conflicts;
-mod daniel;
 mod decide;
 mod escalate;
 mod explain;
 mod facts;
 mod fetch;
 mod filemeta;
+mod handoff;
 mod matcher;
 mod meta;
 mod online;
@@ -31,16 +31,22 @@ mod settle;
 mod sorter;
 mod sources;
 mod stage;
+mod sync;
 mod tagger;
 #[cfg(test)]
 mod testutil;
-mod walter;
+mod to_daniel;
+mod universal;
 
 use clap::Parser;
 
 fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if universal::is_command(&args) {
+        std::process::exit(universal::main(&args));
+    }
     let mut cli = cli::Cli::parse();
-    crate::daniel::set_caller(cli.caller.clone());
+    crate::handoff::set_caller(cli.caller.clone());
     if cli.capabilities {
         print!("{}", profile::PROFILE);
         return;

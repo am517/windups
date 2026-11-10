@@ -1,12 +1,12 @@
 //! The handoff: Jack only fetches and verifies; one entry per file goes into his own archive
-//! (jack.db) and on to Daniel, the database windup (his own crate), with the disagreements Jack
-//! found between sources. `--emit-json` also writes the versioned JSON (see schema/handoff_v1.md).
+//! (jack.db), with the disagreements Jack found between sources. Daniel, the record keeper, gets
+//! it from there by sync (see sync.rs): one route. `--emit-json` also writes the versioned JSON
+//! (see schema/handoff_v1.md).
 use crate::archive::{Archive, ArchiveCfg};
 use crate::meta::Meta;
-use daniel::StoreCfg;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
-use windups::handoff::{Daniel, Handoff};
+use windups::handoff::Handoff;
 
 static CALLER: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
 
@@ -15,15 +15,14 @@ pub fn set_caller(c: Option<String>) {
     let _ = CALLER.set(c);
 }
 
-/// Hands one entry for `path` over: first into Jack's own archive (jack.db, always), then to
-/// Daniel in-process when `[store] enabled`, and as JSON when `--emit-json` asks. With no database
-/// for Daniel, nothing is lost and nothing is jotted beside the media: the record waits in jack.db.
+/// Keeps one entry for `path` in Jack's own archive (jack.db), and writes it as JSON when
+/// `--emit-json` asks. Nothing is jotted beside the media; the sync at the end of the run takes it
+/// to Daniel, and if he can't be reached the record just waits in jack.db.
 pub fn hand_over(
     path: &Path,
     entry: &Meta,
     found: &[(String, Meta)],
     archive: &ArchiveCfg,
-    store: &StoreCfg,
     emit_json: Option<&str>,
 ) -> Result<String, String> {
     let conflicts = if entry.get("resolution").is_some_and(|r| r == "unresolved") {
@@ -48,12 +47,6 @@ pub fn hand_over(
     )];
     if let Some(dest) = emit_json {
         notes.push(emit(&h, dest, path)?);
-    }
-    if store.enabled {
-        match daniel::Store::new(store).accept(&h) {
-            Ok(w) => notes.push(w),
-            Err(e) => notes.push(format!("{e}; kept in jack.db")),
-        }
     }
     Ok(notes.join("; "))
 }
@@ -111,14 +104,10 @@ mod tests {
     }
 
     #[test]
-    fn no_database_keeps_the_record_in_jack_db_and_writes_no_json() {
+    fn the_record_is_kept_in_jack_db_and_no_json_is_written_beside_the_media() {
         let d = tempfile::tempdir().unwrap();
         let media = d.path().join("The.Matrix.1999.mkv");
         std::fs::write(&media, b"x").unwrap();
-        let store = StoreCfg {
-            enabled: false,
-            ..Default::default()
-        };
         let entry = meta(&[
             ("kind", "movie"),
             ("title", "The Matrix"),
@@ -126,7 +115,7 @@ mod tests {
             ("lifecycle", "unverified"),
         ]);
         let found = vec![("tmdb".into(), meta(&[("title", "The Matrix")]))];
-        let r = hand_over(&media, &entry, &found, &archive(&d), &store, None).unwrap();
+        let r = hand_over(&media, &entry, &found, &archive(&d), None).unwrap();
         assert!(r.starts_with("jack.db: jack-"), "{r}");
         let mut left: Vec<_> = std::fs::read_dir(d.path())
             .unwrap()
@@ -152,7 +141,6 @@ mod tests {
             &entry,
             &found,
             &archive(&d),
-            &store,
             Some(dest.to_str().unwrap()),
         )
         .unwrap();
@@ -161,33 +149,5 @@ mod tests {
         let h2 = Handoff::read_json(std::fs::File::open(&emitted).unwrap()).unwrap();
         assert_eq!(h, h2);
         assert_eq!(a.counts().unwrap(), (1, 1), "the re-run did not duplicate");
-    }
-
-    #[test]
-    fn unreachable_daniel_is_a_note_not_a_loss() {
-        let d = tempfile::tempdir().unwrap();
-        let media = d.path().join("a.mkv");
-        std::fs::write(&media, b"x").unwrap();
-        let store = StoreCfg {
-            enabled: true,
-            database: d.path().to_string_lossy().into_owned(), // a folder, not a database
-            busy_timeout_secs: 1,
-            ..Default::default()
-        };
-        let r = hand_over(
-            &media,
-            &meta(&[("title", "A")]),
-            &[],
-            &archive(&d),
-            &store,
-            None,
-        )
-        .unwrap();
-        assert!(r.contains("kept in jack.db"), "{r}");
-        assert!(!d.path().join("a.mkv.jack.json").exists());
-        assert_eq!(
-            Archive::open(&archive(&d)).unwrap().counts().unwrap(),
-            (1, 1)
-        );
     }
 }

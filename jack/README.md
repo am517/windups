@@ -85,12 +85,14 @@ with a warning.
 
 `--ask-art` fetches the full image lists (TMDB posters/backdrops/season posters/stills in your language, the original language and untagged; TheTVDB artworks; the OMDb poster), orders them by art style, `[merge]` provider preference, language and resolution, and downloads up to `ask_art_max` into a folder named after the media file (e.g. `Evolution.2001/01.jpg`, `02.jpg`, ...), lists them on stderr (provider, kind, language, width x height), opens the folder (default on macOS only; `ask_art_open_folder`), and asks which to embed: a number, Enter for #1, or `s` to skip. Without a terminal it uses #1. The folder is deleted afterwards unless `-d` or `ask_art_keep = true`. Save as default with `--set --ask-art`; undo with `--no-ask-art`.
 
-### Handoff JSON (Daniel)
+### Records, sync and the universal commands
 
 Jack's folder holds three things: the `jack` binary, his own database `jack.db`, and his config file. Every record Jack makes is written to `jack.db` first, as handoff JSON v1 (`"v": 1`; see `../windups/schema/handoff_v1.md`) under a stable id; that is his archive and source of truth. `[archive] database` in `config/jack.toml` moves it (empty = beside the config file).
 
-- Each record carries `synced_at`: empty until Walter acknowledges his copy. At the end of a run Jack sends Walter everything he doesn't have yet, and marks a record synced only after the ack, so a retry is safe. Jack keeps his records after syncing (the duplication is on purpose). Walter has no receive side yet, so for now records wait in `jack.db` and the run report says how many.
-- With `[store] enabled`, Jack also hands each entry to Daniel in-process (`daniel::Store::accept`). If media.db can't be opened, that is a note in the report, not a loss: the record is in `jack.db`. No `<file>.jack.json` is written beside the media any more (`[store] handoff_json` and `fallback_suffix` are ignored).
+- Each record carries `synced_at`: empty until the sync target acknowledges it. At the end of every run Jack syncs to Daniel, the record keeper (`[archive] sync_target = "daniel"`, a library call: `daniel::receive`), in batches with one result per record; a record is marked synced only after its ack, so a retry is safe. Jack keeps his records after syncing (on purpose). If media.db can't be opened, records just wait in `jack.db`. `sync_target = "none"` (or `[store] enabled = false`) keeps them local. No `<file>.jack.json` is written beside the media (`[store] handoff_json` and `fallback_suffix` are ignored).
+- `[archive] id`: `content` (default; an identical re-run is the same record) or `per_run`.
+- Universal commands (see `../windups/COMMANDS.md`): `jack status|health|sync|backup|export [-|DIR]|version|config|log [N]|help|talk WORDS...`, plus Jack's own `tag PATH...`. A real file or folder with one of those names is still treated as a path. `jack export` writes every record (JSONL); `--emit-json` stays for one run's entries.
+- Jack's folder: see `../windups/LAYOUT.md` (`--config` > `JACK_HOME` > the binary's folder > `~/.config/windups/jack/`).
 - `--emit-json -` writes one JSON object per entry to stdout (the run report goes to stderr, so this can be piped). `--emit-json DIR` writes `<filename>.jack.json` into that directory.
 - Do not combine `--emit-json -` with `--print` if you need a clean JSON stream.
 

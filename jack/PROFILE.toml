@@ -5,12 +5,14 @@ name = "jack"
 role = "metadata"
 summary = "Jack is the boss of all metadata. He reads a media file's own label first, looks it up in online databases, keeps everything he finds, and acts only on sure decisions."
 purpose = "Know what every media file is, from the file's own facts and online sources, without ever guessing."
+personality = "Curious"
+personality_status = "proposed"  # set = chosen by Adam; proposed = a draft for Adam to choose
 status = "active"
 kinds = ["movie", "episode", "online_video"]
 later_kinds = ["book", "document"]
 sources = ["embedded", "tmdb", "thetvdb", "omdb", "tvmaze", "wikidata", "itunes", "youtube", "wikipedia", "yt-dlp info.json"]
 reads = ["media files", "yt-dlp .info.json"]
-writes = ["jack.db (his own archive of every handoff record, with its sync state to Walter)", "media.db (media, candidates, texts, art, ids, ratings, names, conflicts, unresolved, decisions, lifecycle stages and history, full search lists, works and their ids, last_checked; all via the Daniel handoff: Daniel stores, Larry hashes, Ruth builds the reference)", "file tags (fallback until Lauren)", "sorted folders (fallback until Sally)"]
+writes = ["jack.db (his own archive of every handoff record with its sync state, plus the shared event log and snapshot list)", "media.db via sync to Daniel (media, candidates, texts, art, ids, ratings, names, conflicts, unresolved, decisions, lifecycle stages and history, full search lists, works and their ids, last_checked; Daniel stores, Larry hashes, Ruth builds the reference)", "file tags (fallback until Lauren)", "sorted folders (fallback until Sally)"]
 never = ["guess between candidates", "overwrite a source's data", "tag from an unresolved decision", "replace the file's own facts without independent evidence", "silently drop an item", "merge entries on a fingerprint hint"]
 hands_off = ["sammy: any step still ambiguous (parse, lookup, match, refine, conflict) via the Escalation trait; decisions recorded with provenance", "user: needs_flags items (--year, --imdb)"]
 command = "jack [--capabilities] [--tmdb ID | --thetvdb ID | --imdb ID | --youtube ID | --x ID | --name NAME --year YEAR] PATH..."
@@ -32,9 +34,17 @@ check = "every source answer is kept as a candidate, never overwritten"
 test = "jack/src/candidates.rs::whole_lists_kept"
 
 [[success_checks]]
-check = "every record is kept in Jack's own jack.db as handoff JSON v1; with no database nothing is written beside the media"
-test = "jack/src/daniel.rs::no_database_keeps_the_record_in_jack_db_and_writes_no_json"
+check = "every record is kept in Jack's own jack.db as handoff JSON v1; nothing is written beside the media"
+test = "jack/src/handoff.rs::the_record_is_kept_in_jack_db_and_no_json_is_written_beside_the_media"
 
 [[success_checks]]
-check = "a record is marked synced only after Walter acknowledges it; retries never duplicate and Jack keeps his records"
-test = "jack/src/walter.rs::failed_send_leaves_unsynced_and_retry_does_not_duplicate"
+check = "a record is marked synced only after the sync target acknowledges it; retries never duplicate and Jack keeps his records"
+test = "jack/src/sync.rs::failed_send_leaves_unsynced_and_retry_does_not_duplicate"
+
+[[success_checks]]
+check = "Jack's records reach Daniel's catalog by sync, one route, with a result per record"
+test = "jack/src/sync.rs::syncs_into_daniels_catalog_by_library_call"
+
+[[success_checks]]
+check = "Jack answers every universal command (status, health, sync, backup, export, version, config, log, help, talk)"
+test = "jack/src/universal.rs::jack_answers_the_universal_commands_from_his_own_folder"

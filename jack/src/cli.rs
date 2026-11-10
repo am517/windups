@@ -317,7 +317,19 @@ mod tests {
 
     #[test]
     fn main_config_under_windups() {
-        assert_eq!(config::MAIN_CONFIG, ".config/windups/jack/config.toml");
+        use windups::base::layout::{Probe, resolve};
+        let l = resolve(
+            "jack",
+            &Probe {
+                home: Some("/h".into()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            l.config,
+            PathBuf::from("/h/.config/windups/jack/config.toml")
+        );
+        assert_eq!(l.db, PathBuf::from("/h/.config/windups/jack/jack.db"));
     }
 
     #[test]
