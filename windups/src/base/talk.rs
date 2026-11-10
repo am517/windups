@@ -25,7 +25,7 @@ const WORDS: &[(&str, &[&str])] = &[
     ("backup", &["backup", "back up", "snapshot", "save a copy"]),
     ("export", &["export", "dump", "json"]),
     ("version", &["version"]),
-    ("config", &["config", "configuration", "settings", "setup"]),
+    ("config", &["config", "configuration", "settings"]),
     ("log", &["log", "history", "events", "happened", "recent"]),
     ("help", &["help", "commands", "what can you do"]),
     (
@@ -163,6 +163,25 @@ mod tests {
         assert_eq!(
             interpret("stash it", &[], &BTreeMap::new()),
             Intent::Unknown
+        );
+    }
+
+    #[test]
+    fn setup_is_only_a_windups_own_action_not_config() {
+        let setup = [Action {
+            name: "setup",
+            keywords: &["setup", "install"],
+            help: "",
+        }];
+        let none = BTreeMap::new();
+        assert_eq!(
+            interpret("please setup", &setup, &none),
+            Intent::Run(Command::Action("setup".into(), String::new()))
+        );
+        assert_ne!(interpret("setup", &[], &none), Intent::Run(Command::Config));
+        assert_eq!(
+            interpret("show settings", &[], &none),
+            Intent::Run(Command::Config)
         );
     }
 }
