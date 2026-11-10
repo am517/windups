@@ -35,4 +35,4 @@ Unknown versions are rejected. Concatenated objects (JSONL) are allowed on stdin
 | `from` | Who handed it over (e.g. `"jack"`). |
 | `caller` | Who asked for this run, if a windup did (e.g. `"walter"`). `null` if none. The loop guard. |
 
-Jack writes this beside the media as `<file>.jack.json` when there is no database (`[store] handoff_json = "auto"`, default), or always (`"always"`), and can also `--emit-json -` (stdout) or `--emit-json DIR`. Daniel reads it with `daniel ingest <file.json ... | ->` (`accept` is an alias) into `media.db`.
+Jack keeps every handoff in his own `jack.db` (the `records.handoff` column, under a stable `id`) and sends Walter the same object; he no longer writes it beside the media. He can also `--emit-json -` (stdout) or `--emit-json DIR`. Daniel reads it with `daniel ingest <file.json ... | ->` (`accept` is an alias) into `media.db`.

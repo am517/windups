@@ -116,6 +116,7 @@ Ruth, Ben, Rover and Beth sit outside this numbered sequence (Ruth and the stubs
 | Windup config | `~/.config/windups/<name>/config.toml` (`--config` overrides) |
 | Shared settings | `~/.config/windups/windups.toml` (template: config/windups.toml) |
 | Shared database | `~/.local/share/windups/media.db` (schema/) |
+| A windup's own database | one SQLite file in its folder, beside its config (Jack: `jack.db`) |
 | Raw downloads (art, API responses) | `~/.local/share/windups/raw/`, pruned per `raw_max_age_days` |
 
 - Every tweakable is a config value, never hard-coded. Config comments are short and for users.
@@ -135,7 +136,7 @@ Ruth, Ben, Rover and Beth sit outside this numbered sequence (Ruth and the stubs
 - macOS first, Linux supported, Windows not a goal. File/folder names max 255 (characters on macOS, bytes on Linux).
 
 ## Design rules (Adam, 2026-10-28)
-- **Treat each windup like a person.** When the right behavior is unclear, ask what a person would do. Example: with no database reachable, Jack writes a versioned handoff JSON (`schema/handoff_v1.md`, `"v": 1`) next to the media (like jotting a note) — the one allowed exception to "no sidecars". Daniel imports it with `daniel ingest` (alias `accept`) once the database is available.
+- **Treat each windup like a person.** When the right behavior is unclear, ask what a person would do. Example: like a person keeping their own notebook, Jack writes every record into his own `jack.db` first and keeps it after giving Walter a copy; with no database reachable nothing is lost and nothing is jotted beside the media.
 - **Modular.** One file does one thing (within reason); small focused modules.
 
 Naming: traditional American English names for now (Adam, 2026-10-28).
@@ -302,8 +303,8 @@ downgraded). Online videos are never provisional.
 **Architecture.** Jack ONLY fetches and verifies metadata for a file and hands one complete entry
 (`windups::handoff::Handoff`) to Daniel (`windups::handoff::Daniel`). Processing lives elsewhere:
 - **Daniel** stores it (own crate since round 7). The portable form is a versioned JSON file
-  (`schema/handoff_v1.md`); Jack writes `<file>.jack.json` when there is no database (and can
-  `--emit-json`), and `daniel ingest` loads those files into media.db. The in-process `accept`
+  (`schema/handoff_v1.md`); Jack keeps every record in his own `jack.db` (and can
+  `--emit-json`), and `daniel ingest` loads such files into media.db. The in-process `accept`
   path stays. Long term, Jack does not own database writes.
 - **Larry** hashes: exact BLAKE3, `partial` by default (head + tail + size), full later as resources
   permit; and the perceptual fingerprint (still a placeholder). Daniel calls Larry before storing.
@@ -403,8 +404,8 @@ Before going online, Jack checks the DB. On an exact match (by id, or by name pl
 only what's needed. For a related item (same show, channel or podcast), he reuses its shared details
 and records which entry he copied them from. He produces one versioned handoff JSON (`schema/handoff_v1.md`, `"v": 1`) per entry with his best
 guess plus flags (`unresolved`, `ambiguous`) and passes it to Daniel (`daniel ingest`, or in-process
-`accept`). `[store] handoff_json` (`auto` / `always` / `off`) controls the beside-media file
-`<file>.jack.json` (used when there is no DB); `--emit-json -` or `--emit-json DIR` writes the same
+`accept`). Every record is kept first in his own `jack.db` (no beside-media file any more; superseded
+2026-11-09); `--emit-json -` or `--emit-json DIR` writes the same
 JSON to stdout or a directory. He saves good and bad hits and identified entities as-is, uncompleted, and completes only the
 main search. Sources become plugins, and new sources are on hold. Cast/entities wait, and so does the
 embedding model, which gets only a plugin hook until Sammy exists. User corrections and preferences

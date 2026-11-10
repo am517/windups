@@ -352,24 +352,26 @@ replacement = "-"
 
 [store]
 
-# Save everything Jack fetches (chosen result, all candidates, texts, art, genres, ids) into media.db.
+# Also hand everything Jack fetches (chosen result, all candidates, texts, art, genres, ids) to Daniel's media.db.
 enabled = true
 
 # media.db path; empty = the shared windups setting (~/.config/windups/windups.toml, database).
 database = ""
 
-# If media.db can't be opened, a versioned handoff JSON is written beside the media: "<filename><fallback_suffix>".
-# Daniel later reads that file with `daniel ingest` (see windups/schema/handoff_v1.md).
-fallback_suffix = ".jack.json"
-
-# When to write that beside-media file:
-#   auto   = only when the database is disabled or can't be opened (default)
-#   always = write it as well as handing the entry to Daniel in-process
-#   off    = never write the beside-media file
-handoff_json = "auto"
-
 # Seconds to wait for a busy database before giving up.
 busy_timeout_secs = 5
+
+[archive]
+
+# Jack's own database: every record he makes is kept here first, and stays here after Walter has a copy.
+# Empty = jack.db beside this config file (Jack's folder). If media.db can't be opened, the record just waits here.
+database = ""
+
+# Seconds to wait for a busy jack.db before giving up.
+busy_timeout_secs = 5
+
+# Records sent to Walter at a time (smaller = less memory while syncing).
+sync_batch = 32
 
 [embedded]
 # Read the file's own metadata first; it is the truth for facts (not wording) and always kept as

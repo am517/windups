@@ -237,8 +237,15 @@ pub(crate) fn process(
         meta.insert("grouping".into(), g.clone());
     }
     let _ = writeln!(out, "    ids: {}", found_ids(&meta, s));
-    if !dry && (dl || !print) && crate::daniel::needed(&cfg.store, cfg.emit_json.as_deref()) {
-        match crate::daniel::hand_over(path, &meta, &found, &cfg.store, cfg.emit_json.as_deref()) {
+    if !dry && (dl || !print) {
+        match crate::daniel::hand_over(
+            path,
+            &meta,
+            &found,
+            &cfg.archive,
+            &cfg.store,
+            cfg.emit_json.as_deref(),
+        ) {
             Ok(w) => {
                 let _ = writeln!(out, "    {w}");
             }
@@ -415,8 +422,15 @@ fn incomplete(
     m.insert("completeness".into(), "incomplete".into());
     // file purgatory: only the file's own values, kept under a stable id until identified or merged
     m.insert("lifecycle".into(), crate::stage::UNDETERMINED.into());
-    if !Settings::flag(s.dry_run) && crate::daniel::needed(&cfg.store, cfg.emit_json.as_deref()) {
-        match crate::daniel::hand_over(path, &m, &found, &cfg.store, cfg.emit_json.as_deref()) {
+    if !Settings::flag(s.dry_run) {
+        match crate::daniel::hand_over(
+            path,
+            &m,
+            &found,
+            &cfg.archive,
+            &cfg.store,
+            cfg.emit_json.as_deref(),
+        ) {
             Ok(w) => {
                 let _ = writeln!(out, "    kept as incomplete: {w}");
             }

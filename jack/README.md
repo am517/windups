@@ -42,7 +42,7 @@ jack movie.mp4 -p --print-format json > m.json     # JSON array on stdout (repor
 ## Config
 
 - Main config: `~/.config/windups/jack/config.toml` or `--config <path>`; deep-merged over the built-in defaults in `config/jack.toml`, which documents every key.
-- No sidecars: per-file values (`--name`, `--year`, ids, `--grouping`) are flags; jack never reads `<file>.*` files. `-d` output is for you; jack doesn't read it back. Art is a temp file, deleted after embedding (kept beside the file only with `-d`). The one exception is the versioned handoff JSON (`<file>.jack.json`) Jack writes when there is no database, so Daniel can ingest it later.
+- No sidecars: per-file values (`--name`, `--year`, ids, `--grouping`) are flags; jack never reads `<file>.*` files. `-d` output is for you; jack doesn't read it back. Art is a temp file, deleted after embedding (kept beside the file only with `-d`). Jack writes nothing beside the media: every record goes into his own `jack.db` first (see below).
 - Precedence: flags > main config > built-in defaults. `~` is expanded in paths.
 - Tweakable there: extensions, tag tool and paths, provider order, keys and base URLs, per-field merge priority, filename regexes, sort templates, move/copy.
 
@@ -87,14 +87,14 @@ with a warning.
 
 ### Handoff JSON (Daniel)
 
-Jack hands each entry to Daniel in-process (`daniel::Store::accept`). He can also write a versioned handoff JSON (`"v": 1`; see `../windups/schema/handoff_v1.md`):
+Jack's folder holds three things: the `jack` binary, his own database `jack.db`, and his config file. Every record Jack makes is written to `jack.db` first, as handoff JSON v1 (`"v": 1`; see `../windups/schema/handoff_v1.md`) under a stable id; that is his archive and source of truth. `[archive] database` in `config/jack.toml` moves it (empty = beside the config file).
 
-- `[store] handoff_json` in `config/jack.toml`: `auto` (default) writes `<file>.jack.json` beside the media only when the database is disabled or unavailable; `always` writes it as well as calling Daniel; `off` never writes the beside-media file.
+- Each record carries `synced_at`: empty until Walter acknowledges his copy. At the end of a run Jack sends Walter everything he doesn't have yet, and marks a record synced only after the ack, so a retry is safe. Jack keeps his records after syncing (the duplication is on purpose). Walter has no receive side yet, so for now records wait in `jack.db` and the run report says how many.
+- With `[store] enabled`, Jack also hands each entry to Daniel in-process (`daniel::Store::accept`). If media.db can't be opened, that is a note in the report, not a loss: the record is in `jack.db`. No `<file>.jack.json` is written beside the media any more (`[store] handoff_json` and `fallback_suffix` are ignored).
 - `--emit-json -` writes one JSON object per entry to stdout (the run report goes to stderr, so this can be piped). `--emit-json DIR` writes `<filename>.jack.json` into that directory.
 - Do not combine `--emit-json -` with `--print` if you need a clean JSON stream.
 
 ```zsh
-daniel ingest --db ~/.local/share/windups/media.db movie.mkv.jack.json
 jack movie.mkv --emit-json - | daniel ingest --db ~/.local/share/windups/media.db -
 ```
 

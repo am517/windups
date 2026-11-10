@@ -1,8 +1,9 @@
-//! The handoff: Jack only fetches and verifies; one entry per file goes to Daniel, the database
-//! windup (his own crate), with the disagreements Jack found between sources. When there is no
-//! database, or when asked, Jack also writes a versioned handoff JSON (see schema/handoff_v1.md).
+//! The handoff: Jack only fetches and verifies; one entry per file goes into his own archive
+//! (jack.db) and on to Daniel, the database windup (his own crate), with the disagreements Jack
+//! found between sources. `--emit-json` also writes the versioned JSON (see schema/handoff_v1.md).
+use crate::archive::{Archive, ArchiveCfg};
 use crate::meta::Meta;
-use daniel::{HandoffJson, StoreCfg};
+use daniel::StoreCfg;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use windups::handoff::{Daniel, Handoff};
@@ -14,16 +15,14 @@ pub fn set_caller(c: Option<String>) {
     let _ = CALLER.set(c);
 }
 
-/// Whether this run should hand over (in-process, sidecar, or `--emit-json`).
-pub fn needed(store: &StoreCfg, emit_json: Option<&str>) -> bool {
-    store.enabled || emit_json.is_some() || store.handoff_json != HandoffJson::Off
-}
-
-/// Hands one entry for `path` to Daniel and/or writes the versioned JSON.
+/// Hands one entry for `path` over: first into Jack's own archive (jack.db, always), then to
+/// Daniel in-process when `[store] enabled`, and as JSON when `--emit-json` asks. With no database
+/// for Daniel, nothing is lost and nothing is jotted beside the media: the record waits in jack.db.
 pub fn hand_over(
     path: &Path,
     entry: &Meta,
     found: &[(String, Meta)],
+    archive: &ArchiveCfg,
     store: &StoreCfg,
     emit_json: Option<&str>,
 ) -> Result<String, String> {
@@ -41,52 +40,22 @@ pub fn hand_over(
         caller: CALLER.get().cloned().flatten(),
     };
 
-    let mut notes = Vec::new();
+    // the archive comes first: if Jack can't keep his own record, that is a real failure
+    let (id, new) = Archive::open(archive)?.write(&h)?;
+    let mut notes = vec![format!(
+        "jack.db: {id}{}",
+        if new { "" } else { " (already kept)" }
+    )];
     if let Some(dest) = emit_json {
         notes.push(emit(&h, dest, path)?);
     }
-
-    let sidecar = sidecar_path(path, store);
-    let write_now = match store.handoff_json {
-        HandoffJson::Always => true,
-        HandoffJson::Off => false,
-        HandoffJson::Auto => !store.enabled,
-    };
-    if write_now {
-        write_file(&h, &sidecar)?;
-        notes.push(format!("saved {}", sidecar.display()));
-    }
-
     if store.enabled {
         match daniel::Store::new(store).accept(&h) {
             Ok(w) => notes.push(w),
-            Err(e) => {
-                if store.handoff_json == HandoffJson::Auto && !write_now {
-                    write_file(&h, &sidecar)?;
-                    notes.push(format!("no database ({e}); saved {}", sidecar.display()));
-                } else {
-                    return Err(e);
-                }
-            }
+            Err(e) => notes.push(format!("{e}; kept in jack.db")),
         }
     }
-
-    if notes.is_empty() {
-        Ok("handoff: nothing written".into())
-    } else {
-        Ok(notes.join("; "))
-    }
-}
-
-fn sidecar_path(path: &Path, store: &StoreCfg) -> PathBuf {
-    let suffix = if store.fallback_suffix.is_empty() {
-        ".jack.json"
-    } else {
-        store.fallback_suffix.as_str()
-    };
-    let mut s = path.as_os_str().to_owned();
-    s.push(suffix);
-    PathBuf::from(s)
+    Ok(notes.join("; "))
 }
 
 fn write_file(h: &Handoff, path: &Path) -> Result<(), String> {
@@ -134,17 +103,21 @@ mod tests {
             .collect()
     }
 
+    fn archive(d: &tempfile::TempDir) -> ArchiveCfg {
+        ArchiveCfg {
+            database: d.path().join("jack.db").to_string_lossy().into_owned(),
+            ..Default::default()
+        }
+    }
+
     #[test]
-    fn auto_with_no_db_writes_json_that_round_trips() {
+    fn no_database_keeps_the_record_in_jack_db_and_writes_no_json() {
         let d = tempfile::tempdir().unwrap();
         let media = d.path().join("The.Matrix.1999.mkv");
         std::fs::write(&media, b"x").unwrap();
         let store = StoreCfg {
             enabled: false,
-            database: String::new(),
-            fallback_suffix: ".jack.json".into(),
-            busy_timeout_secs: 1,
-            handoff_json: HandoffJson::Auto,
+            ..Default::default()
         };
         let entry = meta(&[
             ("kind", "movie"),
@@ -153,36 +126,68 @@ mod tests {
             ("lifecycle", "unverified"),
         ]);
         let found = vec![("tmdb".into(), meta(&[("title", "The Matrix")]))];
-        let r = hand_over(&media, &entry, &found, &store, None).unwrap();
-        let side = d.path().join("The.Matrix.1999.mkv.jack.json");
-        assert!(r.contains(&side.display().to_string()), "{r}");
-        assert!(!r.contains("database:"), "{r}");
-        let h = Handoff::read_json(std::fs::File::open(&side).unwrap()).unwrap();
+        let r = hand_over(&media, &entry, &found, &archive(&d), &store, None).unwrap();
+        assert!(r.starts_with("jack.db: jack-"), "{r}");
+        let mut left: Vec<_> = std::fs::read_dir(d.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        left.sort();
+        assert_eq!(
+            left,
+            ["The.Matrix.1999.mkv", "jack.db"],
+            "no sidecar, no loose JSON"
+        );
+        let a = Archive::open(&archive(&d)).unwrap();
+        let u = a.unsynced(0, 10).unwrap();
+        let h = Handoff::read_json(u[0].handoff.as_bytes()).unwrap();
         assert_eq!(h.file, media);
         assert_eq!(h.from, "jack");
         assert_eq!(h.entry.get("title").map(String::as_str), Some("The Matrix"));
         assert_eq!(h.candidates[0].0, "tmdb");
-        // also emit into a directory
+        // asked for explicitly, --emit-json DIR still writes the same v1 object
         let dest = d.path().join("out");
-        hand_over(&media, &entry, &found, &store, Some(dest.to_str().unwrap())).unwrap();
+        let r = hand_over(
+            &media,
+            &entry,
+            &found,
+            &archive(&d),
+            &store,
+            Some(dest.to_str().unwrap()),
+        )
+        .unwrap();
+        assert!(r.contains("(already kept)"), "{r}");
         let emitted = dest.join("The.Matrix.1999.mkv.jack.json");
         let h2 = Handoff::read_json(std::fs::File::open(&emitted).unwrap()).unwrap();
         assert_eq!(h, h2);
+        assert_eq!(a.counts().unwrap(), (1, 1), "the re-run did not duplicate");
     }
 
     #[test]
-    fn off_does_not_write_sidecar_when_db_disabled() {
+    fn unreachable_daniel_is_a_note_not_a_loss() {
         let d = tempfile::tempdir().unwrap();
         let media = d.path().join("a.mkv");
         std::fs::write(&media, b"x").unwrap();
         let store = StoreCfg {
-            enabled: false,
-            fallback_suffix: ".jack.json".into(),
-            handoff_json: HandoffJson::Off,
+            enabled: true,
+            database: d.path().to_string_lossy().into_owned(), // a folder, not a database
+            busy_timeout_secs: 1,
             ..Default::default()
         };
-        let r = hand_over(&media, &meta(&[("title", "A")]), &[], &store, None).unwrap();
-        assert!(r.contains("nothing written"), "{r}");
+        let r = hand_over(
+            &media,
+            &meta(&[("title", "A")]),
+            &[],
+            &archive(&d),
+            &store,
+            None,
+        )
+        .unwrap();
+        assert!(r.contains("kept in jack.db"), "{r}");
         assert!(!d.path().join("a.mkv.jack.json").exists());
+        assert_eq!(
+            Archive::open(&archive(&d)).unwrap().counts().unwrap(),
+            (1, 1)
+        );
     }
 }

@@ -1,3 +1,4 @@
+mod archive;
 mod art;
 mod askart;
 mod candidates;
@@ -33,6 +34,7 @@ mod stage;
 mod tagger;
 #[cfg(test)]
 mod testutil;
+mod walter;
 
 use clap::Parser;
 

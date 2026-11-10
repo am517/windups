@@ -10,7 +10,7 @@ kinds = ["movie", "episode", "online_video"]
 later_kinds = ["book", "document"]
 sources = ["embedded", "tmdb", "thetvdb", "omdb", "tvmaze", "wikidata", "itunes", "youtube", "wikipedia", "yt-dlp info.json"]
 reads = ["media files", "yt-dlp .info.json"]
-writes = ["media.db (media, candidates, texts, art, ids, ratings, names, conflicts, unresolved, decisions, lifecycle stages and history, full search lists, works and their ids, last_checked; all via the Daniel handoff: Daniel stores, Larry hashes, Ruth builds the reference)", "file tags (fallback until Lauren)", "sorted folders (fallback until Sally)"]
+writes = ["jack.db (his own archive of every handoff record, with its sync state to Walter)", "media.db (media, candidates, texts, art, ids, ratings, names, conflicts, unresolved, decisions, lifecycle stages and history, full search lists, works and their ids, last_checked; all via the Daniel handoff: Daniel stores, Larry hashes, Ruth builds the reference)", "file tags (fallback until Lauren)", "sorted folders (fallback until Sally)"]
 never = ["guess between candidates", "overwrite a source's data", "tag from an unresolved decision", "replace the file's own facts without independent evidence", "silently drop an item", "merge entries on a fingerprint hint"]
 hands_off = ["sammy: any step still ambiguous (parse, lookup, match, refine, conflict) via the Escalation trait; decisions recorded with provenance", "user: needs_flags items (--year, --imdb)"]
 command = "jack [--capabilities] [--tmdb ID | --thetvdb ID | --imdb ID | --youtube ID | --x ID | --name NAME --year YEAR] PATH..."
@@ -32,5 +32,9 @@ check = "every source answer is kept as a candidate, never overwritten"
 test = "jack/src/candidates.rs::whole_lists_kept"
 
 [[success_checks]]
-check = "with no database, a versioned handoff JSON is written beside the media and round-trips"
-test = "jack/src/daniel.rs::auto_with_no_db_writes_json_that_round_trips"
+check = "every record is kept in Jack's own jack.db as handoff JSON v1; with no database nothing is written beside the media"
+test = "jack/src/daniel.rs::no_database_keeps_the_record_in_jack_db_and_writes_no_json"
+
+[[success_checks]]
+check = "a record is marked synced only after Walter acknowledges it; retries never duplicate and Jack keeps his records"
+test = "jack/src/walter.rs::failed_send_leaves_unsynced_and_retry_does_not_duplicate"

@@ -168,6 +168,8 @@ pub struct Config {
     pub sort: crate::sorter::SortCfg,
     pub naming: crate::sorter::NamingCfg,
     pub store: daniel::StoreCfg,
+    /// Jack's own database (his archive); see archive.rs.
+    pub archive: crate::archive::ArchiveCfg,
     /// `--emit-json`; not a config file key (skipped on load).
     #[serde(skip)]
     pub emit_json: Option<String>,
@@ -224,8 +226,8 @@ pub fn load(explicit: Option<&Path>) -> Result<Config, String> {
         Some(p) => Some(expand(p)),
         None => std::env::var_os("HOME").map(|h| Path::new(&h).join(MAIN_CONFIG)),
     };
-    if let Some(p) = path {
-        match read(&p)? {
+    if let Some(p) = &path {
+        match read(p)? {
             Some(t) => merge(
                 &mut v,
                 toml::from_str(&t).map_err(|e| format!("{}: {e}", p.display()))?,
@@ -250,6 +252,20 @@ pub fn load(explicit: Option<&Path>) -> Result<Config, String> {
         c.store.enabled = false;
     }
     expand_s(&mut c.store.database);
+    expand_s(&mut c.archive.database);
+    // tests never touch a real jack.db unless they point at their own
+    #[cfg(test)]
+    if c.archive.database.is_empty() && explicit.is_none() {
+        c.archive.database = ":memory:".into();
+    }
+    if c.archive.database.is_empty() {
+        c.archive.database = match &path {
+            Some(p) => crate::archive::default_path(p)
+                .to_string_lossy()
+                .into_owned(),
+            None => crate::archive::DB_NAME.into(),
+        };
+    }
     apply_env(&mut c.providers, |n| {
         std::env::var(n).ok().filter(|v| !v.is_empty())
     });
@@ -285,6 +301,30 @@ pub fn has_ext(p: &Path, exts: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn archive_config_loads_with_jack_db_beside_the_config() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("config.toml");
+        std::fs::write(&p, "[archive]\nsync_batch = 5\n").unwrap();
+        let c = load(Some(&p)).unwrap();
+        assert_eq!(c.archive.sync_batch, 5);
+        assert_eq!(c.archive.busy_timeout_secs, 5, "built-in default");
+        assert_eq!(
+            PathBuf::from(&c.archive.database),
+            d.path().join(crate::archive::DB_NAME)
+        );
+        let other = d.path().join("elsewhere.db");
+        std::fs::write(
+            &p,
+            format!("[archive]\ndatabase = {:?}\n", other.to_str().unwrap()),
+        )
+        .unwrap();
+        assert_eq!(
+            PathBuf::from(load(Some(&p)).unwrap().archive.database),
+            other
+        );
+    }
 
     #[test]
     fn config_key_beats_embedded_key() {
