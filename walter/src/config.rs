@@ -18,6 +18,14 @@ pub struct Config {
     /// name -> command line
     pub windups: BTreeMap<String, Vec<String>>,
     pub retry: Retry,
+    pub audit: Audit,
+}
+
+/// `walter audit`: where windup folders live (each `<name>/<name>.db` under a root is audited).
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(default)]
+pub struct Audit {
+    pub roots: Vec<String>,
 }
 
 impl Config {

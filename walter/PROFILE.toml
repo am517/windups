@@ -30,3 +30,7 @@ test = "walter/tests/patrol.rs::nothing_incomplete_is_forgotten"
 [[success_checks]]
 check = "no timers: Walter runs only when called"
 test = "walter/tests/patrol.rs::nothing_incomplete_is_forgotten"
+
+[[success_checks]]
+check = "walter audit reads every windup's database read-only and names the fix for each finding"
+test = "walter/tests/audit.rs::audit_reports_findings_and_fixes_without_writing"

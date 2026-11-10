@@ -1,10 +1,12 @@
 //! Walter, the patrol windup . Nothing incomplete is forgotten:
 //! `pending` only lists (read-only: no patrol, no windups called); `patrol` (or `note`, the same) is a full
 //! patrol: it discovers capabilities, schedules returns, and calls Jack with whatever is due. No system timers: windups call windups.
+pub mod audit;
 pub mod caller;
 pub mod config;
 pub mod discover;
 pub mod patrol;
+pub mod universal;
 
 use std::path::PathBuf;
 

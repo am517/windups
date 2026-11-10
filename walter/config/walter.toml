@@ -16,6 +16,10 @@ undetermined = "new_source"  # nothing to go on yet
 unverified = "julie"         # needs checking against evidence (Julie verifies, asks Sammy if needed)
 incomplete = "new_source"    # or the missing fields
 
+# `walter audit`: every <name>/<name>.db under these folders is read (read-only, never written).
+[audit]
+roots = ["~/windups", "~/.config/windups"]
+
 # The shared core (see windups/CULTURE.md).
 [core]
 # Walter's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.
