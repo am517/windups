@@ -3,15 +3,23 @@
 use crate::archive::{Archive, now};
 use windups::base::sync::{SendError, SyncTarget};
 
-/// The configured target, if any. `[store] enabled = false` also means none.
+/// The configured target and transport, if any. `[store] enabled = false` also means none.
 pub fn connect<'a>(
-    target: &str,
+    a: &crate::archive::ArchiveCfg,
     store: &'a daniel::StoreCfg,
 ) -> Result<Option<Box<dyn SyncTarget + 'a>>, String> {
-    match target {
-        "daniel" if store.enabled => Ok(Some(Box::new(crate::to_daniel::ToDaniel::new(store)))),
-        "daniel" => Ok(None),
-        other => Ok(windups::base::sync::connect(other)?.map(|b| b as Box<dyn SyncTarget>)),
+    match (a.sync_target.as_str(), a.sync_transport.as_str()) {
+        ("daniel", _) if !store.enabled => Ok(None),
+        ("daniel", "library" | "") => Ok(Some(Box::new(crate::to_daniel::ToDaniel::new(store)))),
+        ("daniel", "socket") => Ok(Some(Box::new(
+            windups::base::sync_socket::SocketTarget::new(
+                windups::paths::expand(&a.daniel_socket),
+                std::time::Duration::from_secs(a.socket_timeout_secs.max(1)),
+                a.max_frame_bytes.max(1024),
+            ),
+        ))),
+        ("daniel", t) => Err(format!("sync_transport {t:?} (known: library, socket)")),
+        (other, _) => Ok(windups::base::sync::connect(other)?.map(|b| b as Box<dyn SyncTarget>)),
     }
 }
 
@@ -187,12 +195,23 @@ mod tests {
         let a = open_temp(&d);
         a.write(&handoff("A")).unwrap();
         let off = daniel::StoreCfg::default();
+        let cfg = |t: &str, tr: &str| crate::archive::ArchiveCfg {
+            sync_target: t.into(),
+            sync_transport: tr.into(),
+            ..Default::default()
+        };
         assert!(
-            connect("daniel", &off).unwrap().is_none(),
+            connect(&cfg("daniel", "library"), &off).unwrap().is_none(),
             "[store] enabled = false"
         );
-        assert!(connect("none", &off).unwrap().is_none());
-        assert!(connect("carrier-pigeon", &off).is_err());
+        assert!(connect(&cfg("none", ""), &off).unwrap().is_none());
+        assert!(connect(&cfg("carrier-pigeon", ""), &off).is_err());
+        let on = daniel::StoreCfg {
+            enabled: true,
+            ..Default::default()
+        };
+        assert!(connect(&cfg("daniel", "socket"), &on).unwrap().is_some());
+        assert!(connect(&cfg("daniel", "smoke signals"), &on).is_err());
         let line = report(&a, None, 32);
         assert!(
             line.contains("1 record(s) in jack.db, 1 not yet synced"),
@@ -237,5 +256,54 @@ mod tests {
         let r = sync(&a, &mut crate::to_daniel::ToDaniel::quiet(&gone), 32).unwrap();
         assert!(r.unreachable.unwrap().starts_with("no database"));
         assert_eq!(a.counts().unwrap(), (2, 1));
+    }
+
+    #[test]
+    fn syncs_into_daniels_catalog_over_the_socket_and_resends_safely() {
+        let d = tempfile::tempdir().unwrap();
+        let a = open_temp(&d);
+        let media = d.path().join("Heat.1995.mkv");
+        std::fs::write(&media, b"x").unwrap();
+        let mut h = handoff("Heat");
+        h.file = media;
+        let (id, _) = a.write(&h).unwrap();
+        let sock = d.path().join("daniel.sock");
+        let l = daniel::serve::bind(&sock).unwrap();
+        let db = d.path().join("media.db").to_string_lossy().into_owned();
+        let server = std::thread::spawn(move || {
+            let cfg = daniel::StoreCfg {
+                enabled: true,
+                database: db,
+                busy_timeout_secs: 1,
+                ..Default::default()
+            };
+            let mut s = daniel::Store::new(&cfg);
+            s.config.walter.enabled = false;
+            daniel::serve::serve(&l, &s, 1 << 20, Some(2)).unwrap();
+        });
+        let acfg = crate::archive::ArchiveCfg {
+            sync_transport: "socket".into(),
+            daniel_socket: sock.to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        let on = daniel::StoreCfg {
+            enabled: true,
+            ..Default::default()
+        };
+        let mut t = connect(&acfg, &on).unwrap().unwrap();
+        assert_eq!(sync(&a, t.as_mut(), 32).unwrap().sent, 1);
+        drop(t);
+        // a resend of the same record (as after a lost ack) is acknowledged and adds nothing
+        let rec = a.page(0, 1).unwrap().remove(0).handoff;
+        let mut again = connect(&acfg, &on).unwrap().unwrap();
+        assert_eq!(again.send(&id, &rec), Ok(()));
+        drop(again);
+        server.join().unwrap();
+        let c = windups::db::open(&d.path().join("media.db")).unwrap();
+        let n: i64 = c
+            .query_row("SELECT count(*) FROM files", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
+        assert_eq!(a.counts().unwrap(), (1, 0));
     }
 }

@@ -5,6 +5,8 @@
 //! - `events`: the append-only event log (whole, then compressed batches, then summaries)
 //! - `snapshot`: checked online-backup snapshots and the off-device hook
 //! - `sync`: the generic sync-target trait (per-record results, batch capable)
+//! - `wire` + `sync_socket`: the length-prefixed JSON protocol over a Unix socket, and its client
+//! - `install`: first run makes `~/windups/<name>/` and the `~/.local/bin/<name>` link
 //! - `audit`: read-only checks of any windup's DB (for Walter, the auditor)
 //! - `commands`: the universal commands and their dispatcher; `talk`: plain words to a command
 //! - `personality`: the one-trait personality and its prompt line
@@ -13,12 +15,16 @@ pub mod audit;
 pub mod commands;
 pub mod config;
 pub mod events;
+pub mod install;
 pub mod layout;
 pub mod personality;
 pub mod schema;
 pub mod snapshot;
 pub mod sync;
+#[cfg(unix)]
+pub mod sync_socket;
 pub mod talk;
+pub mod wire;
 
 /// The core's tables, in migration order. A windup appends these to its own list once (and
 /// any later core migrations after them), so every windup DB carries the same core tables.

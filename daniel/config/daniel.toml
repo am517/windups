@@ -17,6 +17,11 @@ new_entry = 3           # an entry Daniel hadn't seen
 stage_change = 2        # an entry moved lifecycle stage
 update = 1              # anything else re-stored
 
+# `daniel serve`: receive synced records over a Unix socket (wire protocol in windups::base::wire).
+[serve]
+socket = "~/windups/daniel/daniel.sock"   # exists only while Daniel is serving
+max_frame_bytes = 16777216                # biggest request accepted (16 MiB)
+
 # The shared core (see windups/CULTURE.md).
 [core]
 # Daniel's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.

@@ -11,6 +11,10 @@ calls = ["larry", "ruth", "walter (optional)"]
 never = ["guess", "overwrite a source's data", "merge entries on a fingerprint hint"]
 
 [[success_checks]]
+check = "synced records arrive over the socket in batches, one result per record, and a resend stores nothing new"
+test = "daniel/src/serve.rs::socket_round_trip_and_an_idempotent_resend"
+
+[[success_checks]]
 check = "every handoff is stored in media.db; a missing database is an error (the sender keeps the record unsynced in its own DB and retries)"
 test = "daniel/src/store.rs::save_errors_when_database_unavailable"
 

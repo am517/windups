@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use windups::handoff::{Daniel, Handoff};
 
 pub fn usage() -> &'static str {
-    "usage: daniel ingest [--db PATH] <file.json ... | ->\n       daniel accept  [--db PATH] <file.json ... | ->\n       daniel --capabilities"
+    "usage: daniel ingest [--db PATH] <file.json ... | ->\n       daniel accept  [--db PATH] <file.json ... | ->\n       daniel serve   [--socket PATH] [--db PATH]\n       daniel --capabilities"
 }
 
 /// Parse CLI args after `ingest`/`accept`. Usage errors are `Err`; per-file failures stay in the report.

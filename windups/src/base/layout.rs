@@ -1,12 +1,12 @@
-//! Where a windup lives. A windup folder holds three things: the binary, one database
-//! (`<name>.db`) and a TOML config (`config.toml`). Paths resolve in this order:
+//! Where a windup lives. A windup folder holds its binary, one database (`<name>.db`), a TOML
+//! config (`config.toml`) and its own `backups/`; a windup is responsible only for its own folder.
+//! Paths resolve in this order:
 //! 1. an explicit `--config PATH` (the folder is that file's folder);
 //! 2. the `<NAME>_HOME` environment variable (e.g. `JACK_HOME`);
 //! 3. the binary's own folder, when it already holds `config.toml` or `<name>.db`;
-//! 4. the legacy split install (`~/.config/windups/<name>/`), so today's .deb keeps working.
-//!
-//! Snapshots go outside the folder (default `~/.local/share/windups/backups/<name>/`) so the
-//! folder stays three things.
+//! 4. `~/windups/<name>/` when it exists;
+//! 5. the legacy split install (`~/.config/windups/<name>/`) when it exists and 4 doesn't;
+//! 6. otherwise `~/windups/<name>/`, the default (first run creates it: see `install`).
 use std::path::{Path, PathBuf};
 
 pub const CONFIG_NAME: &str = "config.toml";
@@ -16,6 +16,8 @@ pub enum Source {
     Explicit,
     Env,
     BinaryFolder,
+    /// `~/windups/<name>/` (existing, or the default for a new windup).
+    Home,
     Legacy,
 }
 
@@ -59,15 +61,15 @@ impl Probe {
 pub fn resolve(name: &str, p: &Probe) -> Layout {
     let db_name = format!("{name}.db");
     let home = p.home.clone().unwrap_or_default();
-    let backups = home.join(".local/share/windups/backups").join(name);
     let at = |dir: PathBuf, config: PathBuf, source| Layout {
         name: name.into(),
         db: dir.join(&db_name),
+        backups: dir.join("backups"),
         dir,
         config,
-        backups: backups.clone(),
         source,
     };
+    let holds = |d: &Path| d.join(CONFIG_NAME).is_file() || d.join(&db_name).is_file();
     if let Some(c) = &p.explicit {
         let dir = c
             .parent()
@@ -79,12 +81,16 @@ pub fn resolve(name: &str, p: &Probe) -> Layout {
         return at(d.clone(), d.join(CONFIG_NAME), Source::Env);
     }
     if let Some(d) = &p.exe_dir {
-        if d.join(CONFIG_NAME).is_file() || d.join(&db_name).is_file() {
+        if holds(d) {
             return at(d.clone(), d.join(CONFIG_NAME), Source::BinaryFolder);
         }
     }
-    let dir = home.join(".config/windups").join(name);
-    at(dir.clone(), dir.join(CONFIG_NAME), Source::Legacy)
+    let own = home.join("windups").join(name);
+    let legacy = home.join(".config/windups").join(name);
+    if !own.is_dir() && holds(&legacy) {
+        return at(legacy.clone(), legacy.join(CONFIG_NAME), Source::Legacy);
+    }
+    at(own.clone(), own.join(CONFIG_NAME), Source::Home)
 }
 
 #[cfg(test)]
@@ -92,29 +98,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn order_explicit_env_binary_folder_legacy() {
+    fn order_explicit_env_binary_folder_home_legacy() {
         let d = tempfile::tempdir().unwrap();
-        let bin = d.path().join("opt/jack");
+        let h = d.path().join("home");
+        let bin = d.path().join("usr/bin");
         std::fs::create_dir_all(&bin).unwrap();
         let mut p = Probe {
             exe_dir: Some(bin.clone()),
-            home: Some(d.path().join("home")),
+            home: Some(h.clone()),
             ..Default::default()
         };
         let l = resolve("jack", &p);
         assert_eq!(
             l.source,
-            Source::Legacy,
-            "an empty binary folder is not a windup folder"
+            Source::Home,
+            "a new windup defaults to ~/windups/<name>/"
         );
-        assert_eq!(
-            l.config,
-            d.path().join("home/.config/windups/jack/config.toml")
-        );
-        assert_eq!(l.db, d.path().join("home/.config/windups/jack/jack.db"));
+        assert_eq!(l.config, h.join("windups/jack/config.toml"));
+        assert_eq!(l.db, h.join("windups/jack/jack.db"));
         assert_eq!(
             l.backups,
-            d.path().join("home/.local/share/windups/backups/jack")
+            h.join("windups/jack/backups"),
+            "backups live in the folder"
+        );
+
+        let legacy = h.join(".config/windups/jack");
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(legacy.join("config.toml"), b"").unwrap();
+        let l = resolve("jack", &p);
+        assert_eq!((l.source, l.db), (Source::Legacy, legacy.join("jack.db")));
+        assert_eq!(l.backups, legacy.join("backups"));
+
+        std::fs::create_dir_all(h.join("windups/jack")).unwrap();
+        assert_eq!(
+            resolve("jack", &p).source,
+            Source::Home,
+            "~/windups wins over ~/.config"
         );
 
         std::fs::write(bin.join("jack.db"), b"").unwrap();
@@ -123,7 +142,6 @@ mod tests {
             (l.source, l.db),
             (Source::BinaryFolder, bin.join("jack.db"))
         );
-        assert_eq!(l.config, bin.join("config.toml"));
 
         p.env_home = Some(d.path().join("elsewhere"));
         let l = resolve("jack", &p);

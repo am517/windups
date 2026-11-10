@@ -40,7 +40,7 @@ pub(crate) struct Cli {
     /// MP4 tag writer: atomicparsley or exiftool
     #[arg(long, value_parser = ["atomicparsley", "exiftool"])]
     pub(crate) mp4_tool: Option<String>,
-    /// Main config file (default: ~/.config/windups/jack/config.toml)
+    /// Main config file (default: ~/windups/jack/config.toml; see windups/LAYOUT.md)
     #[arg(long)]
     pub(crate) config: Option<PathBuf>,
     #[arg(long)]
@@ -325,11 +325,8 @@ mod tests {
                 ..Default::default()
             },
         );
-        assert_eq!(
-            l.config,
-            PathBuf::from("/h/.config/windups/jack/config.toml")
-        );
-        assert_eq!(l.db, PathBuf::from("/h/.config/windups/jack/jack.db"));
+        assert_eq!(l.config, PathBuf::from("/h/windups/jack/config.toml"));
+        assert_eq!(l.db, PathBuf::from("/h/windups/jack/jack.db"));
     }
 
     #[test]

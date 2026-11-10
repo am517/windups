@@ -46,6 +46,9 @@ fn main() {
         std::process::exit(universal::main(&args));
     }
     let mut cli = cli::Cli::parse();
+    if !cli.capabilities {
+        universal::ensure_folder(cli.config.as_deref());
+    }
     crate::handoff::set_caller(cli.caller.clone());
     if cli.capabilities {
         print!("{}", profile::PROFILE);

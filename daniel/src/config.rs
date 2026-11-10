@@ -7,6 +7,14 @@ use std::path::Path;
 pub struct Config {
     pub walter: WalterCfg,
     pub importance: Importance,
+    pub serve: ServeCfg,
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(default)]
+pub struct ServeCfg {
+    pub socket: String,
+    pub max_frame_bytes: usize,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]

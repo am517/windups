@@ -2,6 +2,12 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("--capabilities") => print!("{}", daniel::PROFILE),
+        Some("serve") => {
+            if let Err(e) = daniel::serve::run(&args[1..]) {
+                eprintln!("daniel: {e}");
+                std::process::exit(if e.starts_with("usage:") { 2 } else { 1 });
+            }
+        }
         Some("ingest" | "accept") => match daniel::ingest::run(&args[1..]) {
             Ok((s, 0)) => print!("{s}"),
             Ok((s, n)) => {

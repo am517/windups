@@ -373,9 +373,15 @@ busy_timeout_secs = 5
 # Records sent to the sync target at a time (smaller = less memory while syncing).
 sync_batch = 32
 
-# Who gets copies of Jack's records: "daniel" (the record keeper, by library call) or "none".
+# Who gets copies of Jack's records: "daniel" (the record keeper) or "none".
 # With [store] enabled = false, nothing is synced either. Records always stay in jack.db.
 sync_target = "daniel"
+
+# How Daniel is reached: "library" (an in-process call) or "socket" (a running `daniel serve`).
+sync_transport = "library"
+daniel_socket = "~/windups/daniel/daniel.sock"
+socket_timeout_secs = 30
+max_frame_bytes = 16777216
 
 # Record ids: "content" = an identical re-run is the same record; "per_run" = every run makes new ones.
 id = "content"
@@ -394,7 +400,7 @@ keep_batches = 200
 level = 6
 
 [core.snapshots]
-# Folder for checked snapshots; empty = ~/.local/share/windups/backups/jack/
+# Folder for checked snapshots; empty = backups/ inside Jack's own folder (e.g. ~/windups/jack/backups/)
 dir = ""
 # Snapshots kept (any holding the originals of summarized events are always kept).
 keep = 14

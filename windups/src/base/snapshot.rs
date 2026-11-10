@@ -1,6 +1,8 @@
 //! Checked snapshots of a windup's own database: SQLite's online backup API copies it while it is
 //! in use, then the copy must pass `PRAGMA integrity_check` and match the schema version, or it
-//! is deleted. Off-device copies and watching are for Walter or a later windup: see `OffDevice`.
+//! is deleted. Snapshots live in the windup's own folder (`backups/`): a windup is responsible only
+//! for its own folder. Copies off the device are a future backup windup's job (`OffDevice`, left
+//! unassigned); Walter only flags stale or missing snapshots.
 use rusqlite::{Connection, OptionalExtension, backup::Backup, params};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -19,7 +21,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(default)]
 pub struct SnapshotCfg {
-    /// Folder for snapshots; empty = `~/.local/share/windups/backups/<name>/`.
+    /// Folder for snapshots; empty = `backups/` in the windup's own folder.
     pub dir: String,
     /// Snapshots kept (ones holding the originals of summarized events are always kept).
     pub keep: usize,
@@ -50,7 +52,8 @@ pub struct Snapshot {
     pub pruned: Vec<PathBuf>,
 }
 
-/// Called after every good snapshot. Walter (or a later windup) copies it off the device.
+/// Called after every good snapshot: the hand-off to a future backup windup that copies it off the
+/// device. Unassigned for now (`NoOffDevice`).
 pub trait OffDevice {
     fn taken(&self, s: &Snapshot) -> Result<(), String>;
 }

@@ -47,7 +47,7 @@ impl Jack {
 
 /// Sync to the configured target, then keep the event log within its limits. One report line.
 pub fn sync_with(a: &mut Archive, cfg: &Config) -> String {
-    let line = match crate::sync::connect(&cfg.archive.sync_target, &cfg.store) {
+    let line = match crate::sync::connect(&cfg.archive, &cfg.store) {
         Ok(mut t) => crate::sync::report(a, t.as_deref_mut(), cfg.archive.sync_batch),
         Err(e) => format!("archive: sync skipped ({e})"),
     };
@@ -85,10 +85,13 @@ impl Windup for Jack {
     }
     fn status(&mut self) -> Result<String, String> {
         let (all, left) = self.archive.counts()?;
-        let target = if self.cfg.store.enabled {
-            self.cfg.archive.sync_target.as_str()
+        let a = &self.cfg.archive;
+        let target = if !self.cfg.store.enabled {
+            "none ([store] enabled = false)".to_string()
+        } else if a.sync_target == "daniel" {
+            format!("daniel by {}", a.sync_transport)
         } else {
-            "none ([store] enabled = false)"
+            a.sync_target.clone()
         };
         Ok(format!(
             "records: {all} kept, {left} not yet synced (sync target: {target})\n"
@@ -127,13 +130,28 @@ impl Windup for Jack {
         Ok(format!("exported {n} record(s) to {to}"))
     }
     fn actions(&self) -> Vec<Action> {
-        vec![Action {
-            name: "tag",
-            keywords: &["tag", "label", "identify", "metadata", "fetch"],
-            help: "fetch, verify and tag files (tag PATH...; same as jack PATH...)",
-        }]
+        vec![
+            Action {
+                name: "tag",
+                keywords: &["tag", "label", "identify", "metadata", "fetch"],
+                help: "fetch, verify and tag files (tag PATH...; same as jack PATH...)",
+            },
+            Action {
+                name: "setup",
+                keywords: &["setup", "install", "folder"],
+                help: "make ~/windups/jack/ and the ~/.local/bin/jack link (first run does it too)",
+            },
+        ]
     }
     fn action(&mut self, name: &str, rest: &str) -> Result<String, String> {
+        if name == "setup" {
+            let n = first_run(&self.layout)?;
+            return Ok(if n.is_empty() {
+                "already set up".into()
+            } else {
+                n.join("\n")
+            });
+        }
         if name != "tag" {
             return Err(format!("I don't know how to {name}"));
         }
@@ -154,8 +172,29 @@ impl Windup for Jack {
     }
 }
 
+/// Starter config written into a new ~/windups/jack/ (the full defaults are built in).
+const STARTER_CONFIG: &str = "# Jack's config. Every setting and its default: config/jack.toml in the windups repo\n# (Debian: /usr/share/windups-jack/config.toml.example). Add only what you change.\n";
+
+/// Makes ~/windups/jack/ and ~/.local/bin/jack when this is the default folder (see LAYOUT.md).
+pub fn first_run(l: &Layout) -> Result<Vec<String>, String> {
+    let (Ok(exe), Some(home)) = (std::env::current_exe(), std::env::var_os("HOME")) else {
+        return Ok(vec![]);
+    };
+    let bin = Path::new(&home).join(".local/bin");
+    windups::base::install::first_run(l, &exe, &bin, STARTER_CONFIG)
+}
+
+/// Called once before any run; quiet unless it made something.
+pub fn ensure_folder(config_arg: Option<&Path>) {
+    match first_run(&config::layout(config_arg)) {
+        Ok(n) => n.iter().for_each(|l| eprintln!("jack: {l}")),
+        Err(e) => eprintln!("jack: warning: setup: {e}"),
+    }
+}
+
 pub fn main(args: &[String]) -> i32 {
     let (config_arg, rest) = split_config(args);
+    ensure_folder(config_arg.as_deref());
     let Some(cmd) = commands::parse(&rest) else {
         return 2;
     };

@@ -49,8 +49,14 @@ pub struct ArchiveCfg {
     pub busy_timeout_secs: u64,
     /// Records sent per batch (bounds memory while syncing).
     pub sync_batch: usize,
-    /// Who gets copies: "daniel" (library call) or "none".
+    /// Who gets copies: "daniel" or "none".
     pub sync_target: String,
+    /// How Daniel is reached: "library" (in-process call) or "socket" (`daniel serve`).
+    pub sync_transport: String,
+    /// Daniel's socket for `sync_transport = "socket"`.
+    pub daniel_socket: String,
+    pub socket_timeout_secs: u64,
+    pub max_frame_bytes: usize,
     pub id: IdStrategy,
 }
 
@@ -61,6 +67,10 @@ impl Default for ArchiveCfg {
             busy_timeout_secs: 5,
             sync_batch: 32,
             sync_target: "daniel".into(),
+            sync_transport: "library".into(),
+            daniel_socket: "~/windups/daniel/daniel.sock".into(),
+            socket_timeout_secs: 30,
+            max_frame_bytes: 16 << 20,
             id: IdStrategy::Content,
         }
     }
