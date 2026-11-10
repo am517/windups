@@ -24,9 +24,9 @@ class Jack < Formula
 
   def caveats
     <<~EOS
-      Copy the example config and add your TMDB / TheTVDB / OMDb API keys:
-        mkdir -p ~/.config/windups/jack
-        cp #{opt_pkgshare}/config.toml.example ~/.config/windups/jack/config.toml
+      The first run (or `jack setup`) makes ~/windups/jack/ (config, jack.db, backups/)
+      and links ~/.local/bin/jack. Add your TMDB / TheTVDB / OMDb API keys to
+      ~/windups/jack/config.toml; every setting is in #{opt_pkgshare}/config.toml.example
     EOS
   end
 

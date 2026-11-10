@@ -30,7 +30,7 @@ name = "windups-jack"
 maintainer = "Adam Moore <am517@users.noreply.github.com>"
 copyright = "2026, Adam Moore"
 license-file = ["../LICENSE", "3"]
-extended-description = "Jack, from the windups: reads a media file's own label, looks it up in online databases (TMDB, TheTVDB, OMDb), then tags and sorts movie and TV files."
+extended-description = "Jack, from the windups: reads a media file's own label, looks it up in online databases (TMDB, TheTVDB, OMDb), then tags and sorts movie and TV files. The package ships only the binary; the first run of jack as each user (or `jack setup`) makes ~/windups/jack/ (config, jack.db, backups/) and links ~/.local/bin/jack. Example config: /usr/share/windups-jack/config.toml.example."
 section = "video"
 priority = "optional"
 depends = "libc6 (>= 2.31)"

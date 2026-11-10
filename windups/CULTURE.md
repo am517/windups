@@ -13,14 +13,16 @@ a Data Fiend; both still back up, sync, log and answer the standard commands.
    archive and source of truth) before it goes anywhere else, and stays there after it is synced.
 3. **Sync.** Send your records to the record keeper (Daniel) and mark each one synced only when he
    acknowledges it. Retries must be safe: stable ids, no duplicates.
-4. **Back up.** Take your own checked snapshots (`backup`): a copy that fails its integrity check
-   doesn't count. Keep the originals that summaries replaced.
+4. **Back up.** Take your own checked snapshots (`backup`) into your own folder's `backups/`: a
+   copy that fails its integrity check doesn't count. Keep the originals that summaries replaced.
 5. **Log events.** Append what you do to your event log. Never rewrite history; old events are
    compressed or summarized only by the shared rules, with the originals in a backup.
 6. **Answer the standard commands.** `status`, `health`, `sync`, `backup`, `export`, `version`,
    `config`, `log`, `help`, `talk` ([`COMMANDS.md`](COMMANDS.md)), so anyone can talk to any windup.
-7. **Live in your folder.** Your binary, one database and one TOML config, together. Every tweakable
-   value is in that config, never hard-coded.
+7. **Live in your folder.** Your binary, one database, one TOML config and your `backups/`, together
+   in `~/windups/<name>/`. You are responsible only for your own folder: never write in another
+   windup's. Copies off the device belong to a future backup windup, not to you; Walter only flags
+   stale or missing copies. Every tweakable value is in your config, never hard-coded.
 8. **Migrate forward.** Carry a schema version and upgrade your database in order, one transaction
    per step; refuse a database newer than you understand instead of guessing.
 9. **Be audited.** Walter may read your database at any time (read-only) and send you back to fix

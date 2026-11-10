@@ -24,12 +24,46 @@ fail if a universal command is missing here).
 | Windup | Action | What it does |
 | --- | --- | --- |
 | Jack | `tag` | Fetch, verify and tag files: same as `jack PATH...` (talk words: tag, label, identify, metadata) |
+| Jack | `setup` | Make `~/windups/jack/` and the `~/.local/bin/jack` link (the first run does it too) |
+| Walter | `audit` | Read every windup's DB read-only and print each finding with the fix to run (talk: audit, check on everyone, gaps) |
+| Daniel | `serve` | `daniel serve [--socket PATH] [--db PATH]`: answer sync batches on a Unix socket (below) |
+
+`walter audit` scans `[audit] roots` (default `~/windups`, `~/.config/windups`) for
+`<name>/<name>.db`, opens each read-only and prints:
+
+```text
+audited 3 windup(s): 2 finding(s)
+  jack: 2 record(s) not yet synced -> run: jack sync
+  jack: no backup yet -> run: jack backup
+  all good: larry
+```
+
+He writes only his own `walter.db` (event log); he never fixes another windup's data himself.
+
+## Sync socket protocol (Daniel, `base::wire`)
+
+Unix domain socket (`[serve] socket`, default `~/windups/daniel/daniel.sock`), std only. Each frame
+is a 4-byte big-endian length then that many bytes of UTF-8 JSON; frames over `max_frame_bytes`
+(16 MiB) are refused. Any number of requests per connection, one response each, in order:
+
+```text
+request   {"v":1,"op":"sync","records":[{"id":"<stable id>","record":"<handoff JSON>"}, ...]}
+response  {"v":1,"results":[{"id":"<id>","ok":true,"detail":""}, ...]}   one per record, same order
+          {"v":1,"error":"<why>"}                                          whole batch failed
+```
+
+`ok:false` (with `detail`) is a rejected record; the sender keeps it and leaves it unsynced. An
+`error` response, a timeout or a dropped connection means "unreachable": nothing is marked synced
+and everything is resent later. Daniel's receive is idempotent, so a resend after a lost ack adds
+nothing. Jack picks the transport with `[archive] sync_transport = "library" | "socket"`.
 
 ## Hooks for later
 
 - `talk` helper: `base::talk::Helper` (Flora, or a local model on small devices).
-- Off-device snapshot copies: `base::snapshot::OffDevice` (Walter or a later windup).
-- Sync transport: `base::sync::SyncTarget` (library call to Daniel today; a socket later). Daniel
-  answers per batch with one result per record (`send_batch`).
-- Audit: `base::audit::audit` + `Check` (Walter, the auditor, reads any windup's DB, read-only).
+- Off-device snapshot copies: `base::snapshot::OffDevice`, unassigned: a handoff for a future backup
+  windup. Walter only flags stale or missing copies.
+- Sync transport: `base::sync::SyncTarget`: a library call to Daniel, or `base::sync_socket::SocketTarget`
+  (the protocol above). Daniel answers per batch with one result per record (`send_batch`).
+- Audit: `base::audit::audit` + `Check`, used by `walter audit` (read-only). Walter's regular
+  schedule is not decided yet; for now he audits when asked and when Daniel alerts him.
 - Personality: `base::personality::prompt_line` builds "Your name is X and you are <Trait>. Your job is Y."

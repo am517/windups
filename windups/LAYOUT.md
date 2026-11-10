@@ -9,8 +9,15 @@ A windup folder holds three things, together:
   config.toml     its config, editable by the user or the windup
 ```
 
-Snapshots go outside the folder so it stays three things: `[core.snapshots] dir`, default
-`~/.local/share/windups/backups/<name>/`.
+`  backups/        its checked snapshots (the windup's own copies)
+```
+
+A windup is responsible only for its own folder (decided by Adam, Nov 10, 2026), so its snapshots
+live inside it: `[core.snapshots] dir`, default `<folder>/backups/` (e.g. `~/windups/jack/backups/`).
+Copies off the device are not any current windup's job: the `OffDevice` hook stays unassigned, a
+handoff for a future backup windup. Walter only flags stale or missing copies (`walter audit`).
+
+The default folder is `~/windups/<name>/`, with `~/.local/bin/<name>` a symlink to its binary.
 
 ## How a windup finds its folder (`windups::base::layout`)
 
@@ -18,25 +25,25 @@ Snapshots go outside the folder so it stays three things: `[core.snapshots] dir`
 2. `<NAME>_HOME` (e.g. `JACK_HOME=/srv/jack`).
 3. The binary's own folder, if it already holds `config.toml` or `<name>.db`. `current_exe()`
    follows symlinks on Linux, so `/usr/bin/jack -> /opt/windups/jack/jack` finds `/opt/windups/jack`.
-4. Legacy split install: `~/.config/windups/<name>/` (config and DB there). This keeps today's
-   .deb working unchanged.
+4. `~/windups/<name>/`, if it exists.
+5. Legacy split install: `~/.config/windups/<name>/`, if it holds a config or DB (and
+   `~/windups/<name>/` doesn't exist). Old installs keep working; move the folder to switch.
+6. Otherwise the default, `~/windups/<name>/`, which the first run sets up (below).
 
 Inside the config, `[archive] database` (Jack) can still move the DB.
 
-## Conflict with today's packaging (not changed yet)
+## First run and packaging
 
-The Jack .deb installs the binary to `/usr/bin/jack` and the example config to
-`/usr/share/windups-jack/`; the user's config lives in `~/.config/windups/jack/`. So the binary is
-not in the windup folder, and `/usr/bin` can't hold a per-user DB anyway (root-owned, shared by
-every user). Rule 4 above keeps that install working: the folder is `~/.config/windups/jack/`
-(config + `jack.db`), with the binary on PATH.
+Debian packages must not write into users' home folders (maintainer scripts run as root, once, for
+every user), so a .deb can't make `~/windups/jack/`. The clean equivalent:
 
-**Proposal (needs Adam's OK; no packaging change made):**
-
-- *Per-user install (preferred for phones and small devices):* everything in one user-owned folder,
-  e.g. `~/windups/jack/{jack,jack.db,config.toml}`, with `~/.local/bin/jack` a symlink to it. Fits
-  the rule exactly; Homebrew and a tarball can do this.
-- *System .deb:* install the binary to `/opt/windups/jack/jack` with a `/usr/bin/jack` symlink. A
-  system folder can't hold per-user data, so on first run the windup creates the user's folder
-  (`~/windups/jack/`) and links its binary there, or `JACK_HOME` points at it. Until then rule 4
-  applies.
+- The .deb (and Homebrew) ship only the binary (`/usr/bin/jack`) and the example config
+  (`/usr/share/windups-jack/config.toml.example`).
+- The first run as each user, when rule 6 picked the default folder, makes `~/windups/jack/`, links
+  `~/windups/jack/jack` to the real binary, writes a short starter `config.toml` (the full defaults
+  are built in) and links `~/.local/bin/jack` to `~/windups/jack/jack`
+  (`windups::base::install::first_run`). `jack setup` does the same on demand.
+- It never overwrites anything: an existing file or a link it didn't make is left alone and said so.
+  It does nothing with `--config`, `<NAME>_HOME`, a binary-folder install or a legacy folder.
+- A per-user tarball install is the folder itself: unpack to `~/windups/jack/` and link
+  `~/.local/bin/jack`.

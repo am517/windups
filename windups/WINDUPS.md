@@ -446,3 +446,18 @@ never mapped automatically. Composite labels are data rules, for example
 - **Culture.** Every windup follows [CULTURE.md](CULTURE.md); its personality
   ([NAMES.md](NAMES.md)) is style and priorities, never an exception.
 
+
+## Answers to the core design questions (Adam, 2026-11-10, 12:21 AM ET)
+
+1. **Personalities** stay proposals (except Daniel and Walter, set by Adam).
+2. **Packaging:** per-user `~/windups/<name>/` with `~/.local/bin/<name>` a symlink. A .deb can't
+   write into home folders, so it ships the binary and the first run (or `jack setup`) makes the
+   folder and links ([LAYOUT.md](LAYOUT.md)). `~/windups/<name>/` is the default ahead of the old
+   `~/.config/windups/<name>/` fallback; `--config` and `<NAME>_HOME` still win.
+3. **Own folder only.** Snapshots go in `~/windups/<name>/backups/`. The off-device hook stays
+   unassigned (a future backup windup); Walter only flags stale or missing copies.
+4. **Daniel keeps alerting Walter** after storing records: as Data Fiend he takes every chance to
+   look around. Walter's regular schedule is decided later.
+5. **Built:** Daniel's socket transport (`daniel serve`, length-prefixed JSON,
+   [COMMANDS.md](COMMANDS.md)) behind the sync trait, chosen by Jack's `[archive] sync_transport`
+   (the library call stays), and `walter audit` on the audit hook (read-only, universal commands).
