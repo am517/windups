@@ -60,6 +60,19 @@ pub(crate) fn fetch(
     http: &dyn Http,
     out: &mut String,
 ) -> Result<(Meta, Vec<(String, Meta)>), String> {
+    fetch_from(q, cfg, http, out, &[], None)
+}
+
+/// Like [`fetch`], but starts from `seed` (prior jack.db candidates) and, when `only` is set,
+/// queries just those providers.
+pub(crate) fn fetch_from(
+    q: &Query,
+    cfg: &Config,
+    http: &dyn Http,
+    out: &mut String,
+    seed: &[(String, Meta)],
+    only: Option<&[String]>,
+) -> Result<(Meta, Vec<(String, Meta)>), String> {
     let pc = &cfg.providers;
     let (tc, vc) = provider_cfgs(cfg);
     let tmdb = Tmdb { cfg: tc, http };
@@ -84,8 +97,24 @@ pub(crate) fn fetch(
         cfg: pc.youtube.clone(),
         http,
     };
-    let (mut found, mut errs, mut skipped, mut cands) = (vec![], vec![], vec![], vec![]);
+    let refresh: Vec<String> = only.map(|s| s.to_vec()).unwrap_or_default();
+    let mut found: Vec<(String, Meta)> = seed
+        .iter()
+        .filter(|(n, _)| {
+            only.is_none()
+                || !refresh
+                    .iter()
+                    .any(|s| n == s || n.starts_with(&format!("{s}:")))
+        })
+        .cloned()
+        .collect();
+    let (mut errs, mut skipped, mut cands) = (vec![], vec![], vec![]);
     for name in &cfg.providers.order {
+        if let Some(only) = only {
+            if !only.iter().any(|s| s == name) {
+                continue;
+            }
+        }
         let p: &dyn Provider = match name.as_str() {
             "tmdb" => &tmdb,
             "thetvdb" => &tvdb,

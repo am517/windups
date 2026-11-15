@@ -1,5 +1,6 @@
 mod archive;
 mod art;
+mod ask;
 mod askart;
 mod candidates;
 mod cli;
@@ -15,12 +16,14 @@ mod filemeta;
 mod handoff;
 mod matcher;
 mod meta;
+mod objective;
 mod online;
 mod print;
 mod process;
 mod profile;
 mod providers;
 mod resolver;
+mod reuse;
 mod review;
 mod run;
 mod scan;
@@ -54,14 +57,27 @@ fn main() {
         print!("{}", profile::PROFILE);
         return;
     }
-    if let Err(e) = secrets::resolve_secrets(&mut cli, &mut secrets::read_secret) {
-        eprintln!("jack: {e}");
-        std::process::exit(1);
+    let secret_err = if cli.windup {
+        secrets::resolve_secrets(&mut cli, &mut |_| {
+            Err("cannot prompt in --windup mode; pass the key as --flag=VALUE".into())
+        })
+    } else {
+        secrets::resolve_secrets(&mut cli, &mut secrets::read_secret)
+    };
+    if let Err(e) = secret_err {
+        if cli.windup {
+            println!("{}", windups::base::flags::error_json(&e));
+        } else {
+            eprintln!("jack: {e}");
+        }
+        std::process::exit(2);
     }
     match run::run(&cli, &providers::Ureq) {
         Ok((s, printed, failed)) => {
-            // with --print or --emit-json -, stdout carries only the data; the report goes to stderr
-            if printed.is_empty() && cli.emit_json.as_deref() != Some("-") {
+            if cli.windup {
+                // machine-readable result or failure only
+                print!("{printed}");
+            } else if printed.is_empty() && cli.emit_json.as_deref() != Some("-") {
                 print!("{s}");
             } else {
                 eprint!("{s}");
@@ -72,8 +88,12 @@ fn main() {
             }
         }
         Err(e) => {
-            eprintln!("jack: {e}");
-            std::process::exit(1);
+            if cli.windup {
+                println!("{}", windups::base::flags::error_json(&e));
+            } else {
+                eprintln!("jack: {e}");
+            }
+            std::process::exit(2);
         }
     }
 }

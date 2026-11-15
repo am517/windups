@@ -13,14 +13,18 @@
 //! - `commands`: the universal commands and their dispatcher; `talk`: plain words to a command
 //! - `personality`: the one-trait personality and its prompt line
 //! - `config`: the `[core]` config table and showing a config with secrets hidden
+//! - `relationships`: `[relationships]` in config (assistant, matchmaker, database, llm); lookup and isolation fallbacks
+//! - `flags`: universal `--windup`/`-w` and `--json`/`-j`
 pub mod audit;
 pub mod commands;
 pub mod config;
 pub mod events;
+pub mod flags;
 pub mod install;
 pub mod layout;
 pub mod migrate;
 pub mod personality;
+pub mod relationships;
 pub mod relocate;
 pub mod schema;
 pub mod snapshot;

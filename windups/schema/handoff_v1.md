@@ -33,6 +33,8 @@ Unknown versions are rejected. Concatenated objects (JSONL) are allowed on stdin
 | `candidates` | Every source's answer, kept whole: `[source_name, fields]`. |
 | `conflicts` | Disagreements the handing windup found: `[field, [[source, value], ...]]`. Recorded, not settled. |
 | `from` | Who handed it over (e.g. `"jack"`). |
-| `caller` | Who asked for this run, if a windup did (e.g. `"walter"`). `null` if none. The loop guard. |
+| `caller` | Who asked for this run, if a windup did (a name from `--caller`, e.g. `"flora"`). `null` if none. The loop guard. |
 
 Jack keeps every handoff in his own `jack.db` (the `records.handoff` column, under a stable `id`) and syncs the same object to Daniel (`daniel::receive`); he no longer writes it beside the media. He can also `--emit-json -` (stdout) or `--emit-json DIR`. Daniel reads it with `daniel ingest <file.json ... | ->` (`accept` is an alias) into `media.db`.
+
+Jack's `jack.db` stores the full handoff, including subjective fields (descriptions, posters). The copy he syncs to the database windup is the same object with those fields removed (see `jack/src/objective.rs`). Other windups ask Jack for the rest: `jack ask summaries`, `jack ask images`.

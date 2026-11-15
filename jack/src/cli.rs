@@ -16,9 +16,15 @@ pub(crate) struct Cli {
     /// Print Jack's profile (what he does, reads, writes) and exit
     #[arg(long)]
     pub(crate) capabilities: bool,
-    /// The windup that called this run (e.g. walter); handed to Daniel so he doesn't call it back
-    #[arg(long, value_name = "WINDUP")]
+    /// The windup that called this run (a name, e.g. flora); handed through so the database windup doesn't call it back
+    #[arg(long, value_name = "NAME")]
     pub(crate) caller: Option<String>,
+    /// Called by another windup: no prompts; JSON result or failure on stdout only
+    #[arg(short = 'w', long = "windup")]
+    pub(crate) windup: bool,
+    /// Write the handoff JSON beside the media file (off by default; useful for testing)
+    #[arg(short = 'j', long = "json")]
+    pub(crate) json: bool,
     /// Save the other option flags as defaults in the main config (then run, if paths are given)
     #[arg(long)]
     pub(crate) set: bool,
@@ -209,12 +215,13 @@ mod tests {
     #[test]
     fn type_flags_conflicts_and_set() {
         assert!(Cli::try_parse_from(["jack", "--tv", "--movie", "x"]).is_err());
-        let c = Cli::try_parse_from(["jack", "--caller", "walter", "x"]).unwrap();
+        let c = Cli::try_parse_from(["jack", "--caller", "flora", "-w", "-j", "x"]).unwrap();
         assert_eq!(
             c.caller.as_deref(),
-            Some("walter"),
-            "carried to Daniel (loop guard)"
+            Some("flora"),
+            "loop guard, a name only"
         );
+        assert!(c.windup && c.json);
         assert!(
             run(
                 &cli(&["--type", "movie", "--tv", "x"]),

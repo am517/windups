@@ -23,8 +23,31 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
     } else if cli.paths.is_empty() {
         return Err("no files or directories given (see --help)".into());
     }
-    let mut cfg = config::load(cli.config.as_deref())?;
+    let mut cfg = config::load(cli.config.as_deref()).map_err(|e| e)?;
     cfg.emit_json = cli.emit_json.clone();
+    cfg.windup = cli.windup;
+    cfg.sidecar_json = cli.json;
+    // discover relationships (assistant / matchmaker / database / llm); isolation if nobody answers
+    let found = windups::base::relationships::resolve(
+        cfg.relationships.clone(),
+        &windups::base::relationships::NoDirectory,
+    );
+    cfg.relationships = found.rels;
+    if !cli.windup {
+        for n in &found.notes {
+            if n.contains("no relationships configured") {
+                continue;
+            }
+            pre.push_str(&format!("{n}\n"));
+        }
+    }
+    if !found.changed.is_empty() {
+        if let Some(p) = cli.config.as_deref() {
+            if let Err(e) = config::save_relationships(p, &found.changed) {
+                pre.push_str(&format!("warning: relationships: {e}\n"));
+            }
+        }
+    }
     if let Some(p) = &cli.providers {
         cfg.providers.order = p.clone();
     }
@@ -52,6 +75,9 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
     }
     if let Some(v) = tri(cli.ask_art, cli.no_ask_art) {
         cfg.tagger.ask_art = v;
+    }
+    if cli.windup {
+        cfg.tagger.ask_art = false;
     }
     let (ib, changed) = providers::normalize_image_base(&cfg.providers.tmdb.image_base);
     if changed && !ib.is_empty() {
@@ -103,18 +129,38 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
     let flagged = crate::review::pass(&cfg.review, &crate::review::NoReview, &hk.done, &mut o);
     hk.open.extend(flagged);
     o += &crate::explain::report(&hk.open, hk.ex);
-    // where entries stand: kept, not failed (a failure is something Jack could not do at all)
+    // a file Jack could not identify is a failure (exit 1)
+    let more = crate::explain::MORE_CONTEXT;
+    let mut items = Vec::new();
+    for (file, m) in &hk.done {
+        let unresolved = m.get("resolution").is_some_and(|r| r == "unresolved");
+        if unresolved {
+            failed += 1;
+        }
+        items.push(serde_json::json!({
+            "file": file,
+            "ok": !unresolved,
+            "lifecycle": m.get("lifecycle"),
+            "reason": m.get("unresolved_reason"),
+            "error": if unresolved { serde_json::Value::String(more.into()) } else { serde_json::Value::Null },
+        }));
+    }
+    if cli.windup {
+        let ok = failed == 0;
+        pr.text = windups::base::flags::result_json(ok, &items) + "\n";
+    }
+    // where entries stand
     let mut stages = std::collections::BTreeMap::<&str, usize>::new();
     for (_, m) in &hk.done {
         *stages
             .entry(m.get("lifecycle").map_or("unknown", |s| s.as_str()))
             .or_default() += 1;
     }
-    if !stages.is_empty() {
+    if !cli.windup && !stages.is_empty() {
         let l: Vec<String> = stages.iter().map(|(k, v)| format!("{v} {k}")).collect();
         let _ = writeln!(o, "entries: {}; failed: {failed}", l.join(", "));
     }
-    if !pr.json.is_empty() {
+    if !cli.windup && !pr.json.is_empty() {
         pr.text += &(serde_json::to_string_pretty(&pr.json).map_err(|e| e.to_string())? + "\n");
     }
     Ok((o, pr.text, failed))
@@ -184,7 +230,7 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let db = d.path().join("media.db");
         let cfg = d.path().join("c.toml");
-        fs::write(&cfg, format!("[providers]\norder = [\"tmdb\"]\n[providers.tmdb]\nread_token = \"t\"\nbase_url = \"http://t\"\n[store]\nenabled = true\ndatabase = {:?}\n", db.to_str().unwrap())).unwrap();
+        fs::write(&cfg, format!("[relationships]\ndatabase = \"daniel\"\n[providers]\norder = [\"tmdb\"]\n[providers.tmdb]\nread_token = \"t\"\nbase_url = \"http://t\"\n[store]\nenabled = true\ndatabase = {:?}\n", db.to_str().unwrap())).unwrap();
         for f in ["The.Office.S01E01.mkv", "Nothing.Like.It.S01E01.mkv"] {
             fs::write(d.path().join(f), "x").unwrap();
         }
@@ -208,18 +254,14 @@ mod tests {
             &h,
         )
         .unwrap();
-        assert_eq!(failed, 0, "incomplete is not failed: {out}");
+        assert_eq!(failed, 2, "unresolved counts as failure: {out}");
         assert!(
-            out.contains("entries: 1 not_identified, 1 undetermined; failed: 0"),
+            out.contains("entries: 1 not_identified, 1 undetermined; failed: 2"),
             "{out}"
         );
         assert!(out.contains("2 item(s) need attention"), "{out}");
         assert!(
-            out.contains("More than one exact match") && out.contains("--year"),
-            "{out}"
-        );
-        assert!(
-            out.contains("No source knows it") && out.contains("kept as incomplete"),
+            out.contains("couldn't figure it out") && out.contains("--year"),
             "{out}"
         );
         let c = rusqlite::Connection::open(&db).unwrap();
@@ -290,7 +332,14 @@ mod tests {
             ),
             ("/p.jpg", json!(null)),
         ]);
-        let c = cli(&[m.to_str().unwrap(), "--config", cfg.to_str().unwrap(), "-d"]);
+        let c = cli(&[
+            m.to_str().unwrap(),
+            "--config",
+            cfg.to_str().unwrap(),
+            "-d",
+            "--tmdb",
+            "603",
+        ]);
         let (out, _, failed) = run(&c, &h).unwrap();
         assert_eq!(failed, 0, "{out}");
         let meta = meta::load(&d.path().join("The Matrix (1999).mp4.meta.json")).unwrap();
@@ -332,7 +381,7 @@ mod tests {
         };
         let before = listing();
         // text, print only: nothing written, media untouched
-        let (_, p, failed) = run(&cli(&["--config", cs, "-p", ms]), &h()).unwrap();
+        let (_, p, failed) = run(&cli(&["--config", cs, "-p", "--tmdb", "603", ms]), &h()).unwrap();
         assert_eq!(failed, 0);
         assert!(
             p.starts_with(ms)
@@ -347,7 +396,16 @@ mod tests {
         assert_eq!(fs::read(&m).unwrap(), b"x");
         // json is clean stdout
         let (_, p, _) = run(
-            &cli(&["--config", cs, "--print", "--print-format", "json", ms]),
+            &cli(&[
+                "--config",
+                cs,
+                "--print",
+                "--print-format",
+                "json",
+                "--tmdb",
+                "603",
+                ms,
+            ]),
             &h(),
         )
         .unwrap();
@@ -356,7 +414,11 @@ mod tests {
         assert_eq!(v[0]["metadata"]["year"], "1999");
         assert_eq!(listing(), before);
         // -d + --print: both
-        let (_, p, _) = run(&cli(&["--config", cs, "-d", "-p", ms]), &h()).unwrap();
+        let (_, p, _) = run(
+            &cli(&["--config", cs, "-d", "-p", "--tmdb", "603", ms]),
+            &h(),
+        )
+        .unwrap();
         assert!(p.contains("title: The Matrix"));
         assert_eq!(
             meta::load(&d.path().join("The Matrix (1999).mp4.meta.json")).unwrap()["title"],
@@ -375,7 +437,7 @@ mod tests {
             t.contains("print = true") && t.contains("print_format = \"json\""),
             "{t}"
         );
-        let (_, p, _) = run(&cli(&["--config", cs, ms]), &h()).unwrap();
+        let (_, p, _) = run(&cli(&["--config", cs, "--tmdb", "603", ms]), &h()).unwrap();
         assert!(
             serde_json::from_str::<serde_json::Value>(&p)
                 .unwrap()
@@ -501,6 +563,114 @@ mod tests {
                 "/out/The Apothecary Diaries (2023)/Season 3/薬屋のひとりごと S03E01 - 蝗害.mp4"
             ),
             "{out}"
+        );
+    }
+
+    #[test]
+    fn windup_mode_prints_json_only_and_unresolved_counts_as_failure() {
+        use serde_json::json;
+        let d = tempfile::tempdir().unwrap();
+        let cfg = d.path().join("c.toml");
+        fs::write(&cfg, "[store]\nenabled = false\n[providers]\norder = [\"tmdb\"]\n[providers.tmdb]\nread_token = \"t\"\nbase_url = \"http://t\"\n").unwrap();
+        let m = d.path().join("The.Office.mkv");
+        fs::write(&m, "x").unwrap();
+        let h = providers::fake::FakeHttp::new(vec![(
+            "/search/tv",
+            json!({"results":[
+                {"id":1,"name":"The Office","first_air_date":"2005-03-24"},
+                {"id":2,"name":"The Office","first_air_date":"2001-07-09"}
+            ]}),
+        )]);
+        let mut c = cli(&[
+            m.to_str().unwrap(),
+            "--config",
+            cfg.to_str().unwrap(),
+            "--dry-run",
+            "--windup",
+        ]);
+        let (out, printed, failed) = run(&c, &h).unwrap();
+        assert!(failed >= 1, "unresolved is a failure: {out}");
+        let v: serde_json::Value = serde_json::from_str(printed.trim()).unwrap();
+        assert_eq!(v["v"], 1);
+        assert_eq!(v["ok"], false);
+        assert!(
+            v["items"][0]["error"]
+                .as_str()
+                .unwrap()
+                .contains("couldn't figure it out"),
+            "{printed}"
+        );
+        assert!(
+            !printed.contains("media file"),
+            "human report is not on the machine stream: {printed}"
+        );
+        // human report still built (for tests) but --windup main() suppresses it
+        assert!(out.contains("media file"), "{out}");
+
+        // usage error stays an Err (exit 2)
+        c.paths.clear();
+        c.windup = true;
+        assert!(run(&c, &h).is_err());
+    }
+
+    #[test]
+    fn json_sidecar_and_db_first_skip() {
+        use serde_json::json;
+        let d = tempfile::tempdir().unwrap();
+        let cfgp = d.path().join("c.toml");
+        fs::write(&cfgp, "[store]\nenabled = false\n[providers]\norder = [\"tmdb\"]\n[providers.tmdb]\nread_token = \"t\"\nbase_url = \"http://t\"\nimage_base = \"http://img\"\n").unwrap();
+        let m = d.path().join("The.Matrix.1999.mkv");
+        fs::write(&m, "x").unwrap();
+        let h = providers::fake::FakeHttp::new(vec![
+            (
+                "/movie/603",
+                json!({"title":"The Matrix","release_date":"1999-03-30","imdb_id":"tt0133093","poster_path":"/p.jpg"}),
+            ),
+            ("/p.jpg", json!(null)),
+        ]);
+        let args = |extra: &[&str]| {
+            let mut v = vec![
+                m.to_str().unwrap(),
+                "--config",
+                cfgp.to_str().unwrap(),
+                "--tmdb",
+                "603",
+                "--dry-run",
+            ];
+            v.extend(extra);
+            cli(&v)
+        };
+        let (out, _, failed) = run(&args(&["--json"]), &h).unwrap();
+        // dry-run does not write the sidecar or jack.db
+        assert_eq!(failed, 0, "{out}");
+        assert!(!d.path().join("The.Matrix.1999.mkv.jack.json").exists());
+
+        let h = providers::fake::FakeHttp::new(vec![
+            (
+                "/movie/603",
+                json!({"title":"The Matrix","release_date":"1999-03-30","imdb_id":"tt0133093","poster_path":"/p.jpg"}),
+            ),
+            ("/p.jpg", json!(null)),
+        ]);
+        let (out, _, failed) = run(&args(&["--json", "--no-dry-run", "-d"]), &h).unwrap();
+        assert_eq!(failed, 0, "{out}");
+        let side = d.path().join("The.Matrix.1999.mkv.jack.json");
+        assert!(side.exists(), "sidecar: {out}");
+        let js = fs::read_to_string(&side).unwrap();
+        assert!(js.contains("The Matrix") && js.contains("\"v\":1"), "{js}");
+
+        // second run: no HTTP needed when the record is complete
+        let quiet = providers::fake::FakeHttp::new(vec![]);
+        let (out, _, failed) = run(&args(&["--no-dry-run", "-d"]), &quiet).unwrap();
+        assert_eq!(failed, 0, "{out}");
+        assert!(
+            out.contains("search skipped") || out.contains("already in jack.db"),
+            "{out}"
+        );
+        assert!(
+            quiet.calls.borrow().is_empty(),
+            "no network: {:?}",
+            quiet.calls.borrow()
         );
     }
 }

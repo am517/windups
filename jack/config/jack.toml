@@ -352,7 +352,8 @@ replacement = "-"
 
 [store]
 
-# Daniel's catalog (media.db): Jack's records reach it by sync ([archive] sync_target = "daniel").
+# The shared catalog (media.db): Jack's objective records reach it by sync, once
+# [relationships] database is set (or a legacy [archive] sync_target is still present).
 enabled = true
 
 # media.db path; empty = the shared windups setting (~/.config/windups/windups.toml, database).
@@ -361,10 +362,22 @@ database = ""
 # Seconds to wait for a busy database before giving up.
 busy_timeout_secs = 5
 
+# Names of other windups this one knows. All optional and empty by default; nothing is
+# hardcoded. Flora writes assistant on install; Jack asks the assistant for the matchmaker,
+# then the matchmaker for database and llm, and saves what he learns. If nobody can be
+# reached he proceeds alone.
+[relationships]
+assistant = ""
+matchmaker = ""
+database = ""
+llm = ""
+
 [archive]
 
-# Jack's own database: every record he makes is kept here first, and stays here after Walter has a copy.
-# Empty = jack.db beside this config file (Jack's folder). If Daniel can't be reached, the record just waits here.
+# Jack's own database: every record he makes is kept here first (all data, including summaries
+# and images), and stays here after the database windup has a copy of the objective facts.
+# Empty = jack.db beside this config file (Jack's folder). If the database windup can't be reached,
+# the record just waits here.
 database = ""
 
 # Seconds to wait for a busy jack.db before giving up.
@@ -373,11 +386,12 @@ busy_timeout_secs = 5
 # Records sent to the sync target at a time (smaller = less memory while syncing).
 sync_batch = 32
 
-# Who gets copies of Jack's records: "daniel" (the record keeper) or "none".
+# Legacy: who gets copies. Prefer [relationships] database. Empty or "none" = no target.
 # With [store] enabled = false, nothing is synced either. Records always stay in jack.db.
-sync_target = "daniel"
+sync_target = ""
 
-# How Daniel is reached: "library" (an in-process call) or "socket" (a running `daniel serve`).
+# How the database windup is reached: "library" (in-process catalog receive) or "socket"
+# (a running `daniel serve`, or later any windup that speaks the same protocol).
 sync_transport = "library"
 daniel_socket = "~/windups/daniel/daniel.sock"
 socket_timeout_secs = 30
@@ -453,16 +467,17 @@ crossover_keys = ["show", "tmdb_series_id", "thetvdb_series_id", "imdb_id", "gen
 # What Jack tells you about each item he could not settle (per item, and again at the end of the
 # run). Static templates, one per unresolved reason; placeholders {file}, {reason}, {detail}.
 # Sammy (an LLM windup) can replace these with thoughtful explanations later.
-fallback = "{reason}: {detail}"
+fallback = "I couldn't figure it out. Please give more context, for example --year or an id (--imdb, --tmdb, or --thetvdb). ({reason})"
 
 [explain.templates]
 review_flag = "{file}: the reviewer flagged {detail}. Check it and fix with flags if needed."
-no_match = "No source knows it: {detail}. Check the name, or give --name with --year, or an id (--imdb tt...)."
-ambiguous = "More than one exact match: {detail}. Give --year, or an id (--imdb tt... / --tmdb ...)."
-needs_flags = "Not enough to be sure: {detail}. Give --year or --imdb tt... to say which one is meant."
+no_match = "I couldn't figure it out: no source has an exact match. Please give more context, for example --name with --year, or an id (--imdb, --tmdb, or --thetvdb)."
+ambiguous = "I couldn't figure it out: more than one work matches. Please give more context, for example --year or an id (--imdb, --tmdb, or --thetvdb)."
+needs_flags = "I couldn't figure it out: I don't have enough to be sure of a single match. Please give more context, for example --year or an id (--imdb, --tmdb, or --thetvdb)."
+needs_judgment = "Sources agree this is the same work, but their names or dates differ. I need the LLM windup (if configured) or more context, for example --year or an id. Left incomplete."
 source_error = "A source failed: {detail}. Jack will retry on a later run (network or quota)."
 conflict = "Sources disagree: {detail}. Kept the file's own values; recorded for review."
-needs_llm_windup = "Needs judgement: {detail}. Kept for Sammy (LLM windup) or for you to decide."
+needs_llm_windup = "Needs judgement. Kept for the LLM windup (if configured) or for you to decide with more context (--year or an id)."
 
 [review]
 # Optional post-run review pass (needs Sammy; skipped while none runs). One field at a time across all
@@ -484,14 +499,14 @@ show = ["year", "kind"]
 default_required = ["title"]
 
 [completeness.required]
-movie = ["title", "year", "genre", "poster_url", "description"]
-episode = ["show", "season", "episode", "episode_title", "description"]
-show = ["show", "year", "description"]
-online_video = ["title", "channel", "date", "description"]
+movie = ["title", "year"]
+episode = ["show", "season", "episode", "episode_title"]
+show = ["show", "year"]
+online_video = ["title", "channel", "date"]
 
 [completeness.optional]
-movie = ["cast", "director", "runtime"]
-episode = ["cast", "air_date", "runtime"]
-show = ["cast", "network"]
-online_video = ["duration", "thumbnail_url"]
+movie = ["genre", "cast", "director", "runtime", "description", "poster_url"]
+episode = ["cast", "air_date", "runtime", "description"]
+show = ["cast", "network", "description"]
+online_video = ["duration", "thumbnail_url", "description"]
 

@@ -461,3 +461,26 @@ never mapped automatically. Composite labels are data rules, for example
 5. **Built:** Daniel's socket transport (`daniel serve`, length-prefixed JSON,
    [COMMANDS.md](COMMANDS.md)) behind the sync trait, chosen by Jack's `[archive] sync_transport`
    (the library call stays), and `walter audit` on the audit hook (read-only, universal commands).
+
+## Relationships, isolation, and Jack's single match (Adam, 2026-11-15)
+
+- **Relationships live only in config**, never hardcoded. A `[relationships]` table holds optional
+  names: `assistant`, `matchmaker`, `database`, `llm` (for example Flora, Oliver, Daniel, Sammy).
+  Flora writes `assistant` when she installs a windup (not built yet). On startup, if the matchmaker
+  is unknown, a windup asks the assistant; it asks the matchmaker for the database and llm windups,
+  and saves what it learns. On contact failure: ask the matchmaker again, then the assistant, then
+  proceed in isolation with sane human fallbacks. Every windup can run alone.
+- **Universal flags** (shared core, [COMMANDS.md](COMMANDS.md)): `--windup` / `-w` means no
+  interaction and JSON only on stdout; `-j` / `--json` also writes that JSON next to the media file
+  (off by default). Exit codes stay 0 all OK, 1 some items failed or unresolved, 2 usage or config
+  error.
+- **Jack.** A single match is exactly one identity that agrees across more than one source (or the
+  user already gave an id or `--name` with `--year`). If sources disagree on objective facts (name
+  or date) for that same identity, Jack asks the LLM windup when `relationships.llm` is set, otherwise
+  he archives the record and marks it incomplete. If he cannot settle on one match he exits with a
+  clear explanation and asks for more context (`--year` or an id); he does not offer candidate lists
+  (choosing is his job). Candidates may stay in `jack.db`. He checks `jack.db` before searching, and
+  only searches to fill missing objective data or missing sources. He stores all data (summaries,
+  images, …) in `jack.db`; the record passed to the database windup contains only objective facts.
+  Other windups ask him directly (`jack ask summaries`, `jack ask images`) for subjective data.
+  Completeness no longer requires a poster or description for submission.

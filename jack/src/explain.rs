@@ -1,8 +1,12 @@
 //! Telling the user about each item Jack could not settle: why, and what would help.
+//! He does not offer candidate lists; choosing is his job.
 //! Without an LLM: static templates from [explain] in jack.toml. Sammy can implement
 //! `Explainer` later for thoughtful explanations.
 use serde::Deserialize;
 use std::collections::BTreeMap;
+
+/// The line Jack exits with when he could not settle on a single match.
+pub const MORE_CONTEXT: &str = "I couldn't figure it out. Please give more context, for example --year or an id (--imdb, --tmdb, or --thetvdb).";
 
 /// One unsettled item.
 #[derive(Debug, Clone, PartialEq)]
@@ -89,7 +93,7 @@ mod tests {
         };
         let e = Templates(&cfg).explain(&i);
         assert!(
-            e.contains("could be The Office (2005)") && e.contains("--year"),
+            e.contains("couldn't figure it out") && e.contains("--year"),
             "{e}"
         );
         let odd = Item {

@@ -9,11 +9,12 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - [x] Shared `windups` crate: settings, paths, open/migrate media.db (user_version), raw pruning
 - [x] Jack hands each entry to Daniel (`windups::handoff`); Daniel writes media.db (in-process). Long term, Jack does not own DB writes.
 - [x] Shared core `windups::base` (2026-11-10): universal commands + talk, event log, checked snapshots, migrations, layout, sync trait, audit, personalities; Jack on it; Jack syncs to Daniel (one route); CULTURE.md
-- [x] Jack per-windup database (2026-11-09): every record in `jack.db` (handoff JSON v1, stable id, `synced_at`); sync to Walter behind a trait (Walter has no receive side yet); beside-media JSON removed
+- [x] Jack per-windup database (2026-11-09): every record in `jack.db` (handoff JSON v1, stable id, `synced_at`); sync to the database windup named in config (`[relationships] database`, formerly `[archive] sync_target`); beside-media JSON is off by default (`-j` / `--json` writes a testing sidecar)
 - [x] Versioned handoff JSON (`schema/handoff_v1.md`, `"v": 1`): Jack writes `<file>.jack.json` when there is no DB (`[store] handoff_json = "auto"|"always"|"off"`) and can `--emit-json <-|dir>`; `daniel ingest` (alias `accept`) loads it into media.db without duplicating rows
 - [ ] Jack: new free sources in order: Wikidata (groupings, cross-ids), TVmaze, iTunes art, YouTube trailers; Wikipedia text as a description fallback (sources-as-plugins is on hold)
 - [ ] Jack: cast/crew and studios into entities
 - [x] Jack: `--capabilities` (prints PROFILE.toml)
+- [x] Jack completion (2026-11-15): relationships only in config (never hardcoded); single match = one identity agreed across sources (name/date variations need the LLM windup if configured, else incomplete); no candidate lists to callers; objective-only payload to Daniel; `jack ask summaries|images` for subjective data; check `jack.db` before searching; universal `--windup`/`-w` and `-j`/`--json`; exit 0/1/2 (unresolved = failure)
 - [ ] Jack: registry entry and task ledger in media.db
 - [x] Schema v2: unresolved (reason, time/resource, last_checked), source_names + display names, conflicts, embeddings, windups profiles
 - [x] Vectors: f32 BLOB storage + brute-force cosine search + `Embedder` trait (shared crate, no heavy deps)

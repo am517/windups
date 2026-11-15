@@ -167,11 +167,19 @@ pub struct Config {
     pub store: daniel::StoreCfg,
     /// Jack's own database (his archive); see archive.rs.
     pub archive: crate::archive::ArchiveCfg,
+    /// Who this windup knows. Names only, never hardcoded defaults.
+    pub relationships: windups::base::relationships::Relationships,
     /// The shared core: event log limits, snapshots, talk synonyms (`[core]`).
     pub core: windups::base::config::BaseCfg,
     /// `--emit-json`; not a config file key (skipped on load).
     #[serde(skip)]
     pub emit_json: Option<String>,
+    /// `--windup` / `-w`; not a config file key.
+    #[serde(skip)]
+    pub windup: bool,
+    /// `-j` / `--json` sidecar beside the media; not a config file key.
+    #[serde(skip)]
+    pub sidecar_json: bool,
     pub online: crate::online::OnlineCfg,
     pub embedded: crate::filemeta::EmbeddedCfg,
     pub explain: crate::explain::ExplainCfg,
@@ -281,7 +289,34 @@ pub fn load(explicit: Option<&Path>) -> Result<Config, String> {
         EMBED_TVDB_KEY,
         EMBED_OMDB_KEY,
     );
+    windups::base::relationships::migrate_database(&mut c.relationships, &c.archive.sync_target);
     Ok(c)
+}
+
+/// Write newly discovered relationship names into the user config, keeping comments.
+pub fn save_relationships(path: &Path, changed: &[(String, String)]) -> Result<(), String> {
+    use toml_edit::{DocumentMut, Item, Value};
+    if changed.is_empty() {
+        return Ok(());
+    }
+    let text = match std::fs::read_to_string(path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(format!("{}: {e}", path.display())),
+    };
+    let mut doc: DocumentMut = text
+        .parse()
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    if !doc.contains_key("relationships") {
+        doc["relationships"] = Item::Table(toml_edit::Table::new());
+    }
+    let t = doc["relationships"]
+        .as_table_mut()
+        .ok_or_else(|| format!("{}: relationships is not a table", path.display()))?;
+    for (k, v) in changed {
+        t[k.as_str()] = Item::Value(Value::from(v.as_str()));
+    }
+    std::fs::write(path, doc.to_string()).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 pub fn suffixed(media: &Path, suffix: &str) -> PathBuf {
@@ -307,6 +342,25 @@ pub fn has_ext(p: &Path, exts: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn old_sync_target_becomes_relationships_database() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("config.toml");
+        std::fs::write(&p, "[archive]\nsync_target = \"daniel\"\n").unwrap();
+        let c = load(Some(&p)).unwrap();
+        assert_eq!(c.relationships.database, "daniel");
+        std::fs::write(
+            &p,
+            "[relationships]\ndatabase = \"other\"\n[archive]\nsync_target = \"daniel\"\n",
+        )
+        .unwrap();
+        let c = load(Some(&p)).unwrap();
+        assert_eq!(
+            c.relationships.database, "other",
+            "existing relationship wins"
+        );
+    }
 
     #[test]
     fn archive_config_loads_with_jack_db_beside_the_config() {

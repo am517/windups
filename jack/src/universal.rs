@@ -14,9 +14,19 @@ pub struct Jack {
     config_arg: Option<PathBuf>,
 }
 
-/// `jack <universal command> ...`, unless a file or folder of that name is meant.
+const ACTIONS: &[&str] = &["tag", "setup", "ask"];
+
+/// `jack <universal command|action> ...`, unless a file or folder of that name is meant.
 pub fn is_command(args: &[String]) -> bool {
-    commands::parse(args).is_some() && !Path::new(&args[0]).exists()
+    let (_, rest) = windups::base::flags::Flags::take(args);
+    let (_, rest) = split_config(&rest);
+    let Some(first) = rest.first() else {
+        return false;
+    };
+    if Path::new(first).exists() {
+        return false;
+    }
+    commands::parse(&rest).is_some() || ACTIONS.contains(&first.as_str())
 }
 
 fn split_config(args: &[String]) -> (Option<PathBuf>, Vec<String>) {
@@ -47,7 +57,7 @@ impl Jack {
 
 /// Sync to the configured target, then keep the event log within its limits. One report line.
 pub fn sync_with(a: &mut Archive, cfg: &Config) -> String {
-    let line = match crate::sync::connect(&cfg.archive, &cfg.store) {
+    let line = match crate::sync::connect(&cfg.archive, &cfg.store, &cfg.relationships) {
         Ok(mut t) => crate::sync::report(a, t.as_deref_mut(), cfg.archive.sync_batch),
         Err(e) => format!("archive: sync skipped ({e})"),
     };
@@ -86,12 +96,11 @@ impl Windup for Jack {
     fn status(&mut self) -> Result<String, String> {
         let (all, left) = self.archive.counts()?;
         let a = &self.cfg.archive;
-        let target = if !self.cfg.store.enabled {
-            "none ([store] enabled = false)".to_string()
-        } else if a.sync_target == "daniel" {
-            format!("daniel by {}", a.sync_transport)
+        let name = crate::sync::database_name(&self.cfg.relationships, a);
+        let target = if !self.cfg.store.enabled || name.is_empty() {
+            "none".to_string()
         } else {
-            a.sync_target.clone()
+            format!("{name} by {}", a.sync_transport)
         };
         Ok(format!(
             "records: {all} kept, {left} not yet synced (sync target: {target})\n"
@@ -141,6 +150,11 @@ impl Windup for Jack {
                 keywords: &["setup", "install", "folder"],
                 help: "make ~/windups/jack/ and the ~/.local/bin/jack link (first run does it too)",
             },
+            Action {
+                name: "ask",
+                keywords: &["ask", "summaries", "images", "posters"],
+                help: "subjective data from jack.db as JSON (ask summaries|images [--file PATH] [--id ID])",
+            },
         ]
     }
     fn action(&mut self, name: &str, rest: &str) -> Result<String, String> {
@@ -151,6 +165,11 @@ impl Windup for Jack {
             } else {
                 n.join("\n")
             });
+        }
+        if name == "ask" {
+            let words: Vec<String> = rest.split_whitespace().map(|s| s.to_string()).collect();
+            let (kind, filter) = crate::ask::Filter::parse(&words)?;
+            return crate::ask::query(&self.archive, kind, &filter);
         }
         if name != "tag" {
             return Err(format!("I don't know how to {name}"));
@@ -193,9 +212,14 @@ pub fn ensure_folder(config_arg: Option<&Path>) {
 }
 
 pub fn main(args: &[String]) -> i32 {
-    let (config_arg, rest) = split_config(args);
+    let (uf, args) = windups::base::flags::Flags::take(args);
+    let (config_arg, rest) = split_config(&args);
     ensure_folder(config_arg.as_deref());
-    let Some(cmd) = commands::parse(&rest) else {
+    let cmd = if let Some(c) = commands::parse(&rest) {
+        c
+    } else if rest.first().is_some_and(|s| ACTIONS.contains(&s.as_str())) {
+        Command::Action(rest[0].clone(), rest[1..].join(" "))
+    } else {
         return 2;
     };
     let to_stdout = matches!(&cmd, Command::Export(None))
@@ -222,8 +246,12 @@ pub fn main(args: &[String]) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("jack: {e}");
-            1
+            if uf.windup {
+                println!("{}", windups::base::flags::error_json(&e));
+            } else {
+                eprintln!("jack: {e}");
+            }
+            2
         }
     }
 }
@@ -309,6 +337,12 @@ mod tests {
     #[test]
     fn a_real_path_named_like_a_command_is_a_path() {
         assert!(is_command(&["talk".into(), "hi".into()]));
+        assert!(is_command(&["ask".into(), "summaries".into()]));
+        assert!(is_command(&[
+            "--windup".into(),
+            "ask".into(),
+            "images".into()
+        ]));
         assert!(!is_command(&["movie.mkv".into()]));
         let (c, rest) = split_config(&[
             "log".into(),

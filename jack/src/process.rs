@@ -7,6 +7,19 @@ use crate::{askart, online, sorter, tagger};
 use std::fmt::Write as _;
 use std::path::Path;
 
+/// Temp artwork is removed after use unless -d kept it beside the media file.
+fn drop_temp_art(meta: &crate::meta::Meta, keep: bool) {
+    if keep {
+        return;
+    }
+    if let Some(p) = meta.get("poster_file") {
+        let tmp = std::env::temp_dir();
+        if Path::new(p).starts_with(&tmp) {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+}
+
 pub(crate) fn process(
     path: &Path,
     s: &Settings,
@@ -34,70 +47,122 @@ pub(crate) fn process(
             own.keys().cloned().collect::<Vec<_>>().join(", ")
         );
     }
+    // look in jack.db before searching
+    let guessed = query(path, s, cfg).ok();
+    let ids = crate::reuse::known_ids(
+        guessed
+            .as_ref()
+            .unwrap_or(&crate::providers::Query::default()),
+        &own,
+    );
+    let dbp = std::path::Path::new(&cfg.archive.database);
+    let opened = if cfg.archive.database == ":memory:" || dbp.exists() {
+        Some(crate::archive::Archive::open(&cfg.archive))
+    } else {
+        None
+    };
+    if let Some(Err(e)) = &opened {
+        let _ = writeln!(out, "    warning: archive: {e}");
+    }
+    let plan = match &opened {
+        Some(Ok(a)) => crate::reuse::plan(a, path, &ids, &cfg.providers.order, &cfg.completeness)?,
+        _ => crate::reuse::Plan::Fresh,
+    };
+    let skip_search = matches!(plan, crate::reuse::Plan::Skip { .. });
+    let note = crate::reuse::report(&plan);
+    if !note.is_empty() {
+        let _ = writeln!(out, "    {note}");
+    }
     // an online video is fetched by its own site id: that id identifies the video
     let label = online_label(path, s, cfg);
     let by_site_id = label.is_some();
-    let (mut meta, mut found, mut unresolved) = match label {
-        Some(l) => {
-            let o =
-                match online::fetch(&l, &show_flags(s), cfg, http, &crate::resolver::Strict, out) {
-                    Ok(o) => o,
-                    Err(e) => {
-                        return incomplete(
-                            path,
-                            Step::Lookup,
-                            "source_error",
-                            e,
-                            &own,
-                            s,
-                            cfg,
-                            hk,
-                            out,
-                        );
-                    }
-                };
-            (o.meta, o.found, o.unresolved)
-        }
-        None => {
-            let q = match query(path, s, cfg) {
-                Ok(q) => q,
-                Err(e) => {
-                    return incomplete(
-                        path,
-                        Step::Parse,
-                        "needs_llm_windup",
-                        e,
-                        &own,
-                        s,
+    let (mut meta, mut found, mut unresolved) =
+        if let crate::reuse::Plan::Skip { handoff, .. } = &plan {
+            let u = handoff
+                .entry
+                .get("resolution")
+                .is_some_and(|r| r == "unresolved");
+            (handoff.entry.clone(), handoff.candidates.clone(), u)
+        } else {
+            match label {
+                Some(l) => {
+                    let o = match online::fetch(
+                        &l,
+                        &show_flags(s),
                         cfg,
-                        hk,
+                        http,
+                        &crate::resolver::Strict,
                         out,
-                    );
-                }
-            };
-            let (m, f) = match fetch(&q, cfg, http, out) {
-                Ok(x) => x,
-                Err(e) => {
-                    let r = if e.contains("no match") || e.starts_with("skipped") {
-                        "no_match"
-                    } else {
-                        "source_error"
+                    ) {
+                        Ok(o) => o,
+                        Err(e) => {
+                            return incomplete(
+                                path,
+                                Step::Lookup,
+                                "source_error",
+                                e,
+                                &own,
+                                s,
+                                cfg,
+                                hk,
+                                out,
+                            );
+                        }
                     };
-                    return incomplete(path, Step::Lookup, r, e, &own, s, cfg, hk, out);
+                    (o.meta, o.found, o.unresolved)
                 }
-            };
-            let mut m = m;
-            if let crate::decide::Decision::Unresolved(reason, detail) =
-                crate::decide::decide(&q, s, &f, cfg.matching.year_tolerance)
-            {
-                m.insert("resolution".into(), "unresolved".into());
-                m.insert("unresolved_reason".into(), reason.to_string());
-                m.insert("unresolved_detail".into(), detail);
+                None => {
+                    let q = match guessed
+                        .as_ref()
+                        .cloned()
+                        .map(Ok)
+                        .unwrap_or_else(|| query(path, s, cfg))
+                    {
+                        Ok(q) => q,
+                        Err(e) => {
+                            return incomplete(
+                                path,
+                                Step::Parse,
+                                "needs_llm_windup",
+                                e,
+                                &own,
+                                s,
+                                cfg,
+                                hk,
+                                out,
+                            );
+                        }
+                    };
+                    let (seed, only): (&[_], Option<&[String]>) = match &plan {
+                        crate::reuse::Plan::Fill {
+                            handoff, sources, ..
+                        } => (handoff.candidates.as_slice(), Some(sources.as_slice())),
+                        _ => (&[], None),
+                    };
+                    let (m, f) = match crate::fetch::fetch_from(&q, cfg, http, out, seed, only) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            let r = if e.contains("no match") || e.starts_with("skipped") {
+                                "no_match"
+                            } else {
+                                "source_error"
+                            };
+                            return incomplete(path, Step::Lookup, r, e, &own, s, cfg, hk, out);
+                        }
+                    };
+                    let mut m = m;
+                    if let crate::decide::Decision::Unresolved(reason, detail) =
+                        crate::decide::decide(&q, s, &f, cfg.matching.year_tolerance)
+                    {
+                        m.insert("resolution".into(), "unresolved".into());
+                        m.insert("unresolved_reason".into(), reason.to_string());
+                        m.insert("unresolved_detail".into(), detail);
+                    }
+                    let u = m.contains_key("resolution");
+                    (m, f, u)
+                }
             }
-            let u = m.contains_key("resolution");
-            (m, f, u)
-        }
-    };
+        };
     if unresolved {
         // deterministic rules could not decide: escalate with everything known
         let (r, d) = (
@@ -196,7 +261,7 @@ pub(crate) fn process(
     let t = &cfg.tagger;
     // art is kept beside the file only with -d; otherwise it's a temp file removed after tagging
     let pp = art_path(path, s, dl);
-    if !dry && t.ask_art && (dl || (t.embed_artwork && !print)) {
+    if !dry && t.ask_art && !cfg.windup && (dl || (t.embed_artwork && !print)) {
         let prefs = |k: &str| {
             cfg.merge
                 .fields
@@ -227,7 +292,7 @@ pub(crate) fn process(
                 let _ = writeln!(out, "    warning: artwork: {e}");
             }
         }
-    } else if !dry && (dl || (t.embed_artwork && !print)) {
+    } else if !skip_search && !dry && (dl || (t.embed_artwork && !print)) {
         // art is optional: never lose the metadata over it
         if let Err(e) = save_poster(&pp, s, cfg, &mut meta, http) {
             let _ = writeln!(out, "    warning: artwork: {e}");
@@ -238,8 +303,14 @@ pub(crate) fn process(
     }
     let _ = writeln!(out, "    ids: {}", found_ids(&meta, s));
     if !dry && (dl || !print) {
-        match crate::handoff::hand_over(path, &meta, &found, &cfg.archive, cfg.emit_json.as_deref())
-        {
+        match crate::handoff::hand_over(
+            path,
+            &meta,
+            &found,
+            &cfg.archive,
+            cfg.emit_json.as_deref(),
+            cfg.sidecar_json,
+        ) {
             Ok(w) => {
                 let _ = writeln!(out, "    {w}");
             }
@@ -258,11 +329,13 @@ pub(crate) fn process(
         if print {
             print_meta(path, s, cfg, &meta, pr);
         }
+        drop_temp_art(&meta, dl);
         return Ok(());
     }
     if print {
         print_meta(path, s, cfg, &meta, pr);
         if !dl {
+            drop_temp_art(&meta, false);
             return Ok(());
         }
     }
@@ -278,9 +351,7 @@ pub(crate) fn process(
         meta.entry("imdb_id".into()).or_insert(i);
     }
     let tagged = tag(path, &meta, cfg, dry, out);
-    if let Some(p) = meta.get("poster_file") {
-        let _ = std::fs::remove_file(p);
-    }
+    drop_temp_art(&meta, false);
     tagged?;
     if s.output.is_some() || cfg.sort.enabled {
         let to = sorter::destination(s.output.as_deref(), path, &meta, &cfg.sort, &cfg.naming);
@@ -417,7 +488,14 @@ fn incomplete(
     // file purgatory: only the file's own values, kept under a stable id until identified or merged
     m.insert("lifecycle".into(), crate::stage::UNDETERMINED.into());
     if !Settings::flag(s.dry_run) {
-        match crate::handoff::hand_over(path, &m, &found, &cfg.archive, cfg.emit_json.as_deref()) {
+        match crate::handoff::hand_over(
+            path,
+            &m,
+            &found,
+            &cfg.archive,
+            cfg.emit_json.as_deref(),
+            cfg.sidecar_json,
+        ) {
             Ok(w) => {
                 let _ = writeln!(out, "    kept as incomplete: {w}");
             }

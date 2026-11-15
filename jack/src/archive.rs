@@ -2,7 +2,7 @@
 //! here first, as handoff JSON v1, and stays here after the sync target (Daniel) has it (the
 //! duplication is on purpose: either side can rebuild the other). Sync state is one nullable
 //! column, `synced_at`. The shared core's tables (event log, snapshots) come in by migration.
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use windups::handoff::Handoff;
@@ -49,7 +49,7 @@ pub struct ArchiveCfg {
     pub busy_timeout_secs: u64,
     /// Records sent per batch (bounds memory while syncing).
     pub sync_batch: usize,
-    /// Who gets copies: "daniel" or "none".
+    /// Legacy: who gets copies. Prefer `[relationships] database`. Empty or "none" = no target.
     pub sync_target: String,
     /// How Daniel is reached: "library" (in-process call) or "socket" (`daniel serve`).
     pub sync_transport: String,
@@ -66,7 +66,7 @@ impl Default for ArchiveCfg {
             database: String::new(),
             busy_timeout_secs: 5,
             sync_batch: 32,
-            sync_target: "daniel".into(),
+            sync_target: String::new(),
             sync_transport: "library".into(),
             daniel_socket: "~/windups/daniel/daniel.sock".into(),
             socket_timeout_secs: 30,
@@ -232,6 +232,68 @@ impl Archive {
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .map_err(|e| e.to_string())
+    }
+
+    /// The newest record whose `file` column equals one of `paths` (raw or canonical).
+    pub fn by_file(
+        &self,
+        paths: &[String],
+    ) -> Result<Option<(String, windups::handoff::Handoff)>, String> {
+        if paths.is_empty() {
+            return Ok(None);
+        }
+        // newest first; a re-run of the same file should win
+        let mut st = self
+            .c
+            .prepare_cached(
+                "SELECT id, handoff FROM records WHERE file = ?1 ORDER BY seq DESC LIMIT 1",
+            )
+            .map_err(|e| e.to_string())?;
+        for p in paths {
+            let row = st
+                .query_row([p], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                })
+                .optional()
+                .map_err(|e| e.to_string())?;
+            if let Some((id, json)) = row {
+                let h = windups::handoff::Handoff::read_json(json.as_bytes())?;
+                return Ok(Some((id, h)));
+            }
+        }
+        Ok(None)
+    }
+
+    /// The newest record whose entry or candidates carry any of these ids (`(key, value)`).
+    pub fn by_ids(
+        &self,
+        ids: &[(String, String)],
+    ) -> Result<Option<(String, windups::handoff::Handoff)>, String> {
+        if ids.is_empty() {
+            return Ok(None);
+        }
+        let mut after = 0;
+        let mut best: Option<(i64, String, windups::handoff::Handoff)> = None;
+        loop {
+            let page = self.page(after, 64)?;
+            let Some(last) = page.last() else { break };
+            after = last.seq;
+            for u in page {
+                let Ok(h) = windups::handoff::Handoff::read_json(u.handoff.as_bytes()) else {
+                    continue;
+                };
+                let hit = ids.iter().any(|(k, v)| {
+                    h.entry.get(k).is_some_and(|x| x == v)
+                        || h.candidates
+                            .iter()
+                            .any(|(_, m)| m.get(k).is_some_and(|x| x == v))
+                });
+                if hit {
+                    best = Some((u.seq, u.id, h));
+                }
+            }
+        }
+        Ok(best.map(|(_, id, h)| (id, h)))
     }
 
     /// When the record with this id was synced, if it exists.

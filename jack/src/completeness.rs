@@ -50,7 +50,10 @@ mod tests {
             ("poster_url", "u"),
             ("description", " "),
         ]);
-        assert_eq!(missing(&movie, &cfg), ["description"]);
+        assert!(
+            missing(&movie, &cfg).is_empty(),
+            "poster and description are not required for submission"
+        );
         assert!(
             cfg.optional["movie"].iter().any(|f| f == "cast"),
             "cast is optional"

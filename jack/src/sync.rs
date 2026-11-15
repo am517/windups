@@ -1,25 +1,40 @@
-//! Syncing Jack's archive to his sync target (`[archive] sync_target`, default "daniel").
+//! Syncing Jack's archive to the database windup named in `[relationships] database`
+//! (legacy `[archive] sync_target` is still read when that field is empty).
 //! Records are sent in batches; each is marked synced only after its own acknowledgement.
 use crate::archive::{Archive, now};
 use windups::base::sync::{SendError, SyncTarget};
 
-/// The configured target and transport, if any. `[store] enabled = false` also means none.
+/// The database windup, if one is configured (`[relationships] database`, or the legacy
+/// `[archive] sync_target`). `[store] enabled = false` also means none. The name is only a
+/// label from config; the transport is how we talk to the catalog in this workspace.
+pub fn database_name(
+    rels: &windups::base::relationships::Relationships,
+    a: &crate::archive::ArchiveCfg,
+) -> String {
+    let mut rels = rels.clone();
+    windups::base::relationships::migrate_database(&mut rels, &a.sync_target);
+    rels.database
+}
+
 pub fn connect<'a>(
     a: &crate::archive::ArchiveCfg,
     store: &'a daniel::StoreCfg,
+    rels: &windups::base::relationships::Relationships,
 ) -> Result<Option<Box<dyn SyncTarget + 'a>>, String> {
-    match (a.sync_target.as_str(), a.sync_transport.as_str()) {
-        ("daniel", _) if !store.enabled => Ok(None),
-        ("daniel", "library" | "") => Ok(Some(Box::new(crate::to_daniel::ToDaniel::new(store)))),
-        ("daniel", "socket") => Ok(Some(Box::new(
+    let name = database_name(rels, a);
+    if name.is_empty() || !store.enabled {
+        return Ok(None);
+    }
+    match a.sync_transport.as_str() {
+        "library" | "" => Ok(Some(Box::new(crate::to_daniel::ToDaniel::new(store)))),
+        "socket" => Ok(Some(Box::new(
             windups::base::sync_socket::SocketTarget::new(
                 windups::paths::expand(&a.daniel_socket),
                 std::time::Duration::from_secs(a.socket_timeout_secs.max(1)),
                 a.max_frame_bytes.max(1024),
             ),
         ))),
-        ("daniel", t) => Err(format!("sync_transport {t:?} (known: library, socket)")),
-        (other, _) => Ok(windups::base::sync::connect(other)?.map(|b| b as Box<dyn SyncTarget>)),
+        t => Err(format!("sync_transport {t:?} (known: library, socket)")),
     }
 }
 
@@ -40,9 +55,17 @@ pub fn sync(a: &Archive, t: &mut dyn SyncTarget, batch: usize) -> Result<SyncRep
             return Ok(r);
         };
         after = last.seq;
-        let recs: Vec<(&str, &str)> = rows
+        let payloads: Vec<(String, String)> = rows
             .iter()
-            .map(|u| (u.id.as_str(), u.handoff.as_str()))
+            .map(|u| {
+                let body = crate::objective::json_for_database(&u.handoff)
+                    .unwrap_or_else(|_| u.handoff.clone());
+                (u.id.clone(), body)
+            })
+            .collect();
+        let recs: Vec<(&str, &str)> = payloads
+            .iter()
+            .map(|(id, h)| (id.as_str(), h.as_str()))
             .collect();
         let results = t.send_batch(&recs);
         for (u, res) in rows
@@ -200,18 +223,31 @@ mod tests {
             sync_transport: tr.into(),
             ..Default::default()
         };
+        let none = windups::base::relationships::Relationships::default();
         assert!(
-            connect(&cfg("daniel", "library"), &off).unwrap().is_none(),
+            connect(&cfg("daniel", "library"), &off, &none)
+                .unwrap()
+                .is_none(),
             "[store] enabled = false"
         );
-        assert!(connect(&cfg("none", ""), &off).unwrap().is_none());
-        assert!(connect(&cfg("carrier-pigeon", ""), &off).is_err());
+        assert!(connect(&cfg("none", ""), &off, &none).unwrap().is_none());
+        assert!(connect(&cfg("", ""), &off, &none).unwrap().is_none());
         let on = daniel::StoreCfg {
             enabled: true,
             ..Default::default()
         };
-        assert!(connect(&cfg("daniel", "socket"), &on).unwrap().is_some());
-        assert!(connect(&cfg("daniel", "smoke signals"), &on).is_err());
+        assert!(
+            connect(&cfg("daniel", "socket"), &on, &none)
+                .unwrap()
+                .is_some()
+        );
+        assert!(connect(&cfg("daniel", "smoke signals"), &on, &none).is_err());
+        // a relationship name is enough; the old sync_target is only a fallback
+        let named = windups::base::relationships::Relationships {
+            database: "daniel".into(),
+            ..Default::default()
+        };
+        assert!(connect(&cfg("", "library"), &on, &named).unwrap().is_some());
         let line = report(&a, None, 32);
         assert!(
             line.contains("1 record(s) in jack.db, 1 not yet synced"),
@@ -282,6 +318,7 @@ mod tests {
             daniel::serve::serve(&l, &s, 1 << 20, Some(2)).unwrap();
         });
         let acfg = crate::archive::ArchiveCfg {
+            sync_target: "daniel".into(),
             sync_transport: "socket".into(),
             daniel_socket: sock.to_string_lossy().into_owned(),
             ..Default::default()
@@ -290,12 +327,24 @@ mod tests {
             enabled: true,
             ..Default::default()
         };
-        let mut t = connect(&acfg, &on).unwrap().unwrap();
+        let mut t = connect(
+            &acfg,
+            &on,
+            &windups::base::relationships::Relationships::default(),
+        )
+        .unwrap()
+        .unwrap();
         assert_eq!(sync(&a, t.as_mut(), 32).unwrap().sent, 1);
         drop(t);
         // a resend of the same record (as after a lost ack) is acknowledged and adds nothing
         let rec = a.page(0, 1).unwrap().remove(0).handoff;
-        let mut again = connect(&acfg, &on).unwrap().unwrap();
+        let mut again = connect(
+            &acfg,
+            &on,
+            &windups::base::relationships::Relationships::default(),
+        )
+        .unwrap()
+        .unwrap();
         assert_eq!(again.send(&id, &rec), Ok(()));
         drop(again);
         server.join().unwrap();

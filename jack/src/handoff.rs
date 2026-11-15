@@ -24,6 +24,7 @@ pub fn hand_over(
     found: &[(String, Meta)],
     archive: &ArchiveCfg,
     emit_json: Option<&str>,
+    sidecar: bool,
 ) -> Result<String, String> {
     let conflicts = if entry.get("resolution").is_some_and(|r| r == "unresolved") {
         vec![]
@@ -45,10 +46,22 @@ pub fn hand_over(
         "jack.db: {id}{}",
         if new { "" } else { " (already kept)" }
     )];
+    if sidecar {
+        notes.push(emit_sidecar(&h, path)?);
+    }
     if let Some(dest) = emit_json {
         notes.push(emit(&h, dest, path)?);
     }
     Ok(notes.join("; "))
+}
+
+/// `-j` / `--json`: write `<file>.jack.json` beside the media (off by default).
+fn emit_sidecar(h: &Handoff, media: &Path) -> Result<String, String> {
+    let mut s = media.as_os_str().to_owned();
+    s.push(".jack.json");
+    let p = PathBuf::from(s);
+    write_file(h, &p)?;
+    Ok(format!("handoff json: {}", p.display()))
 }
 
 fn write_file(h: &Handoff, path: &Path) -> Result<(), String> {
@@ -115,7 +128,7 @@ mod tests {
             ("lifecycle", "unverified"),
         ]);
         let found = vec![("tmdb".into(), meta(&[("title", "The Matrix")]))];
-        let r = hand_over(&media, &entry, &found, &archive(&d), None).unwrap();
+        let r = hand_over(&media, &entry, &found, &archive(&d), None, false).unwrap();
         assert!(r.starts_with("jack.db: jack-"), "{r}");
         let mut left: Vec<_> = std::fs::read_dir(d.path())
             .unwrap()
@@ -142,6 +155,7 @@ mod tests {
             &found,
             &archive(&d),
             Some(dest.to_str().unwrap()),
+            false,
         )
         .unwrap();
         assert!(r.contains("(already kept)"), "{r}");
@@ -149,5 +163,24 @@ mod tests {
         let h2 = Handoff::read_json(std::fs::File::open(&emitted).unwrap()).unwrap();
         assert_eq!(h, h2);
         assert_eq!(a.counts().unwrap(), (1, 1), "the re-run did not duplicate");
+    }
+
+    #[test]
+    fn json_flag_writes_a_sidecar_beside_the_media() {
+        let d = tempfile::tempdir().unwrap();
+        let media = d.path().join("Heat.1995.mkv");
+        std::fs::write(&media, b"x").unwrap();
+        let entry = meta(&[
+            ("kind", "movie"),
+            ("title", "Heat"),
+            ("year", "1995"),
+            ("lifecycle", "unverified"),
+        ]);
+        let r = hand_over(&media, &entry, &[], &archive(&d), None, true).unwrap();
+        assert!(r.contains("handoff json:"), "{r}");
+        let side = d.path().join("Heat.1995.mkv.jack.json");
+        assert!(side.exists(), "sidecar {}", side.display());
+        let h = Handoff::read_json(std::fs::File::open(&side).unwrap()).unwrap();
+        assert_eq!(h.entry.get("title").map(String::as_str), Some("Heat"));
     }
 }
