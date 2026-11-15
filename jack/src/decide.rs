@@ -1,7 +1,8 @@
 //! Is the information enough to act on? A single match is exactly one identity that
 //! agrees across more than one source. Name or date variations on that same identity go
 //! to the LLM windup (`needs_judgment`); different works, or a hit from only one source,
-//! stay unresolved so the user can give --year or an id.
+//! stay unresolved so the user can give an id, or --year to narrow several works with the same name.
+//! `--name` and `--year` only filter the search; they are not a trusted match.
 use crate::candidates::is_search;
 use crate::config::Settings;
 use crate::meta::Meta;
@@ -173,8 +174,15 @@ fn variations(hits: &[&(String, Meta)], year_tolerance: u32) -> Option<String> {
 
 pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance: u32) -> Decision {
     let set = |o: &Option<String>| o.as_ref().is_some_and(|v| !v.is_empty());
-    let user_id = q.imdb.is_some() || q.tmdb.is_some() || q.thetvdb.is_some();
-    let user_named = set(&s.name) && set(&s.year);
+    // only an id flag is a trusted match; --name/--year only filter the search
+    let user_id = set(&q.imdb)
+        || set(&q.tmdb)
+        || set(&q.thetvdb)
+        || set(&s.imdb)
+        || set(&s.tmdb)
+        || set(&s.thetvdb)
+        || set(&s.youtube)
+        || set(&s.x);
     let is_hit = |m: &Meta| {
         let mut m = m.clone();
         if let Some(y) = year(&m) {
@@ -205,7 +213,7 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
         .copied()
         .filter(|(src, _)| !is_search(src))
         .collect();
-    if !user_id && !user_named && !hits.is_empty() {
+    if !user_id && !hits.is_empty() {
         if let Some((_src, m)) = chosen.iter().find(|(_, m)| {
             m.get("show")
                 .or(m.get("title"))
@@ -224,8 +232,8 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
         }
     }
 
-    // cluster exact hits (or, when the user named the work, the fetched details)
-    let mut members: Vec<&(String, Meta)> = if hits.is_empty() && (user_id || user_named) {
+    // cluster exact hits (or, when the user gave an id, the fetched details)
+    let mut members: Vec<&(String, Meta)> = if hits.is_empty() && user_id {
         chosen
     } else {
         hits.clone()
@@ -233,7 +241,8 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
     // a source may list the same work under a different title; keep it if the ids agree
     members.extend(companions(&members, &found));
     if members.is_empty() {
-        if user_id || user_named {
+        if user_id {
+            // the id identifies the work; other sources may still have been queried and found nothing
             return Decision::Sure;
         }
         return Decision::Unresolved("no_match", format!("no source has exactly \"{}\"", q.title));
@@ -241,8 +250,8 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
 
     let clusters = cluster(&members, year_tolerance);
 
-    // --name/--year or an id is the context Jack asked for
-    if user_id || user_named {
+    // an id flag identifies the work; other sources were still queried to fill ids/facts
+    if user_id {
         return Decision::Sure;
     }
 
@@ -279,14 +288,11 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
         return Decision::Unresolved("needs_judgment", d);
     }
 
-    if user_id || user_named {
-        return Decision::Sure;
-    }
     if bases.len() < 2 {
         return Decision::Unresolved(
             "needs_flags",
             format!(
-                "only one source found \"{}\"; another source must agree, or give --year or an id",
+                "only one source found \"{}\"; another source must agree, or give an id (--imdb, --tmdb, or --thetvdb)",
                 q.title
             ),
         );
@@ -374,10 +380,34 @@ mod tests {
             year: Some("2008".into()),
             ..Default::default()
         };
-        assert_eq!(
+        // --name/--year only filter the search; they are not a trusted match
+        assert!(matches!(
             d0(&q("Breaking Bad", Some("2008")), &named, &[]),
+            Decision::Unresolved("no_match", _)
+        ));
+        assert!(
+            matches!(
+                d0(
+                    &q("The Matrix", Some("1999")),
+                    &named,
+                    &[m("tmdb", "The Matrix", "1999")]
+                ),
+                Decision::Unresolved("needs_flags", _)
+            ),
+            "one source is still not enough with --name/--year"
+        );
+        assert_eq!(
+            d0(
+                &q("The Matrix", Some("1999")),
+                &named,
+                &[
+                    m("tmdb", "The Matrix", "1999"),
+                    m("thetvdb", "The Matrix", "1999"),
+                ]
+            ),
             Decision::Sure
         );
+        // an id flag is enough even with no (or one) source; other sources are still queried
         assert_eq!(
             d0(
                 &Query {
@@ -386,6 +416,17 @@ mod tests {
                 },
                 &none,
                 &[]
+            ),
+            Decision::Sure
+        );
+        assert_eq!(
+            d0(
+                &Query {
+                    tmdb: Some("603".into()),
+                    ..q("The Matrix", Some("1999"))
+                },
+                &none,
+                &[m("tmdb", "The Matrix", "1999")]
             ),
             Decision::Sure
         );

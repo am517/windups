@@ -182,6 +182,8 @@ mod tests {
                 "Saiki K",
                 "--year",
                 "2016",
+                "--tmdb",
+                "42",
             ]);
             for _ in 0..2 {
                 let (out, _, failed) = run(&c, &h).unwrap();
@@ -300,6 +302,8 @@ mod tests {
                 "Saiki K",
                 "--year",
                 "2016",
+                "--tmdb",
+                "42",
             ]),
             &h,
         )

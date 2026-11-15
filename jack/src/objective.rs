@@ -121,13 +121,13 @@ mod tests {
             o.entry.get("imdb_id").map(String::as_str),
             Some("tt0133093")
         );
-        assert!(o.entry.get("description").is_none());
-        assert!(o.entry.get("poster_url").is_none());
+        assert!(!o.entry.contains_key("description"));
+        assert!(!o.entry.contains_key("poster_url"));
         assert_eq!(
             o.candidates[0].1.get("tmdb_id").map(String::as_str),
             Some("603")
         );
-        assert!(o.candidates[0].1.get("description").is_none());
+        assert!(!o.candidates[0].1.contains_key("description"));
         assert_eq!(o.conflicts.len(), 1);
         assert_eq!(o.conflicts[0].0, "year");
         // the original is untouched

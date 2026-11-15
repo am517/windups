@@ -143,7 +143,7 @@ pub fn query(archive: &Archive, kind: Kind, filter: &Filter) -> Result<String, S
         let Some(last) = page.last() else { break };
         after = last.seq;
         for Unsynced { id, handoff, .. } in page {
-            if !filter.id.is_none()
+            if filter.id.is_some()
                 && filter.id.as_deref() != Some(id.as_str())
                 && filter.file.is_none()
             {

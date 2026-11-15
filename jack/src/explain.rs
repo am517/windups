@@ -6,7 +6,7 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 
 /// The line Jack exits with when he could not settle on a single match.
-pub const MORE_CONTEXT: &str = "I couldn't figure it out. Please give more context, for example --year or an id (--imdb, --tmdb, or --thetvdb).";
+pub const MORE_CONTEXT: &str = "I couldn't figure it out. Please give more context: an id (--imdb, --tmdb, or --thetvdb) lets me trust a single result; --year can narrow several works with the same name, but is not enough on its own.";
 
 /// One unsettled item.
 #[derive(Debug, Clone, PartialEq)]

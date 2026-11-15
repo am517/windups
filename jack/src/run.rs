@@ -23,7 +23,7 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
     } else if cli.paths.is_empty() {
         return Err("no files or directories given (see --help)".into());
     }
-    let mut cfg = config::load(cli.config.as_deref()).map_err(|e| e)?;
+    let mut cfg = config::load(cli.config.as_deref())?;
     cfg.emit_json = cli.emit_json.clone();
     cfg.windup = cli.windup;
     cfg.sidecar_json = cli.json;
@@ -506,6 +506,8 @@ mod tests {
             "The Apothecary Diaries",
             "--year",
             "2023",
+            "--tmdb",
+            "220542",
         ]);
         let (out, p, failed) = run(&c, &h).unwrap();
         assert_eq!(failed, 0, "{out}");
@@ -524,13 +526,13 @@ mod tests {
         );
         assert_eq!(meta["genre"], "animation,drama,mystery");
         assert_eq!(meta["grouping"], "Anime");
-        assert!(
-            meta["decisions"].contains("\"source\":\"user_asserted\"")
-                && meta["decisions"].contains("--name/--year"),
-            "the user's word is recorded as theirs: {}",
-            meta["decisions"]
+        // --name/--year only filtered the search; --tmdb is what settled identity
+        assert_eq!(
+            meta["lifecycle"],
+            "complete",
+            "an id flag is proof of identity: {}",
+            meta.get("lifecycle").cloned().unwrap_or_default()
         );
-        assert_ne!(meta["lifecycle"], "complete", "a name is not an id");
         assert!(out.contains("warning: tmdb: no S03E01"), "{out}");
         assert!(
             out.contains("tmdb=220542") && out.contains("433631"),
@@ -554,6 +556,8 @@ mod tests {
                 "The Apothecary Diaries",
                 "--year",
                 "2023",
+                "--tmdb",
+                "220542",
             ]),
             &h,
         )

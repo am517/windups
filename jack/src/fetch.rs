@@ -54,17 +54,8 @@ pub(crate) fn all_images(
     v
 }
 
-pub(crate) fn fetch(
-    q: &Query,
-    cfg: &Config,
-    http: &dyn Http,
-    out: &mut String,
-) -> Result<(Meta, Vec<(String, Meta)>), String> {
-    fetch_from(q, cfg, http, out, &[], None)
-}
-
-/// Like [`fetch`], but starts from `seed` (prior jack.db candidates) and, when `only` is set,
-/// queries just those providers.
+/// Fetch from the providers, optionally starting from `seed` (prior jack.db candidates)
+/// and, when `only` is set, querying just those providers.
 pub(crate) fn fetch_from(
     q: &Query,
     cfg: &Config,
@@ -247,7 +238,7 @@ mod tests {
             kind: Some("movie".into()),
             ..Default::default()
         };
-        let e = fetch(&q, &cfg(&["tvmaze"]), &h, &mut String::new()).unwrap_err();
+        let e = fetch_from(&q, &cfg(&["tvmaze"]), &h, &mut String::new(), &[], None).unwrap_err();
         assert!(e.starts_with("skipped") && !e.contains("no match"), "{e}");
         assert!(h.calls.borrow().is_empty());
     }
@@ -274,7 +265,15 @@ mod tests {
             kind: Some("movie".into()),
             ..Default::default()
         };
-        let (m, _) = fetch(&q, &cfg(&["tmdb", "omdb"]), &h, &mut String::new()).unwrap();
+        let (m, _) = fetch_from(
+            &q,
+            &cfg(&["tmdb", "omdb"]),
+            &h,
+            &mut String::new(),
+            &[],
+            None,
+        )
+        .unwrap();
         assert_eq!(m.get("rating_imdb").map(String::as_str), Some("8.7"));
         assert!(h.calls.borrow().iter().any(|u| u.contains("&i=tt0133093")));
     }

@@ -181,7 +181,7 @@ pub(crate) fn process(
         }
     }
     // only an id is proof; the user's --name/--year or channel mapping settles names, not identity
-    let id_flag = [&s.imdb, &s.tmdb, &s.thetvdb]
+    let id_flag = [&s.imdb, &s.tmdb, &s.thetvdb, &s.youtube, &s.x]
         .iter()
         .any(|v| v.as_ref().is_some_and(|v| !v.is_empty()));
     let user_named = s.name.is_some() && s.year.is_some();

@@ -467,17 +467,17 @@ crossover_keys = ["show", "tmdb_series_id", "thetvdb_series_id", "imdb_id", "gen
 # What Jack tells you about each item he could not settle (per item, and again at the end of the
 # run). Static templates, one per unresolved reason; placeholders {file}, {reason}, {detail}.
 # Sammy (an LLM windup) can replace these with thoughtful explanations later.
-fallback = "I couldn't figure it out. Please give more context, for example --year or an id (--imdb, --tmdb, or --thetvdb). ({reason})"
+fallback = "I couldn't figure it out. Please give more context: an id (--imdb, --tmdb, or --thetvdb) lets me trust a single result; --year can narrow several works with the same name, but is not enough on its own. ({reason})"
 
 [explain.templates]
 review_flag = "{file}: the reviewer flagged {detail}. Check it and fix with flags if needed."
-no_match = "I couldn't figure it out: no source has an exact match. Please give more context, for example --name with --year, or an id (--imdb, --tmdb, or --thetvdb)."
-ambiguous = "I couldn't figure it out: more than one work matches. Please give more context, for example --year or an id (--imdb, --tmdb, or --thetvdb)."
-needs_flags = "I couldn't figure it out: I don't have enough to be sure of a single match. Please give more context, for example --year or an id (--imdb, --tmdb, or --thetvdb)."
-needs_judgment = "Sources agree this is the same work, but their names or dates differ. I need the LLM windup (if configured) or more context, for example --year or an id. Left incomplete."
+no_match = "I couldn't figure it out: no source has an exact match. Please give an id (--imdb, --tmdb, or --thetvdb), or more context such as --year to narrow the search."
+ambiguous = "I couldn't figure it out: more than one work matches. --year can narrow it; an id (--imdb, --tmdb, or --thetvdb) lets me trust a single result."
+needs_flags = "I couldn't figure it out: I don't have enough to be sure of a single match. Another source must agree, or give an id (--imdb, --tmdb, or --thetvdb). --year can narrow several works with the same name, but is not enough on its own."
+needs_judgment = "Sources agree this is the same work, but their names or dates differ. I need the LLM windup (if configured) or an id. Left incomplete."
 source_error = "A source failed: {detail}. Jack will retry on a later run (network or quota)."
 conflict = "Sources disagree: {detail}. Kept the file's own values; recorded for review."
-needs_llm_windup = "Needs judgement. Kept for the LLM windup (if configured) or for you to decide with more context (--year or an id)."
+needs_llm_windup = "Needs judgement. Kept for the LLM windup (if configured) or for you to decide with an id (--imdb, --tmdb, or --thetvdb)."
 
 [review]
 # Optional post-run review pass (needs Sammy; skipped while none runs). One field at a time across all

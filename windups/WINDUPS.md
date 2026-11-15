@@ -474,11 +474,15 @@ never mapped automatically. Composite labels are data rules, for example
   interaction and JSON only on stdout; `-j` / `--json` also writes that JSON next to the media file
   (off by default). Exit codes stay 0 all OK, 1 some items failed or unresolved, 2 usage or config
   error.
-- **Jack.** A single match is exactly one identity that agrees across more than one source (or the
-  user already gave an id or `--name` with `--year`). If sources disagree on objective facts (name
+- **Jack.** A single match is exactly one identity that agrees across more than one source. `--name`
+  and `--year` only filter the search; they are not a trusted match. Only an id flag (`--imdb`,
+  `--tmdb`, `--thetvdb`/`--tvdb`, and later `--wikidata` / `--wikipedia`) lets him trust a single
+  result without cross-source agreement; even then he still looks up the same work on the other
+  sources to fill in ids and facts. If sources disagree on objective facts (name
   or date) for that same identity, Jack asks the LLM windup when `relationships.llm` is set, otherwise
   he archives the record and marks it incomplete. If he cannot settle on one match he exits with a
-  clear explanation and asks for more context (`--year` or an id); he does not offer candidate lists
+  clear explanation and asks for more context (an id, or `--year` to narrow several works with the
+  same name); he does not offer candidate lists
   (choosing is his job). Candidates may stay in `jack.db`. He checks `jack.db` before searching, and
   only searches to fill missing objective data or missing sources. He stores all data (summaries,
   images, …) in `jack.db`; the record passed to the database windup contains only objective facts.

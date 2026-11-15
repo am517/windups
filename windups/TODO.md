@@ -15,6 +15,7 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - [ ] Jack: cast/crew and studios into entities
 - [x] Jack: `--capabilities` (prints PROFILE.toml)
 - [x] Jack completion (2026-11-15): relationships only in config (never hardcoded); single match = one identity agreed across sources (name/date variations need the LLM windup if configured, else incomplete); no candidate lists to callers; objective-only payload to Daniel; `jack ask summaries|images` for subjective data; check `jack.db` before searching; universal `--windup`/`-w` and `-j`/`--json`; exit 0/1/2 (unresolved = failure)
+- [x] Jack: `--name`/`--year` are search filters only, not a trusted match (2026-11-15). Only an id flag (`--imdb`, `--tmdb`, `--thetvdb`/`--tvdb`, later `--wikidata`/`--wikipedia`) lets him trust a single result without cross-source agreement; he still looks up the other sources to fill ids/facts.
 - [ ] Jack: registry entry and task ledger in media.db
 - [x] Schema v2: unresolved (reason, time/resource, last_checked), source_names + display names, conflicts, embeddings, windups profiles
 - [x] Vectors: f32 BLOB storage + brute-force cosine search + `Embedder` trait (shared crate, no heavy deps)
