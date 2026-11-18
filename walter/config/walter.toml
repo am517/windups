@@ -18,7 +18,13 @@ incomplete = "new_source"    # or the missing fields
 
 # `walter audit`: every <name>/<name>.db under these folders is read (read-only, never written).
 [audit]
-roots = ["~/windups", "~/.config/windups"]
+# Data folders (macOS, Linux) plus the old ~/.config split. A missing root is skipped.
+# Quote paths that contain a space.
+roots = [
+  "~/Library/Application Support/Windups",
+  "~/.local/share/windups",
+  "~/.config/windups",
+]
 
 # The shared core (see windups/CULTURE.md).
 [core]

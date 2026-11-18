@@ -215,7 +215,7 @@ mod tests {
         let spy = Spy(RefCell::new(vec![]));
         let s = take(&c, "jack", d.path(), &cfg, &spy).unwrap();
         assert_eq!(s.events_through, 1);
-        assert_eq!(spy.0.borrow().as_slice(), [s.path.clone()]);
+        assert_eq!(spy.0.borrow().as_slice(), std::slice::from_ref(&s.path));
         let copy = Connection::open(&s.path).unwrap();
         let detail: String = copy
             .query_row("SELECT detail FROM events", [], |r| r.get(0))
@@ -224,7 +224,7 @@ mod tests {
         assert_eq!(latest(&c).unwrap().unwrap().1, s.path.to_string_lossy());
         let s2 = take(&c, "jack", d.path(), &cfg, &NoOffDevice).unwrap();
         let s3 = take(&c, "jack", d.path(), &cfg, &NoOffDevice).unwrap();
-        assert_eq!(s3.pruned, [s.path.clone()]);
+        assert_eq!(s3.pruned.as_slice(), std::slice::from_ref(&s.path));
         assert!(!s.path.exists() && s2.path.exists() && s3.path.exists());
     }
 

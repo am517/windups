@@ -4,6 +4,20 @@
 use crate::archive::{Archive, now};
 use windups::base::sync::{SendError, SyncTarget};
 
+/// Empty means Daniel's own folder / `daniel.sock` (see LAYOUT.md). A set path is used as given.
+fn daniel_socket(a: &crate::archive::ArchiveCfg) -> std::path::PathBuf {
+    if a.daniel_socket.trim().is_empty() {
+        windups::base::layout::resolve(
+            "daniel",
+            &windups::base::layout::Probe::real("daniel", None),
+        )
+        .dir
+        .join("daniel.sock")
+    } else {
+        windups::paths::expand(&a.daniel_socket)
+    }
+}
+
 /// The database windup, if one is configured (`[relationships] database`, or the legacy
 /// `[archive] sync_target`). `[store] enabled = false` also means none. The name is only a
 /// label from config; the transport is how we talk to the catalog in this workspace.
@@ -29,7 +43,7 @@ pub fn connect<'a>(
         "library" | "" => Ok(Some(Box::new(crate::to_daniel::ToDaniel::new(store)))),
         "socket" => Ok(Some(Box::new(
             windups::base::sync_socket::SocketTarget::new(
-                windups::paths::expand(&a.daniel_socket),
+                daniel_socket(a),
                 std::time::Duration::from_secs(a.socket_timeout_secs.max(1)),
                 a.max_frame_bytes.max(1024),
             ),

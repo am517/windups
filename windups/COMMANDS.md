@@ -17,7 +17,7 @@ fail if a universal command is missing here).
 | `config` | Where my config is and what it says | Secret values (keys, tokens, PINs, passwords) are always hidden |
 | `log` | Recent events: `log [N]` (default 20) | From the append-only event log |
 | `help` | This list, plus what only I can do | |
-| `migrate` | Move from the old `~/.config/windups/<name>/` into `~/windups/<name>/`: `migrate [--dry-run]` | Copy, verify, then switch; old folder kept with `MIGRATED.txt` (below) |
+| `migrate` | Move from the old `~/.config/windups/<name>/` into the data folder: `migrate [--dry-run]` | Copy, verify, then switch; old folder kept with `MIGRATED.txt` (below) |
 | `talk` | Plain words to a real command: `talk WORDS...` | Keyword matcher; says what it ran; unknown words go to a helper (later Flora or a local model) |
 
 ## Universal flags
@@ -26,7 +26,7 @@ These flags are honored by every windup (parsed in `windups::base::flags`; each 
 
 | Flag | What it does |
 | --- | --- |
-| `--windup` / `-w` | Called by another windup. No interaction (no prompts, no menus). Machine-readable result or failure only on stdout (JSON). Human text is suppressed. |
+| `--windup` / `-w` | Called by another windup. No interaction (no prompts, no menus). Machine-readable result or failure only on stdout (JSON). Human text is suppressed. `jack -w --capabilities` is the structured profile. |
 | `--json` / `-j` | Also write the JSON next to the media file (off by default; useful for testing). Distinct from `--emit-json` (stdout or a directory) and from `--print-format json`. |
 
 Exit codes (see also `WINDUPS.md`): **0** all ok, **1** some items failed or could not be identified, **2** usage or config errors.
@@ -36,12 +36,12 @@ Exit codes (see also `WINDUPS.md`): **0** all ok, **1** some items failed or cou
 | Windup | Action | What it does |
 | --- | --- | --- |
 | Jack | `tag` | Fetch, verify and tag files: same as `jack PATH...` (talk words: tag, label, identify, metadata) |
-| Jack | `setup` | Make `~/windups/jack/` and the `~/.local/bin/jack` link (the first run does it too) |
+| Jack | `setup` | Make Jack's data folder and the `~/.local/bin/jack` link (the first run does it too) |
 | Jack | `ask` | Subjective data from `jack.db` as JSON: `ask summaries` or `ask images` (`--file PATH` / `--id ID` optional) |
 | Walter | `audit` | Read every windup's DB read-only and print each finding with the fix to run (talk: audit, check on everyone, gaps) |
 | Daniel | `serve` | `daniel serve [--socket PATH] [--db PATH]`: answer sync batches on a Unix socket (below) |
 
-`walter audit` scans `[audit] roots` (default `~/windups`, `~/.config/windups`) for
+`walter audit` scans `[audit] roots` (the macOS and Linux data folders, plus `~/.config/windups`) for
 `<name>/<name>.db`, opens each read-only and prints:
 
 ```text
@@ -58,9 +58,9 @@ He writes only his own `walter.db` (event log); he never fixes another windup's 
 Old `~/.config/windups/<name>/` folders keep working and are never moved automatically. `<windup>
 migrate` (or `--dry-run` to see what it would do; `talk` words only ever preview):
 
-1. Refuses if `~/windups/<name>/` already holds data (an empty folder is fine), or if the windup runs
+1. Refuses if the data folder already holds data (an empty folder is fine), or if the windup runs
    from `--config`, `<NAME>_HOME` or its binary's folder.
-2. Copies the old folder into a staging folder `~/windups/.<name>.migrating` (databases through
+2. Copies the old folder into a staging folder beside the data folder, named `.<name>.migrating` (databases through
    SQLite's online backup, so a copy is consistent even while open; journals and sockets skipped).
 3. Verifies: `PRAGMA integrity_check` and every table's row count on each database; byte
    comparison and an FNV-1a-128 hash for every other file; links point at the same place.
@@ -69,7 +69,7 @@ migrate` (or `--dry-run` to see what it would do; `talk` words only ever preview
    That config is verified against the expected rewritten text, not the original bytes. Paths
    outside the old folder are only warned about. Each rewrite (old -> new) and warning goes into
    `MIGRATED.txt` and the `migrate` event; `--dry-run` lists them too.
-4. Only if everything passes, renames the staging folder to `~/windups/<name>/`, so the lookup
+4. Only if everything passes, renames the staging folder to the data folder, so the lookup
    prefers it from then on. On a failed check the staging copy is removed and nothing switches.
 5. Leaves the old folder as it was, plus `MIGRATED.txt`: where the data went, when (UTC), and every
    check result. Logs a `migrate` event in the new folder's database (a failure is logged where the
@@ -79,7 +79,7 @@ Running it again after success says "already migrated" and does nothing.
 
 ## Sync socket protocol (Daniel, `base::wire`)
 
-Unix domain socket (`[serve] socket`, default `~/windups/daniel/daniel.sock`), std only. Each frame
+Unix domain socket (`[serve] socket`, default `daniel.sock` inside Daniel's data folder), std only. Each frame
 is a 4-byte big-endian length then that many bytes of UTF-8 JSON; frames over `max_frame_bytes`
 (16 MiB) are refused. Any number of requests per connection, one response each, in order:
 

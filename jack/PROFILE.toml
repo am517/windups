@@ -9,13 +9,22 @@ personality = "Curiosity"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "active"
 kinds = ["movie", "episode", "online_video"]
-later_kinds = ["book", "document"]
 sources = ["embedded", "tmdb", "thetvdb", "omdb", "tvmaze", "wikidata", "itunes", "youtube", "wikipedia", "yt-dlp info.json"]
 reads = ["media files", "yt-dlp .info.json"]
-writes = ["jack.db (his own archive of every handoff record with its sync state, plus the shared event log and snapshot list)", "media.db via sync to Daniel (media, candidates, texts, art, ids, ratings, names, conflicts, unresolved, decisions, lifecycle stages and history, full search lists, works and their ids, last_checked; Daniel stores, Larry hashes, Ruth builds the reference)", "file tags (fallback until Lauren)", "sorted folders (fallback until Sally)"]
+# Side effects only: what Jack himself changes. Daniel's tables are Daniel's.
+writes = ["jack.db", "handoff records", "file tags", "sorted folders"]
 never = ["guess between candidates", "overwrite a source's data", "tag from an unresolved decision", "replace the file's own facts without independent evidence", "silently drop an item", "merge entries on a fingerprint hint"]
 hands_off = ["sammy: any step still ambiguous (parse, lookup, match, refine, conflict) via the Escalation trait; decisions recorded with provenance", "user: needs_flags items (--year, --imdb)"]
 command = "jack [--capabilities] [--tmdb ID | --thetvdb ID | --imdb ID | --youtube ID | --x ID | --name NAME --year YEAR] PATH..."
+
+# Kinds Jack knows about but cannot do. `why` is its own field, never stuffed into the kind name.
+[[cant]]
+kind = "book"
+why = "I don't know book metadata yet"
+
+[[cant]]
+kind = "document"
+why = "I don't know document metadata yet"
 
 [[success_checks]]
 check = "every file processed gets exactly one entry handed to Daniel"
