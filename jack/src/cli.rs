@@ -25,28 +25,28 @@ pub(crate) struct Cli {
     /// Write the handoff JSON beside the media file (off by default; useful for testing)
     #[arg(short = 'j', long = "json")]
     pub(crate) json: bool,
-    /// Save the other option flags as defaults in the main config (then run, if paths are given)
+    /// Save the other option flags as defaults in the main config. A key is only saved (no scan). Other flags are saved, then any given paths are run
     #[arg(long)]
     pub(crate) set: bool,
     /// Provider order, comma-separated (e.g. tmdb,thetvdb,omdb)
     #[arg(long, value_delimiter = ',')]
     pub(crate) providers: Option<Vec<String>>,
-    /// TMDB read access token (this run; with --set: saved). No value: prompt (hidden)
-    #[arg(long, num_args = 0..=1, require_equals = true, value_name = "TOKEN")]
+    /// TMDB read access token (this run; with --set: saved). `--tmdb-token TOKEN`. No value: prompt (hidden)
+    #[arg(long, num_args = 0..=1, value_name = "TOKEN")]
     pub(crate) tmdb_token: Option<Option<String>>,
-    /// TheTVDB API key (this run; with --set: saved). No value: prompt (hidden)
-    #[arg(long, num_args = 0..=1, require_equals = true, value_name = "KEY")]
+    /// TheTVDB API key (this run; with --set: saved). `--tvdb-key KEY`. No value: prompt (hidden)
+    #[arg(long, num_args = 0..=1, value_name = "KEY")]
     pub(crate) tvdb_key: Option<Option<String>>,
-    /// TheTVDB subscriber PIN (this run; with --set: saved). No value: prompt (hidden)
-    #[arg(long, num_args = 0..=1, require_equals = true, value_name = "PIN")]
+    /// TheTVDB subscriber PIN (this run; with --set: saved). `--tvdb-pin PIN`. No value: prompt (hidden)
+    #[arg(long, num_args = 0..=1, value_name = "PIN")]
     pub(crate) tvdb_pin: Option<Option<String>>,
-    /// OMDb API key (this run; with --set: saved). No value: prompt (hidden)
-    #[arg(long, num_args = 0..=1, require_equals = true, value_name = "KEY")]
+    /// OMDb API key (this run; with --set: saved). `--omdb-key KEY`. No value: prompt (hidden)
+    #[arg(long, num_args = 0..=1, value_name = "KEY")]
     pub(crate) omdb_key: Option<Option<String>>,
     /// MP4 tag writer: atomicparsley or exiftool
     #[arg(long, value_parser = ["atomicparsley", "exiftool"])]
     pub(crate) mp4_tool: Option<String>,
-    /// Main config file (default: ~/windups/jack/config.toml; see windups/LAYOUT.md)
+    /// Main config file (default: config.toml in Jack's data folder; see windups/LAYOUT.md)
     #[arg(long)]
     pub(crate) config: Option<PathBuf>,
     #[arg(long)]
@@ -311,8 +311,11 @@ mod tests {
             v.extend(extra);
             cli(&v)
         };
-        let (o, p, _) = run(&args(&[]), &none()).unwrap();
-        assert!(o.contains("0 media file(s)") && p.is_empty(), "{o}");
+        let (o, p, failed) = run(&args(&[]), &none()).unwrap();
+        assert!(
+            failed >= 1 && o.contains("nothing processed") && p.is_empty(),
+            "{o}"
+        );
         let (o, p, _) = run(&args(&["--recursive", "--no-print"]), &none()).unwrap();
         assert!(
             o.contains("1 media file(s)") && o.contains("tag: ") && p.is_empty(),
@@ -329,11 +332,15 @@ mod tests {
             "jack",
             &Probe {
                 home: Some("/h".into()),
+                os: "linux".into(),
                 ..Default::default()
             },
         );
-        assert_eq!(l.config, PathBuf::from("/h/windups/jack/config.toml"));
-        assert_eq!(l.db, PathBuf::from("/h/windups/jack/jack.db"));
+        assert_eq!(
+            l.config,
+            PathBuf::from("/h/.local/share/windups/jack/config.toml")
+        );
+        assert_eq!(l.db, PathBuf::from("/h/.local/share/windups/jack/jack.db"));
     }
 
     #[test]

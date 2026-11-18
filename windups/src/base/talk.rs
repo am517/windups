@@ -107,7 +107,7 @@ pub fn interpret(
     }
     let name = &top[0];
     if !UNIVERSAL.iter().any(|(n, _)| n == name) {
-        return Intent::Run(Command::Action(name.clone(), String::new()));
+        return Intent::Run(Command::Action(name.clone(), Vec::new()));
     }
     let number = t.split(' ').find_map(|w| w.parse::<usize>().ok());
     Intent::Run(match name.as_str() {
@@ -146,7 +146,7 @@ mod tests {
         assert_eq!(i("which version are you"), Intent::Run(Command::Version));
         assert_eq!(
             i("identify this movie"),
-            Intent::Run(Command::Action("tag".into(), String::new()))
+            Intent::Run(Command::Action("tag".into(), Vec::new()))
         );
         assert_eq!(i("sing me a song"), Intent::Unknown);
         assert_eq!(
@@ -176,7 +176,7 @@ mod tests {
         let none = BTreeMap::new();
         assert_eq!(
             interpret("please setup", &setup, &none),
-            Intent::Run(Command::Action("setup".into(), String::new()))
+            Intent::Run(Command::Action("setup".into(), Vec::new()))
         );
         assert_ne!(interpret("setup", &[], &none), Intent::Run(Command::Config));
         assert_eq!(

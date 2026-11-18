@@ -6,9 +6,9 @@
 //! - `snapshot`: checked online-backup snapshots and the off-device hook
 //! - `sync`: the generic sync-target trait (per-record results, batch capable)
 //! - `wire` + `sync_socket`: the length-prefixed JSON protocol over a Unix socket, and its client
-//! - `migrate`: the explicit move from `~/.config/windups/<name>/` into `~/windups/<name>/`
+//! - `migrate`: the explicit move from `~/.config/windups/<name>/` into the data folder
 //! - `relocate`: config paths into a migrated folder (rewritten in the new copy only)
-//! - `install`: first run makes `~/windups/<name>/` and the `~/.local/bin/<name>` link
+//! - `install`: first run makes the data folder and the `~/.local/bin/<name>` link
 //! - `audit`: read-only checks of any windup's DB (for Walter, the auditor)
 //! - `commands`: the universal commands and their dispatcher; `talk`: plain words to a command
 //! - `personality`: the one-trait personality and its prompt line

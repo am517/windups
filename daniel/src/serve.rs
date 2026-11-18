@@ -65,7 +65,18 @@ pub fn run(args: &[String]) -> Result<(), String> {
     };
     let store = Store::new(&cfg);
     let serve_cfg = store.config.serve.clone();
-    let path = socket.unwrap_or_else(|| windups::paths::expand(&serve_cfg.socket));
+    let path = socket.unwrap_or_else(|| {
+        if serve_cfg.socket.trim().is_empty() {
+            windups::base::layout::resolve(
+                "daniel",
+                &windups::base::layout::Probe::real("daniel", None),
+            )
+            .dir
+            .join("daniel.sock")
+        } else {
+            windups::paths::expand(&serve_cfg.socket)
+        }
+    });
     let l = bind(&path)?;
     eprintln!("daniel: serving on {}", path.display());
     serve(&l, &store, serve_cfg.max_frame_bytes.max(1024), None)

@@ -287,6 +287,24 @@ pub(crate) fn put(m: &mut Meta, k: &str, v: Option<String>) {
     }
 }
 
+/// IMDb / TMDB ids carried on a TheTVDB record, so the other sources can be asked about the same work.
+fn remote_ids(m: &mut Meta, v: &Value) {
+    let Some(ids) = v.get("remoteIds").and_then(|x| x.as_array()) else {
+        return;
+    };
+    for r in ids {
+        let src = s(&r["sourceName"]).unwrap_or_default().to_ascii_lowercase();
+        let id = s(&r["id"]);
+        if src.contains("imdb") {
+            put(m, "imdb_id", id);
+        } else if src.contains("tmdb") || src.contains("themoviedb") {
+            let series = id.clone();
+            put(m, "tmdb_id", id);
+            put(m, "tmdb_series_id", series);
+        }
+    }
+}
+
 /// First run of digits after `marker` (or anywhere if marker is empty).
 fn digits_after(x: &str, marker: &str) -> Option<String> {
     let i = if marker.is_empty() {
@@ -404,7 +422,7 @@ impl Tmdb<'_> {
         } else if !self.cfg.api_key.is_empty() {
             url += &format!("&api_key={}", enc(&self.cfg.api_key));
         } else {
-            return Err("no API key; set [providers.tmdb] read_token or api_key in ~/.config/windups/jack/config.toml (or build with JACK_TMDB_TOKEN)".into());
+            return Err("no API key; set [providers.tmdb] read_token with --tmdb-token TOKEN --set (or build with JACK_TMDB_TOKEN)".into());
         }
         for (k, v) in params {
             url += &format!("&{k}={}", enc(v));
@@ -587,7 +605,33 @@ impl Tmdb<'_> {
                 }
             }
         }
-        if id.is_none() && !q.title.is_empty() {
+        // A trusted id from another source: look this work up, don't take a loose title hit.
+        if id.is_none() {
+            if let Some(tvdb) = q
+                .thetvdb
+                .as_deref()
+                .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))
+            {
+                let r = self.get(
+                    &format!("/find/{tvdb}"),
+                    &[("external_source", "tvdb_id".into())],
+                )?;
+                if let Some(x) = r["tv_results"][0]["id"]
+                    .as_u64()
+                    .filter(|_| q.kind.as_deref() != Some("movie"))
+                {
+                    (tv, id) = (true, Some(x.to_string()));
+                } else if q.kind.as_deref() != Some("tv") {
+                    if let Some(x) = r["movie_results"][0]["id"].as_u64() {
+                        (tv, id) = (false, Some(x.to_string()));
+                    }
+                }
+            }
+        }
+        let trusted = [&q.imdb, &q.tmdb, &q.thetvdb]
+            .iter()
+            .any(|v| v.as_ref().is_some_and(|s| !s.is_empty()));
+        if id.is_none() && !q.title.is_empty() && !trusted {
             let mut p = vec![("query", q.title.clone())];
             if let Some(y) = &q.year {
                 p.push((if tv { "first_air_date_year" } else { "year" }, y.clone()));
@@ -732,7 +776,7 @@ impl<'a> Tvdb<'a> {
     fn get(&self, path: &str) -> Result<Value, String> {
         if self.token.borrow().is_none() {
             if self.cfg.api_key.is_empty() {
-                return Err("no API key; set [providers.thetvdb] api_key (and pin if required) in ~/.config/windups/jack/config.toml (or build with JACK_TVDB_KEY)".into());
+                return Err("no API key; set [providers.thetvdb] api_key with --tvdb-key KEY --set (and --tvdb-pin PIN if required), or build with JACK_TVDB_KEY".into());
             }
             let mut b = json!({ "apikey": self.cfg.api_key });
             if !self.cfg.pin.is_empty() {
@@ -1042,6 +1086,7 @@ impl Tvdb<'_> {
         }
         put(&mut m, "thetvdb_id", Some(id.clone()));
         put(&mut m, "thetvdb_series_id", Some(id.clone()));
+        remote_ids(&mut m, &series);
         if let (Some(se), Some(ep)) = (q.season, q.episode) {
             m.insert("season".into(), se.to_string());
             m.insert("episode".into(), ep.to_string());
@@ -1892,6 +1937,42 @@ mod tests {
                 ("backdrop", "http://a/bg.jpg", 2, 1920, 1080),
                 ("season", "http://a/s3.jpg", 0, 680, 1000)
             ]
+        );
+    }
+
+    #[test]
+    fn a_thetvdb_id_is_looked_up_on_tmdb_instead_of_a_title_guess() {
+        let h = FakeHttp::new(vec![
+            (
+                "/find/27498",
+                json!({"tv_results":[{"id":55,"name":"Mountain"}],"movie_results":[]}),
+            ),
+            (
+                "/tv/55",
+                json!({"name":"Mountain","first_air_date":"2019-01-01","external_ids":{"imdb_id":"tt9"}}),
+            ),
+        ]);
+        let m = tmdb(&h)
+            .lookup(&Query {
+                title: "Mountain".into(),
+                thetvdb: Some("27498".into()),
+                ..Default::default()
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(m["tmdb_series_id"], "55");
+        assert!(
+            h.calls
+                .borrow()
+                .iter()
+                .any(|c| c.contains("external_source=tvdb_id")),
+            "{:?}",
+            h.calls.borrow()
+        );
+        assert!(
+            !h.calls.borrow().iter().any(|c| c.contains("/search/")),
+            "a trusted id is not a title search: {:?}",
+            h.calls.borrow()
         );
     }
 }

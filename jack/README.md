@@ -11,7 +11,7 @@ Status: phases 1-4 done: CLI, config, scan, tag writing, TMDB/TheTVDB lookup, fi
 
 ```zsh
 brew install am517/tap/windups-jack
-jack setup   # or just run jack: makes ~/windups/jack/ and links ~/.local/bin/jack
+jack setup   # or just run jack: makes the data folder and links ~/.local/bin/jack
 ```
 
 ## Build from source (macOS, zsh)
@@ -19,7 +19,7 @@ jack setup   # or just run jack: makes ~/windups/jack/ and links ~/.local/bin/ja
 ```zsh
 brew install atomicparsley exiftool mkvtoolnix
 cargo build --release
-jack setup   # makes ~/windups/jack/ (config, jack.db, backups/) and links ~/.local/bin/jack
+jack setup   # makes the data folder (config, jack.db, backups/) and links ~/.local/bin/jack
 # then add your keys under [providers.tmdb] and [providers.thetvdb]
 ```
 
@@ -41,7 +41,7 @@ jack movie.mp4 -p --print-format json > m.json     # JSON array on stdout (repor
 
 ## Config
 
-- Main config: `~/windups/jack/config.toml` (old installs: `~/.config/windups/jack/config.toml`) or `--config <path>`; deep-merged over the built-in defaults in `config/jack.toml`, which documents every key.
+- Main config: `"~/Library/Application Support/Windups/jack/config.toml"` on macOS, `~/.local/share/windups/jack/config.toml` on Linux (old installs: `~/.config/windups/jack/config.toml`) or `--config <path>`; deep-merged over the built-in defaults in `config/jack.toml`, which documents every key. Quote the macOS path; it contains a space.
 - No sidecars: per-file values (`--name`, `--year`, ids, `--grouping`) are flags; jack never reads `<file>.*` files. `-d` output is for you; jack doesn't read it back. Art is a temp file, deleted after embedding (kept beside the file only with `-d`). Jack writes nothing beside the media: every record goes into his own `jack.db` first (see below).
 - Precedence: flags > main config > built-in defaults. `~` is expanded in paths.
 - Tweakable there: extensions, tag tool and paths, provider order, keys and base URLs, per-field merge priority, filename regexes, sort templates, move/copy.
@@ -92,7 +92,7 @@ Jack's folder holds three things: the `jack` binary, his own database `jack.db`,
 - Each record carries `synced_at`: empty until the sync target acknowledges it. At the end of every run Jack syncs to Daniel, the record keeper (`[archive] sync_target = "daniel"`; `sync_transport = "library"` calls `daniel::receive` in-process, `"socket"` talks to a running `daniel serve` over `daniel_socket`, see `../windups/COMMANDS.md`), in batches with one result per record; a record is marked synced only after its ack, so a retry is safe. Jack keeps his records after syncing (on purpose). If media.db can't be opened, records just wait in `jack.db`. `sync_target = "none"` (or `[store] enabled = false`) keeps them local. No `<file>.jack.json` is written beside the media (`[store] handoff_json` and `fallback_suffix` are ignored).
 - `[archive] id`: `content` (default; an identical re-run is the same record) or `per_run`.
 - Universal commands (see `../windups/COMMANDS.md`): `jack status|health|sync|backup|export [-|DIR]|version|config|log [N]|help|talk WORDS...`, plus Jack's own `tag PATH...` and `setup`. A real file or folder with one of those names is still treated as a path. `jack export` writes every record (JSONL); `--emit-json` stays for one run's entries.
-- Jack's folder: see `../windups/LAYOUT.md` (`--config` > `JACK_HOME` > the binary's folder > `~/windups/jack/` > legacy `~/.config/windups/jack/`). The first run makes `~/windups/jack/` and links `~/.local/bin/jack`; snapshots go in `~/windups/jack/backups/`.
+- Jack's folder: see `../windups/LAYOUT.md` (`--config` > `JACK_HOME` > the binary's folder > the data folder > legacy `~/.config/windups/jack/`). The first run makes the data folder and links `~/.local/bin/jack`; snapshots go in `<folder>/backups/`.
 - `--emit-json -` writes one JSON object per entry to stdout (the run report goes to stderr, so this can be piped). `--emit-json DIR` writes `<filename>.jack.json` into that directory.
 - Do not combine `--emit-json -` with `--print` if you need a clean JSON stream.
 
@@ -110,7 +110,7 @@ Keys come from the config file first, then from project keys embedded at build t
 JACK_TMDB_TOKEN=... JACK_TVDB_KEY=... JACK_OMDB_KEY=... cargo build --release
 ```
 
-Per run, `--tmdb-token`, `--tvdb-key`, `--tvdb-pin` and `--omdb-key` beat both; with `--set` they are saved into the config. Give them without a value (`jack --set --omdb-key`) to be prompted with hidden input (or pipe the key on stdin), keeping keys out of shell history; inline values need `=` (`--omdb-key=...`). Keys are never printed (masked in `--set` output).
+Per run, `--tmdb-token`, `--tvdb-key`, `--tvdb-pin` and `--omdb-key` beat both; with `--set` they are saved into the config and Jack does not scan media. Pass the value after a space (`jack --set --tvdb-key KEY`); `jack --set --tvdb-key=KEY` also works. Give them without a value (`jack --set --omdb-key`) to be prompted with hidden input (or pipe the key on stdin), keeping keys out of shell history. The report says `saved`, `unchanged`, or `replaced` and never prints the key.
 
 Config `[providers.tmdb] read_token`/`api_key` `[providers.thetvdb] api_key` and `[providers.omdb] api_key` override embedded keys. The TheTVDB subscriber `pin` is config-only. With neither, Jack reports which key to set. Never commit keys (`.env`, `*.key` and `secrets*` are git-ignored). Keys embedded in a binary can be extracted from it.
 

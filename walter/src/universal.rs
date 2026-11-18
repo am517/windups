@@ -76,7 +76,7 @@ impl Windup for Walter {
             help: "read every windup's database (read-only) and say what needs fixing and how",
         }]
     }
-    fn action(&mut self, name: &str, _rest: &str) -> Result<String, String> {
+    fn action(&mut self, name: &str, _rest: &[String]) -> Result<String, String> {
         match name {
             "audit" => Ok(crate::audit::report(
                 &crate::audit::roots(&self.cfg),
@@ -104,7 +104,7 @@ pub fn main(args: &[String]) -> i32 {
         }
     }
     let cmd = commands::parse(&rest)
-        .unwrap_or_else(|| Command::Action(rest[0].clone(), rest[1..].join(" ")));
+        .unwrap_or_else(|| Command::Action(rest[0].clone(), rest[1..].to_vec()));
     let talk = matches!(cmd, Command::Talk(_));
     let r = Walter::open(config.as_deref()).and_then(|mut w| {
         let hooks = Hooks {
