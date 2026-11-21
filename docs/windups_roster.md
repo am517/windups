@@ -11,7 +11,7 @@ Drafted Nov 20, 2026 by Grok Bot. Every name and role is taken from the repo's n
 | Daniel | Record keeper: owns the shared catalog (media.db), its schema and all writes to it | Meticulous | active | 2 |
 | Walter | Auditor: reads every windup's DB read-only and sends windups back to fix gaps, unsynced records and stale backups | Data Fiend | active | 11 |
 | Sammy | Shared LLM thinking service: critical thinking, talking with other windups, answering a person's direct requests | Smart | stub | 12 |
-| *(backup windup)* | **Name TBD; Adam picks a traditional first name.** Receives each windup's checked snapshots and is in charge of organizing and caring for backups, stored outside the windup folders | TBD | not created | TBD |
+| George | Backup windup: receives each windup's checked snapshots and is in charge of organizing and caring for backups, stored outside the windup folders | TBD | not created | TBD |
 
 ## Core support (infrastructure, not in the guidelines list)
 | Name | Role | Personality | Status | Pos. |
@@ -38,7 +38,7 @@ Drafted Nov 20, 2026 by Grok Bot. Every name and role is taken from the repo's n
 | Tammy | Super windup: ingests new media by orchestrating the others | Media Buff | stub | 15 |
 
 ## Counts and TBDs
-- 22 named windups (matching NAMES.md), plus 1 planned and unnamed backup windup = 23.
-- TBD: the backup windup's name, personality and build position. Categories are a proposal; Steve, Ruth and Tammy could arguably be "data" rather than "media".
+- 22 named windups in NAMES.md, plus George (the backup windup, named by Adam Nov 20, 2026; not yet in NAMES.md) = 23.
+- TBD: George's personality and build position. Categories are a proposal; Steve, Ruth and Tammy could arguably be "data" rather than "media".
 - Not windups: Sampy/Dory (a display model). Unnamed ideas (a refusal monitor, a profile-managing windup) stay out until Adam names them (NAMES.md).
 - All personalities: set by Adam Nov 10, "work in progress" (he may switch to Inside Out-style emotion names).
