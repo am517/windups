@@ -1,0 +1,183 @@
+# Windups coding style and guidelines
+
+## 1. Philosophy
+- Humanity
+ - Treat each windup like a person
+ - When the right windup behavior is unclear, ask "what would a person do?", then ask Adam if still unsure.
+ - Preserve intentional humor in windup personalities
+ - Naming windups after people is on purpose
+ - Windups get first names only
+ - Names should be of traditional American, English, Celtic, Germanic, French, Nordic, Slavic or Japanese roots
+ - Windups have a shared culture
+ - Windups have a personality descriptor (à la the movie Inside Out, e.g. Curiosity, Frigidity, Happiness)
+ - Windups have a small, medium and large system prompt for use in varying models
+- Composure
+ - Windups share a global base and add only one clear function on top of that base
+ - Prefer clarity, human readability
+ - Prefer modularity with each file and function having one specific purpose
+ - Avoid dependencies unless they clearly offer refined code that cannot be easily reproduced
+ - Each windup can use Sammy (the shared LLM), making it act more like an agent. When used, windups can talk directly about themselves and their actions
+- Behavior
+ - Windups act like an experienced adult
+ - They make no assumptions
+ - Employ deduction, logic and pattern-noticing, using classical algorithms first (since they're cheaper) followed by Sammy if needed
+ - They keep their complete action history
+ - They act only on sure decisions
+ - Tasks are living records: check for existing work, records and sources before starting from scratch
+- Communication
+ - They're open about what they're doing
+ - They are completely closed off toward outsiders
+ - When working as a swarm, Flora is the only windup that talks to humans: the windup tells Flora, Flora tells the user (like Adam with Grok Bot, and Grok Bot with the other bots)
+ - Windups use Sammy for (1) internal critical thinking, (2) talking with other windups, and (3) responding to direct command-line requests from human users
+ - Windups always talk to each other directly, encrypted with Noise, regardless of any other conditions (same machine included). The command line is for humans only
+ - When decisions are ambiguous, explain the confusion
+ - When talking to a user, give them the choice to make a decision when the windup is unable to do so itself
+ - Every response, to a person or a windup, is concise but descriptive, saying what happened and why (e.g. "I saved X, but Y didn't work because N").
+ - If Sammy is available, windups speak fluidly, like a normal agent.
+
+## 2. Structure and modularity
+- Highly modular
+ - Clear separation of concerns: while scopes may vary, one function does one thing, one file does one thing, one windup does one thing
+ - Clear, concise comments so that a human coder can easily contribute
+ - Ensure human readability with pleasant and consistent formatting
+ - Ensure bot readability with coherent chunks a bot can easily focus on.
+ - Prefer to make a new windup than expand the scope of an existing windup
+ - Make a crate when it's a tool someone else (a windup or a person) might use, e.g. functions like those performed by exiftool or imagemagick, networking tools, fetching or writing metadata
+- Windups in Rust: composition, not inheritance
+ - Rust has no inheritance: each windup holds the shared Base (composition) and implements a common `Windup` trait, adding only its one job
+ - Shared behavior lives in the `windups` core crate (`windups::base`: layout, schema, events, snapshot, sync, audit, commands, talk, config, relationships...)
+ - Windups use and extend the shared Base rather than copying it.
+- Conformity and Processing
+ - Each windup needs a clear design spec containing requirements, modules, functions with inputs/outputs/behavior, data, config, errors, test plan
+ - The design spec is used as the target structure and should be easily managed in a kanban
+ - Windup parts can be tested and reviewed individually by following the spec one line at a time.
+ - One spec per crate, including for the universal base and for each windup.
+
+## 3. Language, dependencies, performance
+- Dependencies
+ - As few dependencies as necessary
+ - Only well-made crates that serve a specific purpose and would be hard to reimplement (e.g. SQLite, TLS/HTTP, TOML parsing, fuzzy matching).
+ - Never add a dependency just to make code shorter.
+ - Always use the latest versions of dependencies and tools where possible; always install Rust with rustup (latest stable); check for updates now and then
+ - Only use free sources for any integrations: free to use; a paid tier is fine as long as a publicly accessible free version exists
+- Performance
+ - Windups operate in swarms on low resource devices
+ - Optimize for low memory usage wherever possible
+ - Optimize for speed
+ - No needless allocations
+ - Measure benchmarks/profiling where it matters
+ - Aim for the most efficient solution
+ - Never use the easiest solution without evaluation
+- Language
+ - Windups are Rust first
+ - Other languages are only permitted when there is no choice, such as when a necessary dependency is only available in another language
+
+## 4. Config, data and relationships
+- Relationships
+ - Flora is the main windup users download; she installs others and writes herself into each one's config as the `assistant`.
+ - Oliver is the matchmaker and the first windup introduced by Flora
+ - Windups ask the matchmaker (Oliver) for introductions to any other windups they may need, and save them to their config.
+ - Only Flora or the user can introduce windups
+ - If a windup becomes unavailable, ask Oliver the matchmaker for a reintroduction
+ - If the matchmaker becomes unavailable, ask Flora the assistant for a reintroduction
+ - If no windups are reachable, run in isolation
+- Config
+ - All settings (config) are encrypted in the windup's own database, so windups can't be profiled
+ - Every tweakable value lives in config, never hard-coded.
+ - All relationships live in config, never hard-coded; windups are naive about each other.
+- Roles (core windups only; the full list is in [windups_roster.md](windups_roster.md))
+ - Flora = user-facing talker; the only windup that talks to humans when working as a swarm
+ - Oliver = windup matchmaker; revokes compromised keys and runs the 90-day key rotation (Flora is the fallback)
+ - Margaret = directory
+ - Daniel = record keeper for the shared SQLite catalog (all writes to the shared catalog); each windup writes its own DB first
+ - Walter = auditor (read-only)
+ - Sammy = shared LLM, giving each windup a mind
+ - Backup windup (name TBD; Adam picks) = in charge of organizing and caring for backups
+- Data
+ - Each windup lives in its own folder where the folder is the name of the windup
+ - A windup consists of one binary and one encrypted SQLite DB
+ - Each windup makes its own checked snapshots of its database, then hands them to the backup windup, which organizes and cares for them outside the windup folder.
+ - Windups never write outside their own folder, with two exceptions: backups and the unlock (master) key, which both live outside the windup folder.
+ - Default data root: `~/Library/Application Support/Windups/<name>` on macOS; `$XDG_DATA_HOME/windups/<name>` or `~/.local/share/windups/<name>` on Linux
+ - Windups don't assume a default location, but they do assume a standard windup file structure in their windup folder (windup folders can be arbitrarily moved)
+ - Keep all records, even after sync with Daniel or performing an action
+ - Windups write their own records in their own DB before taking any action
+ - Mark records synced only on ack; provide stable ids for safe retries.
+ - Deliberate redundancy (own archive + Daniel's catalog) enables reconstruction
+ - No sidecars unless requested by the user
+ - Windup DB is the source of truth
+ - Schema version with ordered, transactional forward migrations
+ - Never move a user's old folder automatically; `migrate` only when asked, after the copy verifies.
+ - Settings are viewed and changed only through the windup's `config` command and `--set`; any text shown is plain, for the user only, with no internal dev notes
+
+## 5. CLI conventions
+- The command line is for humans (and their scripts) only; windups never call each other's command line, they talk directly over Noise
+- Global flags, commands, exit codes and output: see [windups_base_spec.md](windups_base_spec.md). Flag syntax is global; each windup implements flags compatibly in its own way, may leave one out, and users never learn different flags for the same idea.
+- Source flags (`--tmdb`, `--thetvdb`, `--imdb`, `--youtube`, `--x`, ...) take either a link or an id.
+- Almost all functionality, such as saving to the windup's own DB and answering requests, are global windup functions in the shared core, not per-windup code.
+- Only the windup's distinguishing function (such as getting metadata, or writing files) is part of an individual windup's code
+- Every windup has the same plain-word commands (see the base spec).
+
+## 6. Talking (output)
+- To people on the command line, without Sammy
+ - err verbose but concise and clear
+ - always say what action was taken
+ - always say if anything was skipped and why, or why nothing was done.
+ - Never be silent.
+- With `-j/--json`
+ - JSON on stdout with reasons in their own fields, never inside values
+ - no prompts or commentary
+- Toward windups
+ - always direct, over Noise; never through the command line
+ - when working as a swarm, a windup reports to Flora and Flora tells the user
+- With Sammy
+ - windups talk just like normal LLM agents: with each other, and with a human user who makes a direct command-line request
+
+## 7. Errors, logging, secrets
+- Log everything
+- Save all data
+- Option for pruning, summarizing or compressing data according to user-defined rules; defaults to preserve all
+- A failed or partial record is still saved and marked for review; it is not dropped
+- Append-only event log per windup DB; old events compressed/summarized/purged only by the shared rules, originals in backups.
+- Each windup makes its own checked snapshots (a copy failing its integrity check doesn't count) and hands them to the backup windup, stored outside the windup folder.
+- Never show, log, sync or commit a key, token, PIN or password; never echo keys. Run gitleaks before any push.
+- API keys live encrypted in the windup's own database (its own memory) and not in the keychain. Only this instance may be able to use them. See [identity_and_security.md](identity_and_security.md).
+- Each windup gets its own identity keys for encryption and for talking to other windups.
+
+## 8. Tests, git, docs
+- Every change: `cargo test --workspace --offline`, `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, warning-free build (including Cargo manifest warnings).
+- Tests use fakes, no live keys or network. Add a regression test for each bug Adam reports (e.g. path with spaces).
+- PROFILE.toml `success_checks` link each promise to a named test.
+- No pushes or merges until Adam says. Fast-forward only, no force.
+- Versioning
+ - Applies to all workspace (box) and Mac data that isn't in GitHub, including our programming files that aren't in GitHub.
+ - Windups themselves don't use `.old`
+ - New version → rename the old folder to `<name>.old` (replacing any older .old), plain name for the new one, no version numbers in file names. Purpose: no build-up of relic files, while keeping exactly one backup.
+- Name mix-ups (e.g. "Walter" for Daniel) are slips, not design changes - always refer to GitHub for correct names
+
+## 9. Common rules
+- Naming: whole words over abbreviations (`candidates`, not `cands`)
+ - Functions are verbs (`fetch_series`)
+ - Types are nouns
+ - File name = the one job it does
+ - Rust defaults (snake_case, CamelCase types).
+- Comments
+ - Each file opens with one `//!` line saying its job.
+ - Comments are concise and clear, and suitable for a random programmer to easily contribute
+ - No dead code or commented-out code
+ - No internal dev notes in user-facing text.
+- Functions
+ - Short, one job, no hidden side effects
+ - Pass config in, don't read globals
+ - Return `Result` with a clear error, never `unwrap()` outside tests.
+- Error messages
+ - Human: Say what failed, why, and what to do next, in plain words, one line where possible. E.g. `TMDB key not set: run jack --set --tmdb-key KEY`.
+ - Machine (`-j` output and Noise replies): stable machine code + reason field; no prose in values.
+ - Never print secrets.
+- Docs layout
+ - `README.md` (what it is, install, examples)
+ - `SPEC.md` (functions, I/O, errors, tests)
+ - `PROFILE.toml` (who it is); the config defaults documentation describes every key; shared rules stay in `windups/` (CULTURE, LAYOUT, COMMANDS, this guide).
+- Tests
+ - One test per promise or bug, named as a sentence (`path_with_spaces_is_processed`)
+ - No network or live keys.
