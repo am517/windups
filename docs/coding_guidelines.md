@@ -93,11 +93,11 @@
  - Daniel = record keeper for the shared SQLite catalog (all writes to the shared catalog); each windup writes its own DB first
  - Walter = auditor (read-only)
  - Sammy = shared LLM, giving each windup a mind
- - Backup windup (name TBD; Adam picks) = in charge of organizing and caring for backups
+ - George = backup windup, in charge of organizing and caring for backups
 - Data
  - Each windup lives in its own folder where the folder is the name of the windup
  - A windup consists of one binary and one encrypted SQLite DB
- - Each windup makes its own checked snapshots of its database, then hands them to the backup windup, which organizes and cares for them outside the windup folder.
+ - Each windup makes its own checked snapshots of its database, then hands them to George, the backup windup, who organizes and cares for them outside the windup folder.
  - Windups never write outside their own folder, with two exceptions: backups and the unlock (master) key, which both live outside the windup folder.
  - Default data root: `~/Library/Application Support/Windups/<name>` on macOS; `$XDG_DATA_HOME/windups/<name>` or `~/.local/share/windups/<name>` on Linux
  - Windups don't assume a default location, but they do assume a standard windup file structure in their windup folder (windup folders can be arbitrarily moved)
@@ -140,7 +140,7 @@
 - Option for pruning, summarizing or compressing data according to user-defined rules; defaults to preserve all
 - A failed or partial record is still saved and marked for review; it is not dropped
 - Append-only event log per windup DB; old events compressed/summarized/purged only by the shared rules, originals in backups.
-- Each windup makes its own checked snapshots (a copy failing its integrity check doesn't count) and hands them to the backup windup, stored outside the windup folder.
+- Each windup makes its own checked snapshots (a copy failing its integrity check doesn't count) and hands them to George, the backup windup, stored outside the windup folder.
 - Never show, log, sync or commit a key, token, PIN or password; never echo keys. Run gitleaks before any push.
 - API keys live encrypted in the windup's own database (its own memory) and not in the keychain. Only this instance may be able to use them. See [identity_and_security.md](identity_and_security.md).
 - Each windup gets its own identity keys for encryption and for talking to other windups.

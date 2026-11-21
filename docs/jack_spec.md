@@ -88,7 +88,7 @@ Global flags and commands are in [windups_base_spec.md](windups_base_spec.md); t
 - Secrets: `secrets` (encrypted in `jack.db`, only this instance; see identity_and_security.md)
 
 ## 7. Config, data, keys
-- Folder: macOS `~/Library/Application Support/Windups/jack`, Linux `~/.local/share/windups/jack`; holds `jack` and `jack.db`. Backups go to the backup windup. The master key is **not** in the folder: it's in the OS keychain or `~/.config/windups/keys/jack.key` (see [identity_and_security.md](identity_and_security.md)).
+- Folder: macOS `~/Library/Application Support/Windups/jack`, Linux `~/.local/share/windups/jack`; holds `jack` and `jack.db`. Backups go to George, the backup windup. The master key is **not** in the folder: it's in the OS keychain or `~/.config/windups/keys/jack.key` (see [identity_and_security.md](identity_and_security.md)).
 - Settings, relationships and secrets are stored in proper tables in `jack.db`, laid out in [windups_base_spec.md](windups_base_spec.md) §5 (the same for every windup).
 - Jack-specific table: `records`, one per file (id, created_at, file, handoff JSON v1, synced_at). Only facts are synced to Daniel; how truths (summaries, images) are laid out is still to be designed.
 - TMDB: one `--tmdb-key VALUE` takes either credential (v3 key = 32 hex characters; read token = long `eyJ…` JWT), with `--tmdb-token` as an alias. TMDB's docs say both give the same access, so only one is ever needed.

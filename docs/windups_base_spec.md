@@ -25,7 +25,7 @@ Plain-word commands, the same set on every windup, listed in `--help`:
 | `status` | What I'm doing / last run |
 | `health` | Self-check (DB integrity, keys unlockable, contacts reachable) |
 | `sync` | Send unsynced records to Daniel |
-| `backup` | Make a checked snapshot and hand it to the backup windup |
+| `backup` | Make a checked snapshot and hand it to George (the backup windup) |
 | `export` | Readable copy of my records (never keys) |
 | `version` | Version |
 | `config` | View or change settings (the only way, besides `--set`; settings are encrypted in the DB) |
@@ -60,13 +60,8 @@ A windup adds its own commands only for its one job (e.g. Jack's `ask`). A real 
   A windup adds its own tables only for its job (e.g. Jack's `records`).
 - Own records first, kept after sync; synced to Daniel with stable ids and per-record acks.
 - Append-only event log; schema version with ordered, transactional forward migrations.
-- Backups: the windup makes its own checked snapshots and hands them to the backup windup (name TBD), stored outside the folder.
+- Backups: the windup makes its own checked snapshots and hands them to George, the backup windup, stored outside the folder.
 - Outside the folder: only backups and the unlock key (see identity_and_security.md).
 
 ## 6. Base modules (today, `windups/src/base/`)
 `layout`, `install`, `schema`, `events`, `snapshot`, `sync`, `sync_socket`, `audit`, `commands`, `talk`, `migrate`, `relocate`, `config`, `relationships`, `personality`, `flags`, `wire`. To add: identity/keys, recovery phrase, Noise transport, encrypted settings, backup hand-off, multi-device (later). Function-level detail (inputs, outputs, errors, tests) comes next.
-
-## Decided (Adam, Nov 20, 8:49 PM ET)
-- Commands stay plain-word commands.
-- Folder lookup order: binary folder, then `<NAME>_HOME`, then the default root.
-- Keep `migrate`; it asks for the recovery phrase.
