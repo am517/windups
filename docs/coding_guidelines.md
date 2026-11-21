@@ -60,6 +60,7 @@
  - Never add a dependency just to make code shorter.
  - Always use the latest versions of dependencies and tools where possible; always install Rust with rustup (latest stable); check for updates now and then
  - Only use free sources for any integrations: free to use; a paid tier is fine as long as a publicly accessible free version exists
+ - Free, locally installed open-source tools such as yt-dlp (works for X and YouTube, not IMDb) and exiftool count as free public access when they're on the computer. They're optional and detected at runtime; if one is missing, the windup says so clearly and carries on without it
 - Performance
  - Windups operate in swarms on low resource devices
  - Optimize for low memory usage wherever possible
