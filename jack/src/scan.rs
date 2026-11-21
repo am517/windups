@@ -1,7 +1,7 @@
 //! Finding media files and building the lookup query for one.
 use crate::config::{self, Config, Settings, has_ext};
+use crate::matcher;
 use crate::providers::Query;
-use crate::{matcher, tagger};
 use std::path::{Path, PathBuf};
 
 /// A path that was not a media file, and why.
@@ -86,26 +86,15 @@ pub(crate) fn query(path: &Path, s: &Settings, cfg: &Config) -> Result<Query, St
     let kind = matcher::forced(s.kind.as_deref());
     let mut q = matcher::parse(path, &cfg.matching, kind)?;
     q.kind = kind.map(String::from);
-    // ids written by an earlier run beat the filename guess; flag/config ids beat both.
-    let f = tagger::read_ids(path, &cfg.tagger);
-    let g = |k: &str| f.get(k).cloned();
-    q.imdb = s.imdb.clone().or(g("imdb_id"));
-    q.tmdb = s
-        .tmdb
-        .clone()
-        .or(g("tmdb_series_id").map(|x| format!("/tv/{x}")))
-        .or(g("tmdb_id"));
-    q.thetvdb = s
-        .thetvdb
-        .clone()
-        .or(g("thetvdb_series_id"))
-        .or(g("thetvdb_id"));
-    if let Some(n) = s.name.as_ref().filter(|n| !n.is_empty()) {
-        q.title = n.clone();
-    }
-    if let Some(y) = s.year.as_ref().filter(|y| !y.is_empty()) {
-        q.year = Some(y.clone());
-    }
+    // embedded tags are user input: they fill name, date and ids, and a flag still wins
+    let own = if cfg.embedded.enabled {
+        crate::filemeta::read(path, &cfg.online.ffprobe, &cfg.embedded.tags)
+    } else {
+        crate::meta::Meta::new()
+    };
+    let heard = crate::embedded_input::hear(&own);
+    crate::embedded_input::fill(&mut q, &heard);
+    crate::embedded_input::flags_win(&mut q, s);
     Ok(q)
 }
 
@@ -141,54 +130,40 @@ mod tests {
     }
 
     #[test]
-    fn ids_in_file_beat_filename_but_not_flags() {
-        let ok = |t: &str| {
-            std::process::Command::new("which")
-                .arg(t)
-                .output()
-                .is_ok_and(|o| o.status.success())
-        };
-        if !ok("ffmpeg") || !ok("AtomicParsley") {
-            return eprintln!("skip: ffmpeg/AtomicParsley missing");
-        }
-        let d = tempfile::tempdir().unwrap();
-        let m = d.path().join("Saiki.K.S01E02.mp4");
-        assert!(
-            std::process::Command::new("ffmpeg")
-                .args([
-                    "-loglevel",
-                    "error",
-                    "-f",
-                    "lavfi",
-                    "-i",
-                    "color=c=black:s=16x16:d=0.2",
-                    "-c:v",
-                    "mpeg4"
-                ])
-                .arg(&m)
-                .status()
-                .unwrap()
-                .success()
-        );
-        let cfg = config::load(Some(Path::new("config/jack.toml"))).unwrap();
-        let ids: Meta = [
-            ("tmdb_series_id", "42"),
-            ("thetvdb_series_id", "7"),
+    fn embedded_ids_fill_the_query_and_a_flag_wins() {
+        let tags: Meta = [
+            ("show", "Saiki K"),
+            ("date", "2016-01-01"),
             ("imdb_id", "tt5"),
+            ("tmdb_id", "42"),
+            ("thetvdb_id", "7"),
         ]
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .into();
-        tagger::run(&tagger::command(&m, &ids, &cfg.tagger).unwrap()).unwrap();
-        let q = query(&m, &Settings::default(), &cfg).unwrap();
+        let heard = crate::embedded_input::hear(&tags);
+        let mut q = crate::providers::Query {
+            title: "from the filename".into(),
+            ..Default::default()
+        };
+        crate::embedded_input::fill(&mut q, &heard);
         assert_eq!(
-            (q.tmdb.as_deref(), q.thetvdb.as_deref(), q.imdb.as_deref()),
-            (Some("/tv/42"), Some("7"), Some("tt5"))
+            (
+                q.title.as_str(),
+                q.year.as_deref(),
+                q.tmdb.as_deref(),
+                q.thetvdb.as_deref(),
+                q.imdb.as_deref()
+            ),
+            ("Saiki K", Some("2016"), Some("42"), Some("7"), Some("tt5"))
         );
-        let s = Settings {
+        assert!(heard.trusted_id());
+        let flags = Settings {
             thetvdb: Some("99".into()),
             ..Default::default()
         };
-        assert_eq!(query(&m, &s, &cfg).unwrap().thetvdb.as_deref(), Some("99"));
+        crate::embedded_input::flags_win(&mut q, &flags);
+        assert_eq!(q.thetvdb.as_deref(), Some("99"));
+        assert_eq!(q.imdb.as_deref(), Some("tt5"));
     }
 
     #[test]

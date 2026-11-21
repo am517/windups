@@ -59,6 +59,11 @@ pub trait Escalation {
     fn decide(&self, ctx: &Context) -> Verdict;
 }
 
+/// Sammy is not connected. The can't-decide rows that talk to her stay here until she is.
+pub fn sammy_available() -> bool {
+    false
+}
+
 /// No Sammy yet: always defers (item logged incomplete + static explanation).
 pub struct NoSammy;
 
@@ -103,6 +108,10 @@ mod tests {
             meta: &m,
             found: &[],
         };
+        assert!(
+            !sammy_available(),
+            "Sammy is a later card; this path stays a stub"
+        );
         assert_eq!(NoSammy.decide(&c), Verdict::Defer);
         let mut meta = Meta::new();
         let v: Meta = [("year".to_string(), "2005".to_string())].into();

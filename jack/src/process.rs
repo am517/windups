@@ -1,24 +1,11 @@
-//! Handling one media file: fetch, art, tag, sort.
-use crate::config::{Config, Settings, suffixed};
-use crate::meta::{self, Meta};
+//! Handling one media file: read it, look it up, and say what it is.
+use crate::config::{Config, Settings};
+use crate::meta::Meta;
 use crate::providers::{self, Http};
-use crate::{art::*, fetch::*, print::*, scan::*};
-use crate::{askart, online, sorter, tagger};
+use crate::{online, tools};
+use crate::{print::*, scan::*};
 use std::fmt::Write as _;
 use std::path::Path;
-
-/// Temp artwork is removed after use unless -d kept it beside the media file.
-fn drop_temp_art(meta: &crate::meta::Meta, keep: bool) {
-    if keep {
-        return;
-    }
-    if let Some(p) = meta.get("poster_file") {
-        let tmp = std::env::temp_dir();
-        if Path::new(p).starts_with(&tmp) {
-            let _ = std::fs::remove_file(p);
-        }
-    }
-}
 
 pub(crate) fn process(
     path: &Path,
@@ -32,8 +19,7 @@ pub(crate) fn process(
     use crate::escalate::Step;
     let file = path.to_string_lossy().into_owned();
     let dry = Settings::flag(s.dry_run);
-    let (print, dl) = (Settings::flag(s.print), Settings::flag(s.download_only));
-    let msuf = s.meta_suffix.as_deref().unwrap_or(".meta.json");
+    let print = Settings::flag(s.print);
     // the label first: the file's own metadata, kept as a source of its own
     let own = if cfg.embedded.enabled {
         crate::filemeta::read(path, &cfg.online.ffprobe, &cfg.embedded.tags)
@@ -68,13 +54,30 @@ pub(crate) fn process(
         Some(Ok(a)) => crate::reuse::plan(a, path, &ids, &cfg.providers.order, &cfg.completeness)?,
         _ => crate::reuse::Plan::Fresh,
     };
-    let skip_search = matches!(plan, crate::reuse::Plan::Skip { .. });
     let note = crate::reuse::report(&plan);
     if !note.is_empty() {
         let _ = writeln!(out, "    {note}");
     }
     // an online video is fetched by its own site id: that id identifies the video
-    let label = online_label(path, s, cfg);
+    let mut label = online_label(path, s, cfg);
+    if let Some(item) = label.as_mut() {
+        if item.info.is_empty() && tools::installed("exiftool") {
+            match online::exif::read(path) {
+                online::exif::Read::Meta(read) if !read.is_empty() => {
+                    let _ = writeln!(out, "    exiftool: read metadata from the file");
+                    item.info.extend(read);
+                }
+                online::exif::Read::Failed(message) => {
+                    let _ = writeln!(out, "    warning: {message}");
+                }
+                online::exif::Read::Missing(message) => {
+                    let _ = writeln!(out, "    {message}");
+                }
+                online::exif::Read::Meta(_) => {}
+            }
+        }
+    }
+    let label = label;
     let by_site_id = label.is_some();
     let (mut meta, mut found, mut unresolved) =
         if let crate::reuse::Plan::Skip { handoff, .. } = &plan {
@@ -91,7 +94,9 @@ pub(crate) fn process(
                         &show_flags(s),
                         cfg,
                         http,
-                        &crate::resolver::Strict,
+                        &crate::resolver::Strict {
+                            threshold: cfg.matching.fuzzy_threshold,
+                        },
                         out,
                     ) {
                         Ok(o) => o,
@@ -139,7 +144,8 @@ pub(crate) fn process(
                         } => (handoff.candidates.as_slice(), Some(sources.as_slice())),
                         _ => (&[], None),
                     };
-                    let (m, f) = match crate::fetch::fetch_from(&q, cfg, http, out, seed, only) {
+                    let (m, mut f) = match crate::fetch::fetch_from(&q, cfg, http, out, seed, only)
+                    {
                         Ok(x) => x,
                         Err(e) => {
                             let r = if e.contains("no match") || e.starts_with("skipped") {
@@ -151,9 +157,32 @@ pub(crate) fn process(
                         }
                     };
                     let mut m = m;
-                    if let crate::decide::Decision::Unresolved(reason, detail) =
-                        crate::decide::decide(&q, s, &f, cfg.matching.year_tolerance)
-                    {
+                    for (_, candidate) in f.iter_mut() {
+                        let title = candidate
+                            .get("show")
+                            .or(candidate.get("title"))
+                            .map_or("", |value| value.as_str());
+                        let score = crate::similarity::score(&q.title, title);
+                        candidate.insert("match_score".into(), format!("{score:.4}"));
+                    }
+                    let decision = crate::decide::decide(
+                        &q,
+                        s,
+                        &f,
+                        cfg.matching.year_tolerance,
+                        cfg.matching.fuzzy_threshold,
+                    );
+                    let score_text = format!("{:.4}", decision.score());
+                    m.insert("match_score".into(), score_text.clone());
+                    let recorded: Meta = [("match_score".into(), score_text.clone())].into();
+                    crate::escalate::apply(
+                        &mut m,
+                        Step::Match,
+                        "jack",
+                        &recorded,
+                        &format!("similarity {score_text}"),
+                    );
+                    if let crate::decide::Decision::Unresolved { reason, detail, .. } = decision {
                         m.insert("resolution".into(), "unresolved".into());
                         m.insert("unresolved_reason".into(), reason.to_string());
                         m.insert("unresolved_detail".into(), detail);
@@ -181,9 +210,22 @@ pub(crate) fn process(
         }
     }
     // only an id is proof; the user's --name/--year or channel mapping settles names, not identity
-    let id_flag = [&s.imdb, &s.tmdb, &s.thetvdb, &s.youtube, &s.x]
-        .iter()
-        .any(|v| v.as_ref().is_some_and(|v| !v.is_empty()));
+    let id_flag = [
+        &s.imdb,
+        &s.tmdb,
+        &s.thetvdb,
+        &s.wikidata,
+        &s.wikipedia,
+        &s.youtube,
+        &s.x,
+    ]
+    .iter()
+    .any(|v| v.as_ref().is_some_and(|v| !v.is_empty()))
+        || guessed.as_ref().is_some_and(|q| {
+            [&q.imdb, &q.tmdb, &q.thetvdb, &q.wikidata, &q.wikipedia]
+                .iter()
+                .any(|v| v.as_ref().is_some_and(|v| !v.is_empty()))
+        });
     let user_named = s.name.is_some() && s.year.is_some();
     let ev = crate::facts::evidence(&meta, &own, id_flag || by_site_id, user_named);
     if !own.is_empty() {
@@ -258,51 +300,11 @@ pub(crate) fn process(
         let _ = writeln!(out, "    incomplete: missing {}", missing.join(", "));
     }
     meta.insert("lifecycle".into(), stage.into());
-    let t = &cfg.tagger;
-    // art is kept beside the file only with -d; otherwise it's a temp file removed after tagging
-    let pp = art_path(path, s, dl);
-    if !dry && t.ask_art && !cfg.windup && (dl || (t.embed_artwork && !print)) {
-        let prefs = |k: &str| {
-            cfg.merge
-                .fields
-                .get(k)
-                .unwrap_or(&cfg.merge.default)
-                .clone()
-        };
-        let c = askart::candidates(
-            &found,
-            all_images(&found, cfg, http),
-            &art_keys(&meta, s, cfg),
-            prefs,
-            t.ask_art_max,
-        );
-        let open = (t.ask_art_open_folder.unwrap_or(cfg!(target_os = "macos"))
-            && !t.ask_art_open_command.is_empty())
-        .then_some(t.ask_art_open_command.as_str());
-        let o = askart::Opts {
-            open_cmd: open,
-            keep: dl || t.ask_art_keep,
-        };
-        match askart::ask(path, &pp, &c, http, &o, out) {
-            Ok(Some(p)) => {
-                meta.insert("poster_file".into(), p.to_string_lossy().into_owned());
-            }
-            Ok(None) => {}
-            Err(e) => {
-                let _ = writeln!(out, "    warning: artwork: {e}");
-            }
-        }
-    } else if !skip_search && !dry && (dl || (t.embed_artwork && !print)) {
-        // art is optional: never lose the metadata over it
-        if let Err(e) = save_poster(&pp, s, cfg, &mut meta, http) {
-            let _ = writeln!(out, "    warning: artwork: {e}");
-        }
-    }
-    if let Some(g) = &s.grouping {
-        meta.insert("grouping".into(), g.clone());
+    if let Some(i) = s.imdb.as_deref().and_then(providers::imdb_id) {
+        meta.entry("imdb_id".into()).or_insert(i);
     }
     let _ = writeln!(out, "    ids: {}", found_ids(&meta, s));
-    if !dry && (dl || !print) {
+    if !dry && !print {
         match crate::handoff::hand_over(
             path,
             &meta,
@@ -321,63 +323,49 @@ pub(crate) fn process(
     }
     hk.done.push((file.clone(), meta.clone()));
     if unresolved {
-        // stored with every candidate above; a wrong tag is worse than none
+        let title = meta
+            .get("show")
+            .or(meta.get("title"))
+            .map_or("", |value| value.as_str());
+        let candidates = crate::offer::lines(title, &found);
+        if crate::escalate::sammy_available() {
+            // Sammy rows of the can't-decide table. The live client is a later card.
+            let _ = writeln!(
+                out,
+                "    sammy: I would talk this through, but Sammy is not connected yet"
+            );
+        } else if !cfg.windup {
+            crate::offer::ask(
+                &candidates,
+                crate::offer::person_is_here(),
+                &mut || {
+                    let mut line = String::new();
+                    let _ = std::io::stdin().read_line(&mut line);
+                    line
+                },
+                out,
+            );
+        }
         let _ = writeln!(
             out,
-            "    unresolved: stored with all candidates; not tagged or sorted"
+            "    unresolved: {}",
+            meta.get("unresolved_detail")
+                .map_or("I couldn't decide", |d| d.as_str())
         );
         if print {
             print_meta(path, s, cfg, &meta, pr);
         }
-        drop_temp_art(&meta, dl);
         return Ok(());
     }
+    let title = meta
+        .get("show")
+        .or(meta.get("title"))
+        .map_or("?", |value| value.as_str());
+    let year = meta.get("year").map_or("?", |value| value.as_str());
+    let score = meta.get("match_score").map_or("?", |value| value.as_str());
+    let _ = writeln!(out, "    identified: {title} ({year}), score {score}");
     if print {
         print_meta(path, s, cfg, &meta, pr);
-        if !dl {
-            drop_temp_art(&meta, false);
-            return Ok(());
-        }
-    }
-    if dl {
-        let mp = suffixed(path, msuf);
-        if !dry {
-            meta::save(&mp, &meta)?;
-        }
-        let _ = writeln!(out, "    save metadata: {}", mp.display());
-        return Ok(());
-    }
-    if let Some(i) = s.imdb.as_deref().and_then(providers::imdb_id) {
-        meta.entry("imdb_id".into()).or_insert(i);
-    }
-    let tagged = tag(path, &meta, cfg, dry, out);
-    drop_temp_art(&meta, false);
-    tagged?;
-    if s.output.is_some() || cfg.sort.enabled {
-        let to = sorter::destination(s.output.as_deref(), path, &meta, &cfg.sort, &cfg.naming);
-        let _ = writeln!(out, "    {}: {}", cfg.sort.mode, to.display());
-        if !dry {
-            sorter::apply(path, &to, &cfg.sort)?;
-        }
-    }
-    Ok(())
-}
-
-pub(crate) fn tag(
-    path: &Path,
-    meta: &Meta,
-    cfg: &Config,
-    dry: bool,
-    out: &mut String,
-) -> Result<(), String> {
-    let cmd = tagger::command(path, meta, &cfg.tagger)?;
-    for c in std::iter::once(cmd).chain(tagger::extra_commands(path, meta, &cfg.tagger)) {
-        let _ = writeln!(out, "    tag: {}", tagger::show(&c));
-        if dry {
-            tagger::discard(&c);
-        } else {
-            tagger::run(&c)?;
-        }
     }
     Ok(())
 }
@@ -390,6 +378,7 @@ pub(crate) fn found_ids(m: &Meta, s: &Settings) -> String {
         "tmdb_episode_id",
         "thetvdb_id",
         "thetvdb_episode_id",
+        "wikidata_id",
     ]
     .iter()
     .filter_map(|k| {
@@ -406,6 +395,9 @@ pub(crate) fn ids(s: &Settings) -> String {
         ("tmdb", &s.tmdb),
         ("thetvdb", &s.thetvdb),
         ("youtube", &s.youtube),
+        ("wikidata", &s.wikidata),
+        ("wikipedia", &s.wikipedia),
+        ("x", &s.x),
         ("name", &s.name),
         ("year", &s.year),
     ]
