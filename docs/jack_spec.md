@@ -30,7 +30,7 @@ Jack is the metadata windup.
  - Saved in jack.db but not synced with Daniel
 - Process
  - Check `jack.db` and file metadata first
- - Use free sources only, no scraping.
+ - Use free sources only, as defined in [coding_guidelines.md §3](coding_guidelines.md#3-language-dependencies-performance). Tools like yt-dlp and exiftool reading a site's or file's own metadata are allowed; Jack doesn't write his own scrapers.
  - Uses fuzzy matching to sort results by similarity, considering available context from metadata and user flags
  - Fuzzy matching threshold goes in config
  - Every decision records its score
