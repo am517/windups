@@ -91,8 +91,14 @@ mod tests {
 
     fn moves() -> Vec<(String, String)> {
         vec![
-            ("/h/.config/windups/toy".into(), "/h/windups/toy".into()),
-            ("~/.config/windups/toy".into(), "~/windups/toy".into()),
+            (
+                "/h/.config/windups/toy".into(),
+                "/h/.local/share/windups/toy".into(),
+            ),
+            (
+                "~/.config/windups/toy".into(),
+                "~/.local/share/windups/toy".into(),
+            ),
         ]
     }
 
@@ -104,10 +110,13 @@ mod tests {
         let p = plan(t, &moves());
         let out = p.text.unwrap();
         assert!(
-            out.contains("database = \"/h/windups/toy/jack.db\""),
+            out.contains("database = \"/h/.local/share/windups/toy/jack.db\""),
             "{out}"
         );
-        assert!(out.contains("dir = '~/windups/toy/snaps'"), "{out}");
+        assert!(
+            out.contains("dir = '~/.local/share/windups/toy/snaps'"),
+            "{out}"
+        );
         assert!(
             out.starts_with("# see /h/.config/windups/toy/notes"),
             "comments stay"
@@ -115,13 +124,29 @@ mod tests {
         assert_eq!(
             p.rewrites,
             [
-                "archive.database: /h/.config/windups/toy/jack.db -> /h/windups/toy/jack.db",
-                "core.snapshots.dir: ~/.config/windups/toy/snaps -> ~/windups/toy/snaps"
+                "archive.database: /h/.config/windups/toy/jack.db -> /h/.local/share/windups/toy/jack.db",
+                "core.snapshots.dir: ~/.config/windups/toy/snaps -> ~/.local/share/windups/toy/snaps"
             ]
         );
         assert_eq!(p.warnings.len(), 2, "{:?}", p.warnings);
         assert!(p.warnings[0].starts_with("x.lib = /srv/media is outside the old folder"));
         assert!(p.warnings[1].starts_with("x.near = /h/.config/windups/toyota is outside"));
+    }
+
+    #[test]
+    fn a_path_with_a_space_stays_quoted() {
+        let moves = [(
+            "~/Library/Application Support/Old".into(),
+            "~/Library/Application Support/Windups/jack".into(),
+        )];
+        let t = "socket = \"~/Library/Application Support/Old/daniel.sock\"\n";
+        let p = plan(t, &moves);
+        let out = p.text.unwrap();
+        assert!(
+            out.contains("\"~/Library/Application Support/Windups/jack/daniel.sock\""),
+            "{out}"
+        );
+        assert!(toml::from_str::<toml::Table>(&out).is_ok(), "{out}");
     }
 
     #[test]

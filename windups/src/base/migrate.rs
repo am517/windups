@@ -1,5 +1,6 @@
-//! `migrate`: move a windup from the legacy split folder (`~/.config/windups/<name>/`) into its own
-//! folder (`~/windups/<name>/`). Only when asked: old folders are never moved automatically.
+//! `migrate`: move a windup from the legacy split folder (`~/.config/windups/<name>/`) into its data
+//! folder (`layout::windup_dir`: Application Support on macOS, XDG on Linux). Only when asked: old
+//! folders are never moved automatically. There is no move from a removed `~/windups/<name>/`.
 //!
 //! Copy into a staging folder beside the target, verify (SQLite integrity check plus per-table row
 //! counts on every database, byte comparison plus hash for every other file), and only then rename
@@ -21,26 +22,49 @@ pub struct Outcome {
     pub notes: Vec<String>,
 }
 
-/// (legacy folder, target folder) for windup `name` under `home`.
+/// (legacy folder, target data folder) for windup `name` under `home` on this host.
 pub fn folders(name: &str, home: &Path) -> (PathBuf, PathBuf) {
+    folders_for(name, home, std::env::consts::OS, None)
+}
+
+/// Same as [`folders`], with an explicit OS and optional `XDG_DATA_HOME`.
+pub fn folders_for(
+    name: &str,
+    home: &Path,
+    os: &str,
+    xdg_data_home: Option<&Path>,
+) -> (PathBuf, PathBuf) {
     (
         home.join(".config/windups").join(name),
-        home.join("windups").join(name),
+        super::layout::windup_dir(home, name, os, xdg_data_home),
     )
 }
 
 pub fn run(name: &str, home: &Path, dry_run: bool) -> Result<Outcome, String> {
-    run_with(name, home, dry_run, &|_| {})
+    run_in(name, home, std::env::consts::OS, None, dry_run)
+}
+
+/// Like [`run`], using the OS and `XDG_DATA_HOME` the windup was resolved with.
+pub fn run_in(
+    name: &str,
+    home: &Path,
+    os: &str,
+    xdg_data_home: Option<&Path>,
+    dry_run: bool,
+) -> Result<Outcome, String> {
+    run_with(name, home, os, xdg_data_home, dry_run, &|_| {})
 }
 
 /// `tamper` sees the staging copy before verification (tests use it to make a check fail).
 fn run_with(
     name: &str,
     home: &Path,
+    os: &str,
+    xdg_data_home: Option<&Path>,
     dry_run: bool,
     tamper: &dyn Fn(&Path),
 ) -> Result<Outcome, String> {
-    let (old, new) = folders(name, home);
+    let (old, new) = folders_for(name, home, os, xdg_data_home);
     let nothing = |text: String| {
         Ok(Outcome {
             text,
@@ -416,11 +440,11 @@ mod tests {
             dry.text
         );
         assert!(
-            !d.path().join("windups").exists(),
+            !folders("toy", d.path()).1.exists(),
             "a dry run writes nothing"
         );
         let o = run("toy", d.path(), false).unwrap();
-        let new = d.path().join("windups/toy");
+        let new = folders("toy", d.path()).1;
         assert_eq!(o.switched_to.as_deref(), Some(new.as_path()));
         assert!(
             o.text
@@ -444,7 +468,14 @@ mod tests {
             note.contains("When: ") && note.contains("Checks (all passed):"),
             "{note}"
         );
-        assert!(!d.path().join("windups/.toy.migrating").exists());
+        assert!(
+            !folders("toy", d.path())
+                .1
+                .parent()
+                .unwrap()
+                .join(".toy.migrating")
+                .exists()
+        );
         let l = super::super::layout::resolve(
             "toy",
             &super::super::layout::Probe {
@@ -463,27 +494,46 @@ mod tests {
     fn a_failed_check_switches_nothing_and_cleans_up() {
         let d = tempfile::tempdir().unwrap();
         let old = legacy(d.path());
-        let e = run_with("toy", d.path(), false, &|s: &Path| {
-            std::fs::write(s.join("config.toml"), "changed").unwrap();
-        })
+        let e = run_with(
+            "toy",
+            d.path(),
+            std::env::consts::OS,
+            None,
+            false,
+            &|s: &Path| {
+                std::fs::write(s.join("config.toml"), "changed").unwrap();
+            },
+        )
         .err()
         .unwrap();
         assert!(e.contains("config.toml: contents differ"), "{e}");
         assert!(e.contains("the partial copy was removed"), "{e}");
-        assert!(!d.path().join("windups/toy").exists(), "no switch");
+        assert!(!folders("toy", d.path()).1.exists(), "no switch");
         assert!(
-            !d.path().join("windups/.toy.migrating").exists(),
+            !folders("toy", d.path())
+                .1
+                .parent()
+                .unwrap()
+                .join(".toy.migrating")
+                .exists(),
             "cleaned up"
         );
         assert!(!old.join(NOTE).exists());
-        let e = run_with("toy", d.path(), false, &|s: &Path| {
-            let c = Connection::open(s.join("toy.db")).unwrap();
-            c.execute("DELETE FROM records WHERE id = 'b'", []).unwrap();
-        })
+        let e = run_with(
+            "toy",
+            d.path(),
+            std::env::consts::OS,
+            None,
+            false,
+            &|s: &Path| {
+                let c = Connection::open(s.join("toy.db")).unwrap();
+                c.execute("DELETE FROM records WHERE id = 'b'", []).unwrap();
+            },
+        )
         .err()
         .unwrap();
         assert!(e.contains("toy.db: row counts differ"), "{e}");
-        assert!(!d.path().join("windups/toy").exists());
+        assert!(!folders("toy", d.path()).1.exists());
         // and a clean run still works afterwards
         assert!(run("toy", d.path(), false).unwrap().switched_to.is_some());
     }
@@ -492,7 +542,7 @@ mod tests {
     fn refuses_when_the_target_already_holds_data() {
         let d = tempfile::tempdir().unwrap();
         let old = legacy(d.path());
-        let new = d.path().join("windups/toy");
+        let new = folders("toy", d.path()).1;
         std::fs::create_dir_all(&new).unwrap();
         std::fs::write(new.join("toy.db"), "mine").unwrap();
         for dry in [true, false] {
@@ -513,7 +563,7 @@ mod tests {
     fn config_paths_into_the_old_folder_are_rewritten_in_the_copy_only() {
         let d = tempfile::tempdir().unwrap();
         let old = legacy(d.path());
-        let new = d.path().join("windups/toy");
+        let new = folders("toy", d.path()).1;
         let orig = format!(
             "[archive]\ndatabase = \"{}/toy.db\"\nmedia = \"/srv/media\"\n",
             old.display()
@@ -562,16 +612,24 @@ mod tests {
             "dir = \"~/.config/windups/toy/b\"\n",
         )
         .unwrap();
-        let e = run_with("toy", d.path(), false, &|s: &Path| {
-            std::fs::write(s.join("config.toml"), "dir = \"~/.config/windups/toy/b\"\n").unwrap();
-        })
+        let e = run_with(
+            "toy",
+            d.path(),
+            std::env::consts::OS,
+            None,
+            false,
+            &|s: &Path| {
+                std::fs::write(s.join("config.toml"), "dir = \"~/.config/windups/toy/b\"\n")
+                    .unwrap();
+            },
+        )
         .err()
         .unwrap();
         assert!(
             e.contains("config.toml: doesn't match the expected rewrite"),
             "{e}"
         );
-        assert!(!d.path().join("windups/toy").exists());
+        assert!(!folders("toy", d.path()).1.exists());
     }
 
     #[test]

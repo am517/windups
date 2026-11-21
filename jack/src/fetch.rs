@@ -2,12 +2,12 @@
 use crate::config::Config;
 use crate::meta::Meta;
 use crate::providers::{self, Http, Omdb, Provider, Query, Tmdb, Tvdb};
+use crate::sorter;
 use crate::sources::itunes::Itunes;
 use crate::sources::tvmaze::Tvmaze;
 use crate::sources::wikidata::Wikidata;
 use crate::sources::youtube::Youtube;
 use crate::sources::{enrich, wikipedia};
-use crate::{askart, sorter};
 use std::fmt::Write as _;
 
 /// Composite metadata from all providers in [providers] order, merged per [merge].
@@ -30,30 +30,6 @@ pub(crate) fn provider_cfgs(cfg: &Config) -> (providers::TmdbCfg, providers::Tvd
     (tc, vc)
 }
 
-/// --ask-art only: full image lists from TMDB and TheTVDB for the providers that matched.
-pub(crate) fn all_images(
-    found: &[(String, Meta)],
-    cfg: &Config,
-    http: &dyn Http,
-) -> Vec<askart::Cand> {
-    let (tc, vc) = provider_cfgs(cfg);
-    let mut v = vec![];
-    for (p, m) in found {
-        match p.as_str() {
-            "tmdb" => v.extend(
-                Tmdb {
-                    cfg: tc.clone(),
-                    http,
-                }
-                .images(m),
-            ),
-            "thetvdb" => v.extend(Tvdb::new(vc.clone(), http).images(m)),
-            _ => {}
-        }
-    }
-    v
-}
-
 /// Fetch from the providers, optionally starting from `seed` (prior jack.db candidates)
 /// and, when `only` is set, querying just those providers.
 pub(crate) fn fetch_from(
@@ -64,6 +40,7 @@ pub(crate) fn fetch_from(
     seed: &[(String, Meta)],
     only: Option<&[String]>,
 ) -> Result<(Meta, Vec<(String, Meta)>), String> {
+    let mut q = q.clone();
     let pc = &cfg.providers;
     let (tc, vc) = provider_cfgs(cfg);
     let tmdb = Tmdb { cfg: tc, http };
@@ -99,12 +76,61 @@ pub(crate) fn fetch_from(
         })
         .cloned()
         .collect();
+    // A wikidata or wikipedia id is trusted on its own. Resolve it first so the other
+    // sources can be asked about the same work.
+    if q.wikidata.is_some() || q.wikipedia.is_some() {
+        match wikidata.lookup(&q) {
+            Ok(Some(meta)) => {
+                let _ = writeln!(
+                    out,
+                    "    wikidata: {} (cross-checking the other sources)",
+                    meta.get("wikidata_id").map_or("?", |id| id.as_str())
+                );
+                if q.imdb.is_none() {
+                    q.imdb = meta.get("imdb_id").cloned();
+                }
+                if q.tmdb.is_none() {
+                    q.tmdb = meta
+                        .get("tmdb_series_id")
+                        .map(|id| format!("/tv/{id}"))
+                        .or_else(|| meta.get("tmdb_id").cloned());
+                }
+                if q.thetvdb.is_none() {
+                    q.thetvdb = meta
+                        .get("thetvdb_series_id")
+                        .cloned()
+                        .or_else(|| meta.get("thetvdb_id").cloned());
+                }
+                if q.title.is_empty() {
+                    if let Some(title) = meta.get("title").or_else(|| meta.get("wikipedia_title")) {
+                        q.title = title.clone();
+                    }
+                }
+                if q.year.is_none() {
+                    q.year = meta.get("year").cloned();
+                }
+                found.push(("wikidata".into(), meta));
+            }
+            Ok(None) => {
+                let _ = writeln!(
+                    out,
+                    "    warning: wikidata: no item for the id; still checking the other sources"
+                );
+            }
+            Err(error) => {
+                let _ = writeln!(out, "    warning: wikidata: {error}");
+            }
+        }
+    }
     let (mut errs, mut skipped, mut cands) = (vec![], vec![], vec![]);
     for name in &cfg.providers.order {
         if let Some(only) = only {
             if !only.iter().any(|s| s == name) {
                 continue;
             }
+        }
+        if name == "wikidata" && found.iter().any(|(found_name, _)| found_name == "wikidata") {
+            continue;
         }
         let p: &dyn Provider = match name.as_str() {
             "tmdb" => &tmdb,
@@ -122,7 +148,7 @@ pub(crate) fn fetch_from(
             "omdb" | "wikidata" | "tvmaze" | "itunes" | "youtube"
         );
         let eq = if late {
-            enrich::with_found_ids(q, &found)
+            enrich::with_found_ids(&q, &found)
         } else {
             q.clone()
         };
@@ -143,6 +169,13 @@ pub(crate) fn fetch_from(
             }
             Err(e) => errs.push(format!("{}: {e}", p.name())),
         }
+    }
+    if !skipped.is_empty() && (!found.is_empty() || !cands.is_empty()) {
+        let _ = writeln!(
+            out,
+            "    skipped: {} (not used for this kind of title)",
+            skipped.join(", ")
+        );
     }
     if found.is_empty() && cands.is_empty() {
         return Err(

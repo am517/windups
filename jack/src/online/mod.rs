@@ -2,10 +2,12 @@
 //! Kind + source traits leave room for books and documents later (another kind, other readers).
 pub mod crossover;
 pub mod embedded;
+pub mod exif;
 pub mod filename;
 pub mod info_json;
 pub mod urls;
 pub mod youtube_video;
+pub mod ytdlp;
 
 use crate::config::Config;
 use crate::meta::Meta;
@@ -140,11 +142,58 @@ pub fn fetch(
     if !label.info.is_empty() {
         found.push(("yt-dlp".to_string(), label.info.clone()));
     }
+    // Official API first (YouTube, when a key is set). X has no free read API.
+    // yt-dlp is a full source when it is installed and the API did not already answer.
+    let api_answered = found.iter().any(|(name, _)| name == "youtube");
+    if !api_answered && label.info.is_empty() && (label.site == "x" || label.site == "youtube") {
+        let url = match label.site.as_str() {
+            "x" => format!("https://x.com/i/status/{}", label.id),
+            _ => format!("https://www.youtube.com/watch?v={}", label.id),
+        };
+        match ytdlp::dump(&url) {
+            ytdlp::Read::Meta(meta) => found.push(("yt-dlp".to_string(), meta)),
+            ytdlp::Read::Missing(message) => {
+                let _ = writeln!(out, "    {message}");
+            }
+            ytdlp::Read::Failed(message) => {
+                let _ = writeln!(out, "    warning: {message}");
+            }
+        }
+    }
     if found.is_empty() {
-        return Err(format!(
-            "{} {}: nothing known (no info.json, no API key)",
-            label.site, label.id
-        ));
+        let mut why = Vec::new();
+        if label.site == "youtube" && cfg.providers.youtube.api_key.is_empty() {
+            why.push("no YouTube API key".to_string());
+        }
+        if label.site == "x" {
+            why.push(
+                "X has no free API for reading a post; yt-dlp or exiftool can supply it when installed"
+                    .to_string(),
+            );
+        }
+        if !crate::tools::installed("yt-dlp") {
+            why.push(crate::tools::missing("yt-dlp"));
+        }
+        if !crate::tools::installed("exiftool") {
+            why.push(crate::tools::missing("exiftool"));
+        }
+        let why = if why.is_empty() {
+            "nothing came back".to_string()
+        } else {
+            why.join("; ")
+        };
+        let mut meta = Meta::new();
+        meta.insert("resolution".into(), "unresolved".into());
+        meta.insert("unresolved_reason".into(), "source_error".into());
+        meta.insert("unresolved_detail".into(), why.clone());
+        meta.insert("site".into(), label.site.clone());
+        meta.insert("title".into(), label.id.clone());
+        let _ = writeln!(out, "    {} {}: {why}", label.site, label.id);
+        return Ok(Outcome {
+            meta,
+            found,
+            unresolved: true,
+        });
     }
     let mut meta = crate::sorter::merge(&found, &cfg.merge);
     meta.insert("kind".into(), KIND.into());
@@ -302,7 +351,7 @@ mod tests {
             &Meta::new(),
             &cfg(),
             &h,
-            &resolver::Strict,
+            &resolver::Strict::default(),
             &mut out,
         )
         .unwrap();
@@ -337,7 +386,7 @@ mod tests {
             &Meta::new(),
             &cfg(),
             &h,
-            &resolver::Strict,
+            &resolver::Strict::default(),
             &mut out,
         )
         .unwrap();
@@ -357,7 +406,7 @@ mod tests {
             &Meta::new(),
             &cfg(),
             &h,
-            &resolver::Strict,
+            &resolver::Strict::default(),
             &mut out,
         )
         .unwrap();
@@ -406,7 +455,7 @@ mod tests {
             &f,
             &cfg(),
             &h,
-            &resolver::Strict,
+            &resolver::Strict::default(),
             &mut String::new(),
         )
         .unwrap();

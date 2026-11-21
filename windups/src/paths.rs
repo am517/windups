@@ -17,9 +17,9 @@ pub fn shared_config() -> PathBuf {
     expand("~/.config/windups/windups.toml")
 }
 
-/// A windup's own config: ~/.config/windups/<name>/config.toml
+/// A windup's own config, resolved the same way as `base::layout` (no explicit `--config`).
 pub fn windup_config(name: &str) -> PathBuf {
-    expand(&format!("~/.config/windups/{name}/config.toml"))
+    crate::base::layout::resolve(name, &crate::base::layout::Probe::real(name, None)).config
 }
 
 #[cfg(test)]

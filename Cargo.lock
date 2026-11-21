@@ -476,14 +476,13 @@ dependencies = [
  "clap",
  "daniel",
  "regex",
- "rpassword",
  "rusqlite",
  "serde",
  "serde_json",
+ "strsim",
  "tempfile",
  "toml",
  "toml_edit",
- "unicode-normalization",
  "ureq",
  "walkdir",
  "windups",
@@ -689,27 +688,6 @@ dependencies = [
 [[package]]
 name = "rover"
 version = "0.1.0"
-
-[[package]]
-name = "rpassword"
-version = "7.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2da316a15f47e3d053de9cb2c439650bd8fa4aaeb9365f2e5f27f492ff73c196"
-dependencies = [
- "libc",
- "rtoolbox",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "rtoolbox"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a1efe12a1469752d0e6ff5ebec0b6ef4924cc5c4c71046b0ec730040535819d"
-dependencies = [
- "libc",
- "windows-sys 0.61.2",
-]
 
 [[package]]
 name = "rusqlite"
@@ -954,12 +932,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinyvec"
-version = "1.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
-
-[[package]]
 name = "tom"
 version = "0.1.0"
 dependencies = [
@@ -1012,15 +984,6 @@ name = "unicode-ident"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
-
-[[package]]
-name = "unicode-normalization"
-version = "0.1.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75cd3fb03d5288b3ba9a1ee103ac7e9cbb59f0b03d64f8ddfcc04dd42758a85d"
-dependencies = [
- "tinyvec",
-]
 
 [[package]]
 name = "untrusted"
@@ -1098,6 +1061,7 @@ version = "0.1.0"
 dependencies = [
  "rusqlite",
  "serde",
+ "serde_json",
  "tempfile",
  "toml",
  "windups",

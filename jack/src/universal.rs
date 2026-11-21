@@ -1,5 +1,5 @@
 //! Jack on the shared core: the universal commands (`jack status`, `jack backup`, `jack talk ...`;
-//! see windups/COMMANDS.md) plus his own action, `tag`.
+//! see windups/COMMANDS.md) plus his own action, `identify`.
 use crate::archive::Archive;
 use crate::config::{self, Config};
 use std::io::Write as _;
@@ -14,7 +14,7 @@ pub struct Jack {
     config_arg: Option<PathBuf>,
 }
 
-const ACTIONS: &[&str] = &["tag", "setup", "ask"];
+const ACTIONS: &[&str] = &["identify", "setup", "ask"];
 
 /// `jack <universal command|action> ...`, unless a file or folder of that name is meant.
 pub fn is_command(args: &[String]) -> bool {
@@ -141,14 +141,14 @@ impl Windup for Jack {
     fn actions(&self) -> Vec<Action> {
         vec![
             Action {
-                name: "tag",
-                keywords: &["tag", "label", "identify", "metadata", "fetch"],
-                help: "fetch, verify and tag files (tag PATH...; same as jack PATH...)",
+                name: "identify",
+                keywords: &["identify", "metadata", "fetch", "lookup"],
+                help: "find out what files are (identify PATH...; same as jack PATH...)",
             },
             Action {
                 name: "setup",
                 keywords: &["setup", "install", "folder"],
-                help: "make ~/windups/jack/ and the ~/.local/bin/jack link (first run does it too)",
+                help: "make Jack's data folder and the ~/.local/bin/jack link (first run does it too)",
             },
             Action {
                 name: "ask",
@@ -157,7 +157,7 @@ impl Windup for Jack {
             },
         ]
     }
-    fn action(&mut self, name: &str, rest: &str) -> Result<String, String> {
+    fn action(&mut self, name: &str, rest: &[String]) -> Result<String, String> {
         if name == "setup" {
             let n = first_run(&self.layout)?;
             return Ok(if n.is_empty() {
@@ -167,34 +167,31 @@ impl Windup for Jack {
             });
         }
         if name == "ask" {
-            let words: Vec<String> = rest.split_whitespace().map(|s| s.to_string()).collect();
-            let (kind, filter) = crate::ask::Filter::parse(&words)?;
+            let (kind, filter) = crate::ask::Filter::parse(rest)?;
             return crate::ask::query(&self.archive, kind, &filter);
         }
-        if name != "tag" {
+        if name != "identify" {
             return Err(format!("I don't know how to {name}"));
         }
-        let paths: Vec<&str> = rest.split_whitespace().collect();
-        if paths.is_empty() {
-            return Err("tag what? give file or folder paths".into());
+        if rest.is_empty() {
+            return Err("identify what? give file or folder paths".into());
         }
         let mut argv = vec!["jack".to_string()];
-        argv.extend(paths.iter().map(|p| p.to_string()));
+        argv.extend(rest.iter().cloned());
         if let Some(c) = &self.config_arg {
             argv.push("--config".into());
             argv.push(c.to_string_lossy().into_owned());
         }
         use clap::Parser;
-        let mut cli = crate::cli::Cli::try_parse_from(argv).map_err(|e| e.to_string())?;
-        crate::secrets::resolve_secrets(&mut cli, &mut crate::secrets::read_secret)?;
+        let cli = crate::cli::Cli::try_parse_from(argv).map_err(|e| e.to_string())?;
         crate::run::run(&cli, &crate::providers::Ureq).map(|(s, _, _)| s)
     }
 }
 
-/// Starter config written into a new ~/windups/jack/ (the full defaults are built in).
+/// Starter config written into a new data folder (the full defaults are built in).
 const STARTER_CONFIG: &str = "# Jack's config. Every setting and its default: config/jack.toml in the windups repo\n# (Debian: /usr/share/windups-jack/config.toml.example). Add only what you change.\n";
 
-/// Makes ~/windups/jack/ and ~/.local/bin/jack when this is the default folder (see LAYOUT.md).
+/// Makes the data folder and ~/.local/bin/jack when this is the default folder (see LAYOUT.md).
 pub fn first_run(l: &Layout) -> Result<Vec<String>, String> {
     let (Ok(exe), Some(home)) = (std::env::current_exe(), std::env::var_os("HOME")) else {
         return Ok(vec![]);
@@ -218,7 +215,7 @@ pub fn main(args: &[String]) -> i32 {
     let cmd = if let Some(c) = commands::parse(&rest) {
         c
     } else if rest.first().is_some_and(|s| ACTIONS.contains(&s.as_str())) {
-        Command::Action(rest[0].clone(), rest[1..].join(" "))
+        Command::Action(rest[0].clone(), rest[1..].to_vec())
     } else {
         return 2;
     };
@@ -326,11 +323,14 @@ mod tests {
         let e = commands::dispatch(&mut j, Command::Talk("please identify".into()), &H)
             .err()
             .unwrap();
-        assert!(e.contains("tag what?"), "talk found Jack's own action: {e}");
+        assert!(
+            e.contains("identify what?"),
+            "talk found Jack's own action: {e}"
+        );
         assert!(
             run(&mut j, &["log"])
                 .text
-                .contains("\"please identify\" -> tag")
+                .contains("\"please identify\" -> identify")
         );
     }
 

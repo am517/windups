@@ -450,11 +450,12 @@ never mapped automatically. Composite labels are data rules, for example
 ## Answers to the core design questions (Adam, 2026-11-10, 12:21 AM ET)
 
 1. **Personalities** stay proposals (except Daniel and Walter, set by Adam). *Superseded 12:33 AM ET: all 22 set, "work in progress" (NAMES.md).*
-2. **Packaging:** per-user `~/windups/<name>/` with `~/.local/bin/<name>` a symlink. A .deb can't
+2. **Packaging:** per-user data folder (`~/Library/Application Support/Windups/<name>` on macOS,
+   `~/.local/share/windups/<name>` on Linux) with `~/.local/bin/<name>` a symlink. A .deb can't
    write into home folders, so it ships the binary and the first run (or `jack setup`) makes the
-   folder and links ([LAYOUT.md](LAYOUT.md)). `~/windups/<name>/` is the default ahead of the old
+   folder and links ([LAYOUT.md](LAYOUT.md)). The data folder is the default ahead of the old
    `~/.config/windups/<name>/` fallback; `--config` and `<NAME>_HOME` still win.
-3. **Own folder only.** Snapshots go in `~/windups/<name>/backups/`. The off-device hook stays
+3. **Own folder only.** Snapshots go in `<data folder>/backups/`. The off-device hook stays
    unassigned (a future backup windup); Walter only flags stale or missing copies.
 4. **Daniel keeps alerting Walter** after storing records: as Data Fiend he takes every chance to
    look around. Walter's regular schedule is decided later.

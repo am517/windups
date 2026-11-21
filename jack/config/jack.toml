@@ -1,5 +1,8 @@
-# Jack settings. Copy to ~/.config/windups/jack/config.toml (or use --config <path>).
-# Per-file values (name, year, ids, grouping) are flags. Jack never reads sidecar files.
+# Jack settings. The running config is config.toml in Jack's data folder
+# (macOS: "~/Library/Application Support/Windups/jack/config.toml",
+# Linux: ~/.local/share/windups/jack/config.toml), or --config <path>.
+# Per-file values (name, year, ids) are flags. Embedded tags count the same way.
+# Jack reports facts. He does not tag, embed art, or sort files.
 # Priority: command-line flags > this file.
 
 
@@ -11,12 +14,6 @@ extensions = ["mp4", "m4v", "mkv", "mov", "avi"]
 # Look inside subfolders.
 recursive = true
 
-# Where saved metadata goes with --download-only: "<filename><meta_suffix>".
-meta_suffix = ".meta.json"
-
-# Sort files into this folder (see [sort]).
-# output = "~/Media"
-
 
 # ── Run ───────────────────────────────────────────────────────────
 
@@ -26,10 +23,7 @@ type = "auto"
 # Show what would happen without changing anything.
 dry_run = false
 
-# Only save metadata and art next to the file; don't touch the file.
-download_only = false
-
-# Print the metadata instead of tagging.
+# Print the facts. Jack still always says what he did.
 print = false
 
 # Print as "text" or "json".
@@ -289,6 +283,9 @@ awards = ["omdb"]
 # in different countries). Only a hint for matching; a year never proves identity, only an id does.
 year_tolerance = 1
 
+# Accept a title only when it is the single result at or above this score (0 to 1).
+fuzzy_threshold = 0.90
+
 # How titles are read from file names (regular expressions).
 separators = '[._]+'
 
@@ -393,7 +390,9 @@ sync_target = ""
 # How the database windup is reached: "library" (in-process catalog receive) or "socket"
 # (a running `daniel serve`, or later any windup that speaks the same protocol).
 sync_transport = "library"
-daniel_socket = "~/windups/daniel/daniel.sock"
+# Empty = daniel.sock inside Daniel's data folder (the path has a space on macOS; Jack builds it
+# as a path, not a shell string). Set a path to point somewhere else.
+daniel_socket = ""
 socket_timeout_secs = 30
 max_frame_bytes = 16777216
 
@@ -414,7 +413,7 @@ keep_batches = 200
 level = 6
 
 [core.snapshots]
-# Folder for checked snapshots; empty = backups/ inside Jack's own folder (e.g. ~/windups/jack/backups/)
+# Folder for checked snapshots; empty = backups/ inside Jack's own data folder.
 dir = ""
 # Snapshots kept (any holding the originals of summarized events are always kept).
 keep = 14
@@ -448,6 +447,17 @@ description = "description"
 synopsis = "description"
 comment = "comment"
 genre = "genre"
+imdb_id = "imdb_id"
+imdb = "imdb_id"
+tmdb_id = "tmdb_id"
+tmdb = "tmdb_id"
+thetvdb_id = "thetvdb_id"
+tvdb_id = "thetvdb_id"
+tvdb = "thetvdb_id"
+wikidata_id = "wikidata_id"
+wikidata = "wikidata_id"
+wikipedia = "wikipedia"
+youtube = "youtube"
 
 [online]
 # Online videos (YouTube, X). Jack reads the label first: the yt-dlp .info.json beside the file,

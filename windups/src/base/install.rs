@@ -1,6 +1,8 @@
-//! First run: makes the per-user windup folder `~/windups/<name>/` and the `~/.local/bin/<name>`
-//! link, so a system package (which may not write into anyone's home) only has to ship the
-//! binary. Idempotent; never replaces anything it didn't make.
+//! First run: makes the per-user windup folder (see `layout::data_root`) and the
+//! `~/.local/bin/<name>` link, so a system package (which may not write into anyone's home) only
+//! has to ship the binary. Idempotent; never replaces anything it didn't make.
+//! The folder path is passed as a `Path` into `symlink`, so a space in `Application Support` is
+//! part of the link target and is never handed to a shell.
 use super::layout::{Layout, Source};
 use std::path::Path;
 
@@ -14,7 +16,7 @@ fn link(_: &Path, _: &Path) -> std::io::Result<()> {
     Err(std::io::Error::other("symlinks need a unix system"))
 }
 
-/// Sets up `l` (only for the default `~/windups/<name>/` folder). `exe` is the running binary,
+/// Sets up `l` (only for the default data folder). `exe` is the running binary,
 /// `bin_dir` usually `~/.local/bin`, `config` the starter config written if there is none.
 /// Returns one line per thing it made or left alone.
 pub fn first_run(
@@ -77,7 +79,9 @@ mod tests {
         let bin = home.join(".local/bin");
         let n = first_run(&l, &exe, &bin, "# jack\n").unwrap();
         assert_eq!(n.len(), 4, "{n:?}");
-        let own = home.join("windups/jack/jack");
+        let own = crate::base::layout::data_root(&home, std::env::consts::OS, None)
+            .join("jack")
+            .join("jack");
         assert_eq!(
             std::fs::read_link(&own).unwrap(),
             exe.canonicalize().unwrap()
@@ -113,5 +117,39 @@ mod tests {
                 .is_empty()
         );
         assert!(!d.path().join("j").exists());
+    }
+
+    #[test]
+    fn macos_link_target_keeps_the_space_in_application_support() {
+        let d = tempfile::tempdir().unwrap();
+        let exe = d.path().join("usr/bin/jack");
+        std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
+        std::fs::write(&exe, b"#!").unwrap();
+        let home = d.path().join("Ada Home");
+        let l = resolve(
+            "jack",
+            &Probe {
+                home: Some(home.clone()),
+                os: "macos".into(),
+                ..Default::default()
+            },
+        );
+        assert!(
+            l.dir
+                .display()
+                .to_string()
+                .contains("Application Support/Windups/jack"),
+            "{}",
+            l.dir.display()
+        );
+        let bin = home.join(".local/bin");
+        first_run(&l, &exe, &bin, "# jack\n").unwrap();
+        let own = l.dir.join("jack");
+        assert_eq!(
+            std::fs::read_link(&own).unwrap(),
+            exe.canonicalize().unwrap()
+        );
+        assert_eq!(std::fs::read_link(bin.join("jack")).unwrap(), own);
+        assert!(own.exists(), "symlink target with a space is a real path");
     }
 }

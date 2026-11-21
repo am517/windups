@@ -24,7 +24,7 @@ pub const UNIVERSAL: [(&str, &str); 11] = [
     ("help", "this list, plus what only I can do"),
     (
         "migrate",
-        "move me from ~/.config/windups/ into ~/windups/ (migrate [--dry-run])",
+        "move me from ~/.config/windups/ into my data folder (migrate [--dry-run])",
     ),
     (
         "talk",
@@ -43,13 +43,13 @@ pub enum Command {
     Config,
     Log(usize),
     Help,
-    /// Move from the legacy folder into `~/windups/<name>/` (see `migrate`).
+    /// Move from the legacy folder into the data folder (see `migrate`).
     Migrate {
         dry_run: bool,
     },
     Talk(String),
-    /// Something only this windup does (name, rest of the words).
-    Action(String, String),
+    /// Something only this windup does (name, remaining arguments, unsplit).
+    Action(String, Vec<String>),
 }
 
 /// Something only this windup does, findable by `talk`.
@@ -89,7 +89,7 @@ pub fn line(c: &Command) -> String {
         Command::Migrate { dry_run: true } => "migrate --dry-run".into(),
         Command::Talk(t) => format!("talk {t}"),
         Command::Action(a, r) if r.is_empty() => a.clone(),
-        Command::Action(a, r) => format!("{a} {r}"),
+        Command::Action(a, r) => format!("{a} {}", r.join(" ")),
         other => format!("{other:?}").to_lowercase(),
     }
 }
@@ -114,7 +114,7 @@ pub trait Windup {
     fn actions(&self) -> Vec<Action> {
         vec![]
     }
-    fn action(&mut self, name: &str, _rest: &str) -> Result<String, String> {
+    fn action(&mut self, name: &str, _rest: &[String]) -> Result<String, String> {
         Err(format!("I don't know how to {name}"))
     }
 }
@@ -221,26 +221,20 @@ pub fn dispatch(w: &mut dyn Windup, cmd: Command, hooks: &Hooks) -> Result<Reply
 /// refusal or failure is logged where the windup is now. A dry run writes nothing.
 fn migrate(w: &mut dyn Windup, dry_run: bool) -> Result<String, String> {
     let l = w.layout().clone();
-    let up = match l.source {
-        super::layout::Source::Legacy => 3,
-        super::layout::Source::Home => 2,
+    match l.source {
+        super::layout::Source::Legacy | super::layout::Source::Home => {}
         _ => {
             return Err(format!(
-                "migrate only moves ~/.config/windups/{0}/ to ~/windups/{0}/; I run from {1} \
+                "migrate only moves ~/.config/windups/{0}/ into the data folder; I run from {1} \
                  (chosen by --config, {2}_HOME or my binary's folder)",
                 l.name,
                 l.dir.display(),
                 l.name.to_ascii_uppercase()
             ));
         }
-    };
-    let home = l
-        .dir
-        .ancestors()
-        .nth(up)
-        .ok_or("no home folder")?
-        .to_path_buf();
-    match super::migrate::run(&l.name, &home, dry_run) {
+    }
+    let home = l.home.clone().ok_or("no home folder")?;
+    match super::migrate::run_in(&l.name, &home, &l.os, l.xdg_data_home.as_deref(), dry_run) {
         Ok(o) => {
             if let Some(new) = &o.switched_to {
                 let summary = o
@@ -329,7 +323,7 @@ fn talk(w: &mut dyn Windup, words: &str, hooks: &Hooks) -> Result<Reply, String>
                 actions
                     .iter()
                     .any(|x| x.name == a)
-                    .then(|| Command::Action(a.clone(), rest.join(" ")))
+                    .then(|| Command::Action(a.clone(), rest.to_vec()))
             })
         }),
     };
@@ -410,7 +404,7 @@ pub(crate) mod tests {
                 help: "wind me up",
             }]
         }
-        fn action(&mut self, name: &str, _: &str) -> Result<String, String> {
+        fn action(&mut self, name: &str, _: &[String]) -> Result<String, String> {
             Ok(format!("{name}: whirr"))
         }
     }
@@ -453,7 +447,12 @@ pub(crate) mod tests {
         );
         let r = run(&mut t, &["migrate"]);
         assert!(r.text.starts_with("migrated 2 item(s)"), "{}", r.text);
-        let new = Connection::open(d.path().join("windups/toy/toy.db")).unwrap();
+        let new = Connection::open(
+            crate::base::migrate::folders("toy", d.path())
+                .1
+                .join("toy.db"),
+        )
+        .unwrap();
         let e = events::recent(&new, 1).unwrap().remove(0);
         assert_eq!(e.kind, "migrate");
         assert!(e.detail.starts_with("migrated 2 item(s)"), "{}", e.detail);
