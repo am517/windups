@@ -10,15 +10,12 @@ pub struct Change {
     pub secret: bool,
 }
 
-fn mask(v: &str, secret: bool) -> String {
-    if secret {
-        if v.is_empty() || v == "\"\"" {
-            "(unset)".into()
-        } else {
-            "********".into()
-        }
+fn shown(v: &str) -> String {
+    let t = v.trim();
+    if t.is_empty() || t == "\"\"" {
+        "(unset)".into()
     } else {
-        v.into()
+        t.into()
     }
 }
 
@@ -69,13 +66,23 @@ pub fn save(path: &Path, template: &str, changes: &[Change]) -> Result<String, S
             }
         }
         changed = true;
-        let _ = writeln!(
-            out,
-            "{}: {} -> {}",
-            c.key,
-            old.map_or("(unset)".into(), |o| mask(&o, c.secret)),
-            mask(&new, c.secret)
-        );
+        if c.secret {
+            // saved / replaced, never the value
+            let word = match &old {
+                None => "saved",
+                Some(o) if shown(o) == "(unset)" => "saved",
+                Some(_) => "replaced",
+            };
+            let _ = writeln!(out, "{}: {word}", c.key);
+        } else {
+            let _ = writeln!(
+                out,
+                "{}: {} -> {}",
+                c.key,
+                old.map_or_else(|| "(unset)".into(), |o| shown(&o)),
+                shown(&new)
+            );
+        }
     }
     if changed {
         if let Some(d) = path.parent() {

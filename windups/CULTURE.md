@@ -20,10 +20,12 @@ a Data Fiend; both still back up, sync, log and answer the standard commands.
 6. **Answer the standard commands.** `status`, `health`, `sync`, `backup`, `export`, `version`,
    `config`, `log`, `help`, `talk` ([`COMMANDS.md`](COMMANDS.md)), so anyone can talk to any windup.
 7. **Live in your folder.** Your binary, one database, one TOML config and your `backups/`, together
-   in `~/windups/<name>/`. You are responsible only for your own folder: never write in another
-   windup's. Copies off the device belong to a future backup windup, not to you; Walter only flags
-   stale or missing copies. Every tweakable value is in your config, never hard-coded. Never move a user's old
-   folder on your own: `migrate` does it only when asked, and only after the copy checks out.
+   in your data folder (`~/Library/Application Support/Windups/<name>` on macOS,
+   `~/.local/share/windups/<name>` on Linux; see [LAYOUT.md](LAYOUT.md)). You are responsible only
+   for your own folder: never write in another windup's. Copies off the device belong to a future
+   backup windup, not to you; Walter only flags stale or missing copies. Every tweakable value is
+   in your config, never hard-coded. Never move a user's old folder on your own: `migrate` does it
+   only when asked, and only after the copy checks out.
 8. **Migrate forward.** Carry a schema version and upgrade your database in order, one transaction
    per step; refuse a database newer than you understand instead of guessing.
 9. **Be audited.** Walter may read your database at any time (read-only) and send you back to fix
@@ -34,6 +36,12 @@ a Data Fiend; both still back up, sync, log and answer the standard commands.
 12. **Be a good guest.** Low memory, minimal dependencies, small binaries; you may be running on a
     phone.
 13. **Don't guess.** When unsure, say so, keep every candidate and ask (the user, or Sammy).
+14. **Say what happened.** In human mode, never finish silently: say what you did, what you skipped
+    and why, or why you did nothing. If nothing was processed, exit nonzero. In `--windup` mode,
+    return structured data and the exit code, with no commentary inside the values. See
+    [LAYOUT.md](LAYOUT.md).
+15. **Flags take a space.** `--flag value` must work. `--flag=value` may also work. Show the space
+    form in help.
 
 ## Rogue windups (not allowed yet)
 

@@ -4,19 +4,49 @@ use crate::providers::Query;
 use crate::{matcher, tagger};
 use std::path::{Path, PathBuf};
 
-pub(crate) fn scan(paths: &[PathBuf], s: &Settings) -> Vec<PathBuf> {
+/// A path that was not a media file, and why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Skip {
+    pub path: PathBuf,
+    pub error: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Scan {
+    pub files: Vec<PathBuf>,
+    pub skipped: Vec<Skip>,
+    /// Notes that are not failures (an explicitly named file with an unusual extension).
+    pub notes: Vec<String>,
+}
+
+pub(crate) fn scan(paths: &[PathBuf], s: &Settings) -> Scan {
     let exts = s.extensions.clone().unwrap_or_default();
     let depth = if s.recursive.unwrap_or(true) {
         usize::MAX
     } else {
         1
     };
-    let mut out = Vec::new();
+    let list = if exts.is_empty() {
+        "(none configured)".to_string()
+    } else {
+        exts.join(", ")
+    };
+    let mut out = Scan::default();
     for p in paths {
         let p = config::expand(p);
         if p.is_file() {
-            out.push(p); // explicitly named files are always included
-        } else {
+            // A file the person named is always included, spaces and all. .mp4 is a normal type.
+            if !exts.is_empty() && !has_ext(&p, &exts) {
+                let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("(none)");
+                out.notes.push(format!(
+                    "including {} (named explicitly; .{ext} is not in the usual list: {list})",
+                    p.display()
+                ));
+            }
+            out.files.push(p);
+        } else if p.is_dir() {
+            let before = out.files.len();
             for e in walkdir::WalkDir::new(&p)
                 .max_depth(depth)
                 .sort_by_file_name()
@@ -24,9 +54,28 @@ pub(crate) fn scan(paths: &[PathBuf], s: &Settings) -> Vec<PathBuf> {
                 .flatten()
             {
                 if e.file_type().is_file() && has_ext(e.path(), &exts) {
-                    out.push(e.into_path());
+                    out.files.push(e.into_path());
                 }
             }
+            if out.files.len() == before {
+                out.skipped.push(Skip {
+                    path: p,
+                    error: "no media files".into(),
+                    detail: list.clone(),
+                });
+            }
+        } else if !p.exists() {
+            out.skipped.push(Skip {
+                path: p,
+                error: "not found".into(),
+                detail: String::new(),
+            });
+        } else {
+            out.skipped.push(Skip {
+                path: p,
+                error: "not a file or directory".into(),
+                detail: String::new(),
+            });
         }
     }
     out
@@ -153,8 +202,31 @@ mod tests {
             extensions: Some(vec!["mp4".into(), "mkv".into()]),
             ..Default::default()
         };
-        assert_eq!(scan(&[d.path().into()], &s).len(), 2);
+        assert_eq!(scan(&[d.path().into()], &s).files.len(), 2);
         s.recursive = Some(false);
-        assert_eq!(scan(&[d.path().into()], &s), vec![d.path().join("a.mp4")]);
+        assert_eq!(
+            scan(&[d.path().into()], &s).files,
+            vec![d.path().join("a.mp4")]
+        );
+    }
+
+    #[test]
+    fn a_named_mp4_with_spaces_is_a_media_file_and_a_missing_path_is_not_silent() {
+        let d = tempfile::tempdir().unwrap();
+        let file = d.path().join("Bear Scratch/iVI4/Mountain/Mountain.mp4");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, "x").unwrap();
+        let s = Settings {
+            extensions: Some(vec!["mp4".into(), "mkv".into()]),
+            ..Default::default()
+        };
+        let hit = scan(std::slice::from_ref(&file), &s);
+        assert_eq!(hit.files, vec![file]);
+        assert!(hit.skipped.is_empty(), "{:?}", hit.skipped);
+        let missing = d.path().join("Bear Scratch/nope.mp4");
+        let miss = scan(std::slice::from_ref(&missing), &s);
+        assert!(miss.files.is_empty());
+        assert_eq!(miss.skipped[0].error, "not found");
+        assert_eq!(miss.skipped[0].path, missing);
     }
 }

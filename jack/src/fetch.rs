@@ -144,6 +144,13 @@ pub(crate) fn fetch_from(
             Err(e) => errs.push(format!("{}: {e}", p.name())),
         }
     }
+    if !skipped.is_empty() && (!found.is_empty() || !cands.is_empty()) {
+        let _ = writeln!(
+            out,
+            "    skipped: {} (not used for this kind of title)",
+            skipped.join(", ")
+        );
+    }
     if found.is_empty() && cands.is_empty() {
         return Err(
             if errs.is_empty() && skipped.len() == cfg.providers.order.len() {
