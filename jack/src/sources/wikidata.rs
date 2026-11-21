@@ -74,16 +74,67 @@ impl Provider for Wikidata<'_> {
         "wikidata"
     }
     fn lookup(&self, q: &Query) -> Result<Option<Meta>, String> {
+        if let Some(id) = q.wikidata.as_ref().filter(|id| !id.is_empty()) {
+            return self.by_qid(id);
+        }
+        if let Some(title) = q.wikipedia.as_ref().filter(|title| !title.is_empty()) {
+            return self.by_wikipedia(title);
+        }
         let Some(qid) = self.find(q)? else {
             return Ok(None);
         };
+        self.entity(&qid, false)
+    }
+}
+
+impl Wikidata<'_> {
+    /// A Q-id the user gave. Other sources are checked with the ids this returns.
+    pub fn by_qid(&self, qid: &str) -> Result<Option<Meta>, String> {
+        self.entity(qid, true)
+    }
+
+    /// A Wikipedia title or link, resolved through Wikidata's sitelink.
+    pub fn by_wikipedia(&self, title: &str) -> Result<Option<Meta>, String> {
+        let title = title.replace(' ', "_");
+        let site = format!("{}wiki", self.cfg.language);
         let r = self.api(&format!(
-            "action=wbgetentities&props=claims%7Csitelinks&ids={}",
-            enc(&qid)
+            "action=wbgetentities&sites={site}&titles={}&props=claims%7Csitelinks%7Clabels&languages={}",
+            enc(&title),
+            enc(&self.cfg.language)
         ))?;
-        let e = &r["entities"][&qid];
+        let Some(qid) = r["entities"].as_object().and_then(|entities| {
+            entities
+                .keys()
+                .find(|id| !id.starts_with('-') && id.starts_with('Q'))
+                .cloned()
+        }) else {
+            return Ok(None);
+        };
+        self.meta_of(&qid, &r["entities"][&qid])
+    }
+
+    fn entity(&self, qid: &str, with_label: bool) -> Result<Option<Meta>, String> {
+        let props = if with_label {
+            "claims%7Csitelinks%7Clabels"
+        } else {
+            "claims%7Csitelinks"
+        };
+        let r = self.api(&format!(
+            "action=wbgetentities&props={props}&ids={}",
+            enc(qid)
+        ))?;
+        if r["entities"][qid].is_null() {
+            return Ok(None);
+        }
+        self.meta_of(qid, &r["entities"][qid])
+    }
+
+    fn meta_of(&self, qid: &str, e: &Value) -> Result<Option<Meta>, String> {
         let mut m = Meta::new();
-        m.insert("wikidata_id".into(), qid.clone());
+        m.insert("wikidata_id".into(), qid.to_string());
+        if let Some(title) = s(&e["labels"][&self.cfg.language]["value"]) {
+            m.insert("title".into(), title);
+        }
         for (k, p) in IDS {
             put(&mut m, k, claim(e, p));
         }
@@ -164,5 +215,48 @@ mod tests {
             .is_none(),
             "no id: no guessing"
         );
+    }
+
+    #[test]
+    fn a_wikidata_or_wikipedia_flag_loads_that_item() {
+        let item = json!({"entities":{"Q83495":{
+            "labels":{"en":{"value":"The Matrix"}},
+            "claims":{"P345":[{"mainsnak":{"datavalue":{"value":"tt0133093"}}}]},
+            "sitelinks":{"enwiki":{"title":"The Matrix"}}
+        }}});
+        let h = FakeHttp::new(vec![("ids=Q83495", item.clone())]);
+        let w = Wikidata {
+            cfg: WikidataCfg {
+                base_url: "http://w".into(),
+                language: "en".into(),
+            },
+            http: &h,
+        };
+        let m = w
+            .lookup(&Query {
+                wikidata: Some("Q83495".into()),
+                ..Default::default()
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (
+                m["title"].as_str(),
+                m["imdb_id"].as_str(),
+                m["wikipedia_title"].as_str()
+            ),
+            ("The Matrix", "tt0133093", "The Matrix")
+        );
+        let h = FakeHttp::new(vec![("sites=enwiki", item)]);
+        let w = Wikidata {
+            cfg: WikidataCfg {
+                base_url: "http://w".into(),
+                language: "en".into(),
+            },
+            http: &h,
+        };
+        let m = w.by_wikipedia("The Matrix").unwrap().unwrap();
+        assert_eq!(m["wikidata_id"], "Q83495");
+        assert_eq!(m["imdb_id"], "tt0133093");
     }
 }

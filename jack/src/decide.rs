@@ -9,11 +9,47 @@ use crate::meta::Meta;
 use crate::providers::Query;
 use crate::resolver::{exact, norm};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Decision {
-    Sure,
-    /// (reason from unresolved_reasons, detail)
-    Unresolved(&'static str, String),
+    Sure {
+        score: f64,
+    },
+    /// `reason` is a stable code (`no_match`, `ambiguous`, `needs_flags`, `needs_judgment`).
+    /// `score` is the best normalized Levenshtein score Jack saw, or 1.0 for a trusted id.
+    Unresolved {
+        reason: &'static str,
+        detail: String,
+        score: f64,
+    },
+}
+
+impl Decision {
+    #[cfg(test)]
+    pub fn is_sure(&self) -> bool {
+        matches!(self, Decision::Sure { .. })
+    }
+    pub fn score(&self) -> f64 {
+        match self {
+            Decision::Sure { score } | Decision::Unresolved { score, .. } => *score,
+        }
+    }
+    #[cfg(test)]
+    pub fn reason(&self) -> Option<&'static str> {
+        match self {
+            Decision::Unresolved { reason, .. } => Some(reason),
+            Decision::Sure { .. } => None,
+        }
+    }
+    fn sure(score: f64) -> Self {
+        Decision::Sure { score }
+    }
+    fn unresolved(reason: &'static str, detail: impl Into<String>, score: f64) -> Self {
+        Decision::Unresolved {
+            reason,
+            detail: detail.into(),
+            score,
+        }
+    }
 }
 
 fn year(m: &Meta) -> Option<String> {
@@ -25,10 +61,6 @@ fn year(m: &Meta) -> Option<String> {
 fn label(m: &Meta) -> String {
     let t = m.get("show").or(m.get("title")).map_or("?", |s| s);
     format!("{t} ({})", year(m).unwrap_or_else(|| "?".into()))
-}
-
-fn source_base(s: &str) -> &str {
-    s.split(':').next().unwrap_or(s)
 }
 
 /// True when at least two hits share the same external id (same work, cross-checked).
@@ -172,17 +204,32 @@ fn variations(hits: &[&(String, Meta)], year_tolerance: u32) -> Option<String> {
     Some(list.join(", "))
 }
 
-pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance: u32) -> Decision {
+pub fn decide(
+    q: &Query,
+    s: &Settings,
+    found: &[(String, Meta)],
+    year_tolerance: u32,
+    threshold: f64,
+) -> Decision {
+    let threshold = crate::similarity::threshold(threshold);
     let set = |o: &Option<String>| o.as_ref().is_some_and(|v| !v.is_empty());
-    // only an id flag is a trusted match; --name/--year only filter the search
+    // only an id (a flag, or the same kind of id read from the file) is trusted alone
     let user_id = set(&q.imdb)
         || set(&q.tmdb)
         || set(&q.thetvdb)
+        || set(&q.wikidata)
+        || set(&q.wikipedia)
         || set(&s.imdb)
         || set(&s.tmdb)
         || set(&s.thetvdb)
+        || set(&s.wikidata)
+        || set(&s.wikipedia)
         || set(&s.youtube)
         || set(&s.x);
+    let scored = |m: &Meta| {
+        let title = m.get("show").or(m.get("title")).map_or("", |s| s.as_str());
+        crate::similarity::score(&q.title, title)
+    };
     let is_hit = |m: &Meta| {
         let mut m = m.clone();
         if let Some(y) = year(&m) {
@@ -191,6 +238,10 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
         exact(&q.title, q.year.as_deref(), &m)
     };
     let found: Vec<&(String, Meta)> = found.iter().filter(|(src, _)| src != "embedded").collect();
+    let best = found
+        .iter()
+        .map(|(_, meta)| scored(meta))
+        .fold(0.0_f64, f64::max);
     let hits: Vec<&(String, Meta)> = found.iter().copied().filter(|(_, m)| is_hit(m)).collect();
 
     // one source listing several exact matches: they are different works
@@ -201,9 +252,13 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
         .collect();
     srcs.sort();
     if srcs.windows(2).any(|w| w[0] == w[1]) {
-        return Decision::Unresolved(
+        return Decision::unresolved(
             "ambiguous",
-            format!("more than one work matches \"{}\"", q.title),
+            format!(
+                "more than one work matches \"{}\" at or above {threshold:.2} (best {best:.2})",
+                q.title
+            ),
+            best,
         );
     }
 
@@ -221,13 +276,14 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
                 && !is_hit(m)
                 && !hits.iter().any(|(_, h)| share_id(h, m))
         }) {
-            return Decision::Unresolved(
+            return Decision::unresolved(
                 "needs_flags",
                 format!(
                     "a source's details are for {}, not \"{}\"",
                     label(m),
                     q.title
                 ),
+                best,
             );
         }
     }
@@ -243,30 +299,34 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
     if members.is_empty() {
         if user_id {
             // the id identifies the work; other sources may still have been queried and found nothing
-            return Decision::Sure;
+            return Decision::sure(1.0);
         }
-        return Decision::Unresolved("no_match", format!("no source has exactly \"{}\"", q.title));
+        return Decision::unresolved(
+            "no_match",
+            format!(
+                "no result for \"{}\" reached {threshold:.2} (best {best:.2})",
+                q.title
+            ),
+            best,
+        );
     }
 
     let clusters = cluster(&members, year_tolerance);
 
     // an id flag identifies the work; other sources were still queried to fill ids/facts
     if user_id {
-        return Decision::Sure;
+        return Decision::sure(1.0);
     }
 
     if clusters.len() > 1 {
         // different identities: not a single match
-        return Decision::Unresolved(
+        return Decision::unresolved(
             "needs_flags",
             format!("sources do not agree on a single work for \"{}\"", q.title),
+            best,
         );
     }
     let hits = &clusters[0];
-    let mut bases: Vec<&str> = hits.iter().map(|(s, _)| source_base(s)).collect();
-    bases.sort();
-    bases.dedup();
-
     let years: Vec<String> = hits.iter().filter_map(|(_, m)| year(m)).collect();
     // same title, years farther than tolerance, no shared id: different works
     if years
@@ -278,33 +338,34 @@ pub fn decide(q: &Query, s: &Settings, found: &[(String, Meta)], year_tolerance:
         && year_spread(&years) > year_tolerance as i64
         && !shared_id(hits)
     {
-        return Decision::Unresolved(
+        return Decision::unresolved(
             "needs_flags",
             format!("sources do not agree on a single work for \"{}\"", q.title),
+            best,
         );
     }
+
+    let accepted = hits
+        .iter()
+        .map(|(_, meta)| scored(meta))
+        .fold(0.0_f64, f64::max);
 
     if let Some(d) = variations(hits, year_tolerance) {
-        return Decision::Unresolved("needs_judgment", d);
+        return Decision::unresolved("needs_judgment", d, accepted);
     }
 
-    if bases.len() < 2 {
-        return Decision::Unresolved(
-            "needs_flags",
-            format!(
-                "only one source found \"{}\"; another source must agree, or give an id (--imdb, --tmdb, or --thetvdb)",
-                q.title
-            ),
-        );
-    }
-    Decision::Sure
+    // one work at or above the threshold is enough, from one source or several
+    Decision::sure(if accepted > 0.0 { accepted } else { best })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     fn d0(q: &Query, s: &Settings, f: &[(String, Meta)]) -> Decision {
-        decide(q, s, f, 0)
+        decide(q, s, f, 0, 0.90)
+    }
+    fn sure(d: &Decision) -> bool {
+        d.is_sure()
     }
     fn m(src: &str, t: &str, y: &str) -> (String, Meta) {
         (
@@ -326,100 +387,87 @@ mod tests {
     #[test]
     fn acts_only_on_sure_information() {
         let none = Settings::default();
-        assert!(
-            matches!(
-                d0(
-                    &q("The Matrix", Some("1999")),
-                    &none,
-                    &[m("tmdb", "The Matrix", "1999")]
-                ),
-                Decision::Unresolved("needs_flags", _)
-            ),
-            "one source is not a single match"
+        let one = d0(
+            &q("The Matrix", Some("1999")),
+            &none,
+            &[m("tmdb", "The Matrix", "1999")],
         );
+        assert!(sure(&one), "one result at 1.0 is enough: {one:?}");
+        assert!((one.score() - 1.0).abs() < 1e-9);
+        assert!(sure(&d0(
+            &q("The Matrix", Some("1999")),
+            &none,
+            &[
+                m("tmdb", "The Matrix", "1999"),
+                m("thetvdb", "The Matrix", "1999"),
+            ]
+        )));
         assert_eq!(
-            d0(
-                &q("The Matrix", Some("1999")),
-                &none,
-                &[
-                    m("tmdb", "The Matrix", "1999"),
-                    m("thetvdb", "The Matrix", "1999"),
-                ]
-            ),
-            Decision::Sure
-        );
-        assert!(matches!(
             d0(
                 &q("The Matrix", Some("1999")),
                 &none,
                 &[m("tmdb", "The Matrix Reloaded", "2003")]
-            ),
-            Decision::Unresolved("no_match", _)
-        ));
-        assert_eq!(
-            d0(
-                &q("breaking.bad", None),
-                &none,
-                &[
-                    m("tmdb", "Breaking Bad", "2008"),
-                    m("thetvdb", "Breaking Bad", "2008"),
-                ]
-            ),
-            Decision::Sure
+            )
+            .reason(),
+            Some("no_match")
         );
-        assert!(matches!(
+        let normalized = d0(
+            &q("breaking.bad", None),
+            &none,
+            &[
+                m("tmdb", "Breaking Bad", "2008"),
+                m("thetvdb", "Breaking Bad", "2008"),
+            ],
+        );
+        assert!(sure(&normalized));
+        assert!((normalized.score() - 1.0).abs() < 1e-9);
+        assert_eq!(
             d0(
                 &q("Breaking Bad", None),
                 &none,
                 &[m("tmdb", "Breaking Bad: Original Minisodes", "2009")]
-            ),
-            Decision::Unresolved("no_match", _)
-        ));
+            )
+            .reason(),
+            Some("no_match")
+        );
         let named = Settings {
             name: Some("Breaking Bad".into()),
             year: Some("2008".into()),
             ..Default::default()
         };
         // --name/--year only filter the search; they are not a trusted match
-        assert!(matches!(
-            d0(&q("Breaking Bad", Some("2008")), &named, &[]),
-            Decision::Unresolved("no_match", _)
-        ));
-        assert!(
-            matches!(
-                d0(
-                    &q("The Matrix", Some("1999")),
-                    &named,
-                    &[m("tmdb", "The Matrix", "1999")]
-                ),
-                Decision::Unresolved("needs_flags", _)
-            ),
-            "one source is still not enough with --name/--year"
-        );
         assert_eq!(
-            d0(
+            d0(&q("Breaking Bad", Some("2008")), &named, &[]).reason(),
+            Some("no_match"),
+            "--name/--year do not invent a match"
+        );
+        assert!(
+            sure(&d0(
                 &q("The Matrix", Some("1999")),
                 &named,
-                &[
-                    m("tmdb", "The Matrix", "1999"),
-                    m("thetvdb", "The Matrix", "1999"),
-                ]
-            ),
-            Decision::Sure
+                &[m("tmdb", "The Matrix", "1999")]
+            )),
+            "one result above the threshold is enough; --name/--year only filtered"
         );
+        assert!(sure(&d0(
+            &q("The Matrix", Some("1999")),
+            &named,
+            &[
+                m("tmdb", "The Matrix", "1999"),
+                m("thetvdb", "The Matrix", "1999"),
+            ]
+        )));
         // an id flag is enough even with no (or one) source; other sources are still queried
-        assert_eq!(
-            d0(
-                &Query {
-                    imdb: Some("tt1".into()),
-                    ..q("x", None)
-                },
-                &none,
-                &[]
-            ),
-            Decision::Sure
+        let trusted = d0(
+            &Query {
+                imdb: Some("tt1".into()),
+                ..q("x", None)
+            },
+            &none,
+            &[],
         );
-        assert_eq!(
+        assert!(trusted.is_sure() && (trusted.score() - 1.0).abs() < 1e-9);
+        assert!(
             d0(
                 &Query {
                     tmdb: Some("603".into()),
@@ -427,8 +475,32 @@ mod tests {
                 },
                 &none,
                 &[m("tmdb", "The Matrix", "1999")]
-            ),
-            Decision::Sure
+            )
+            .is_sure()
+        );
+        assert!(
+            d0(
+                &Query {
+                    wikidata: Some("Q83495".into()),
+                    ..q("The Matrix", Some("1999"))
+                },
+                &none,
+                &[]
+            )
+            .is_sure(),
+            "a wikidata id is trusted alone"
+        );
+        assert!(
+            d0(
+                &Query {
+                    wikipedia: Some("The Matrix".into()),
+                    ..q("", None)
+                },
+                &none,
+                &[]
+            )
+            .is_sure(),
+            "a wikipedia title is trusted alone"
         );
     }
     #[test]
@@ -442,48 +514,47 @@ mod tests {
             m("tmdb:search", "The Office Mixup", "2020"),
         ];
         let d = d0(&q("The Office", None), &none, &f);
-        assert!(matches!(&d, Decision::Unresolved("ambiguous", _)), "{d:?}");
-        // with the year it is unique on that list, but still only one source
-        assert!(matches!(
-            d0(&q("The Office", Some("2005")), &none, &f),
-            Decision::Unresolved("needs_flags", _)
-        ));
+        assert_eq!(d.reason(), Some("ambiguous"), "{d:?}");
+        // the year leaves a single result, so that result is accepted
+        assert!(
+            d0(&q("The Office", Some("2005")), &none, &f).is_sure(),
+            "one result at or above the threshold"
+        );
         let f2 = [
             m("tmdb", "The Office", "2005"),
             m("tmdb:search", "The Office", "2005"),
             m("thetvdb:search", "The Office", "2005"),
         ];
-        assert_eq!(
-            d0(&q("The Office", Some("2005")), &none, &f2),
-            Decision::Sure
-        );
+        let agreed = d0(&q("The Office", Some("2005")), &none, &f2);
+        assert!(agreed.is_sure(), "{agreed:?}");
+        assert!((agreed.score() - 1.0).abs() < 1e-9);
         // each list has one, but the sources disagree
         let f = [
             m("tmdb:search", "Dune", "2021"),
             m("thetvdb:search", "Dune", "1984"),
         ];
-        assert!(matches!(
-            d0(&q("Dune", None), &none, &f),
-            Decision::Unresolved("needs_flags", _)
-        ));
-        // exactly one exact match across all lists, sources agree
+        assert_eq!(
+            d0(&q("Dune", None), &none, &f).reason(),
+            Some("needs_flags")
+        );
+        // exactly one match across all lists
         let f = [
             m("tmdb", "The Why Files", "2021"),
             m("tmdb:search", "The Why Files", "2021"),
             m("tmdb:search", "Why Women Kill", "2019"),
             m("thetvdb:search", "The Why Files", "2021"),
         ];
-        assert_eq!(d0(&q("The Why Files", None), &none, &f), Decision::Sure);
+        assert!(d0(&q("The Why Files", None), &none, &f).is_sure());
         // the exact match was listed but the details fetched are another work's
         let f = [
             m("tmdb", "Why Women Kill", "2019"),
             m("tmdb:search", "Why Women Kill", "2019"),
             m("tmdb:search", "The Why Files", "2021"),
         ];
-        assert!(matches!(
-            d0(&q("The Why Files", None), &none, &f),
-            Decision::Unresolved("needs_flags", _)
-        ));
+        assert_eq!(
+            d0(&q("The Why Files", None), &none, &f).reason(),
+            Some("needs_flags")
+        );
     }
     #[test]
     fn year_tolerance_is_a_hint_for_agreement() {
@@ -492,12 +563,10 @@ mod tests {
             m("tmdb:search", "Amelie", "2001"),
             m("tvmaze:search", "Amelie", "2002"),
         ];
-        assert_eq!(decide(&q("Amelie", None), &none, &f, 1), Decision::Sure);
-        assert!(
-            matches!(
-                decide(&q("Amelie", None), &none, &f, 0),
-                Decision::Unresolved("needs_flags", _)
-            ),
+        assert!(decide(&q("Amelie", None), &none, &f, 1, 0.90).is_sure());
+        assert_eq!(
+            decide(&q("Amelie", None), &none, &f, 0, 0.90).reason(),
+            Some("needs_flags"),
             "years beyond tolerance with no shared id are different works"
         );
     }
@@ -524,9 +593,9 @@ mod tests {
                 .into(),
             ),
         ];
-        assert!(matches!(
-            d0(&q("The Matrix", Some("1999")), &none, &f),
-            Decision::Unresolved("needs_judgment", _)
-        ));
+        assert_eq!(
+            d0(&q("The Matrix", Some("1999")), &none, &f).reason(),
+            Some("needs_judgment")
+        );
     }
 }

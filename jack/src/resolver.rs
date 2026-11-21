@@ -1,6 +1,9 @@
-//! Deciding among candidates. Jack never best-guesses: the default `Strict` resolver picks only
-//! an exact, unique match. Sammy (a future LLM windup) can implement `Resolver` and be passed in.
+//! Deciding among candidates. Jack accepts only one result at or above the similarity
+//! threshold. Sammy (a future LLM windup) can implement `Resolver` and be passed in.
 use crate::meta::Meta;
+use crate::similarity;
+
+pub use crate::similarity::norm;
 
 /// (source, metadata)
 pub type Candidate = (String, Meta);
@@ -19,13 +22,23 @@ pub trait Resolver {
     fn resolve(&self, title: &str, year: Option<&str>, cands: &[Candidate]) -> Choice;
 }
 
-/// Exactly one candidate whose title (and year, when given) match exactly.
-pub struct Strict;
+/// One candidate at or above the threshold (and the same year, when a year was given).
+#[derive(Clone, Copy)]
+pub struct Strict {
+    pub threshold: f64,
+}
+
+impl Default for Strict {
+    fn default() -> Self {
+        Self { threshold: 0.90 }
+    }
+}
 
 impl Resolver for Strict {
     fn resolve(&self, title: &str, year: Option<&str>, c: &[Candidate]) -> Choice {
+        let threshold = similarity::threshold(self.threshold);
         let hits: Vec<usize> = (0..c.len())
-            .filter(|&i| exact(title, year, &c[i].1))
+            .filter(|&i| above(title, year, &c[i].1, threshold))
             .collect();
         match hits.as_slice() {
             [] => Choice::None,
@@ -35,21 +48,15 @@ impl Resolver for Strict {
     }
 }
 
-/// Same title (ignoring case, spacing and the separators . _ -) and, if a year is given, same year.
-pub fn exact(title: &str, year: Option<&str>, m: &Meta) -> bool {
-    let t = m.get("show").or(m.get("title")).map_or("", |s| s);
-    norm(t) == norm(title)
-        && !norm(title).is_empty()
-        && year.is_none_or(|y| m.get("year").is_some_and(|my| my == y))
+fn above(title: &str, year: Option<&str>, meta: &Meta, threshold: f64) -> bool {
+    let candidate = meta.get("show").or(meta.get("title")).map_or("", |s| s);
+    similarity::score(title, candidate) >= threshold
+        && year.is_none_or(|y| meta.get("year").is_some_and(|my| my == y))
 }
 
-/// "Breaking.Bad" / "breaking_bad" / "Breaking  Bad" -> "breaking bad". Other punctuation stays.
-pub fn norm(s: &str) -> String {
-    s.to_lowercase()
-        .replace(['.', '_', '-'], " ")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+/// Same normalized title, or a single score at or above 0.90, and the same year when one was given.
+pub fn exact(title: &str, year: Option<&str>, m: &Meta) -> bool {
+    above(title, year, m, 0.90)
 }
 
 #[cfg(test)]
@@ -67,7 +74,7 @@ mod tests {
     }
     #[test]
     fn strict_only_exact_unique() {
-        let s = Strict;
+        let s = Strict::default();
         assert_eq!(
             s.resolve(
                 "The Why Files",
@@ -92,10 +99,10 @@ mod tests {
             ),
             Choice::Pick(0)
         );
-        // close is not enough
+        // one mark away is still the only result at or above 0.90
         assert_eq!(
             s.resolve("The Why Files", None, &[c("The Why Files?", "2005")]),
-            Choice::None
+            Choice::Pick(0)
         );
         assert_eq!(
             s.resolve("the  why files", None, &[c("The Why Files", "2021")]),

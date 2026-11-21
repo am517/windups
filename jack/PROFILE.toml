@@ -9,13 +9,13 @@ personality = "Curiosity"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "active"
 kinds = ["movie", "episode", "online_video"]
-sources = ["embedded", "tmdb", "thetvdb", "omdb", "tvmaze", "wikidata", "itunes", "youtube", "wikipedia", "yt-dlp info.json"]
-reads = ["media files", "yt-dlp .info.json"]
-# Side effects only: what Jack himself changes. Daniel's tables are Daniel's.
-writes = ["jack.db", "handoff records", "file tags", "sorted folders"]
-never = ["guess between candidates", "overwrite a source's data", "tag from an unresolved decision", "replace the file's own facts without independent evidence", "silently drop an item", "merge entries on a fingerprint hint"]
+sources = ["embedded", "tmdb", "thetvdb", "omdb", "tvmaze", "wikidata", "itunes", "youtube", "wikipedia", "yt-dlp", "exiftool"]
+reads = ["media files", "yt-dlp .info.json", "yt-dlp --dump-json", "exiftool"]
+# Side effects only: what Jack himself changes. Daniel's tables are Daniel's. File tags and sorting belong to Lauren.
+writes = ["jack.db", "handoff records"]
+never = ["guess between candidates", "overwrite a source's data", "treat an unresolved decision as identified", "replace the file's own facts without independent evidence", "silently drop an item", "merge entries on a fingerprint hint", "edit the media file"]
 hands_off = ["sammy: any step still ambiguous (parse, lookup, match, refine, conflict) via the Escalation trait; decisions recorded with provenance", "user: needs_flags items (--year, --imdb)"]
-command = "jack [--capabilities] [--tmdb ID | --thetvdb ID | --imdb ID | --youtube ID | --x ID | --name NAME --year YEAR] PATH..."
+command = "jack [--capabilities] [--tmdb ID | --thetvdb ID | --imdb ID | --wikidata ID | --wikipedia ID | --youtube ID | --x ID | --name NAME --year YEAR] PATH..."
 
 # Kinds Jack knows about but cannot do. `why` is its own field, never stuffed into the kind name.
 [[cant]]

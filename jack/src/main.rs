@@ -1,13 +1,13 @@
 mod archive;
-mod art;
 mod ask;
-mod askart;
 mod candidates;
 mod cli;
 mod completeness;
 mod config;
 mod conflicts;
+mod credentials;
 mod decide;
+mod embedded_input;
 mod escalate;
 mod explain;
 mod facts;
@@ -17,6 +17,7 @@ mod handoff;
 mod matcher;
 mod meta;
 mod objective;
+mod offer;
 mod online;
 mod print;
 mod process;
@@ -31,14 +32,16 @@ mod secrets;
 mod setcfg;
 mod setflags;
 mod settle;
+mod similarity;
 mod sorter;
+mod source_id;
 mod sources;
 mod stage;
 mod sync;
-mod tagger;
 #[cfg(test)]
 mod testutil;
 mod to_daniel;
+mod tools;
 mod universal;
 
 use clap::Parser;
@@ -48,7 +51,7 @@ fn main() {
     if universal::is_command(&args) {
         std::process::exit(universal::main(&args));
     }
-    let mut cli = cli::Cli::parse();
+    let cli = cli::Cli::parse();
     if !cli.capabilities {
         universal::ensure_folder(cli.config.as_deref());
     }
@@ -61,21 +64,6 @@ fn main() {
         }
         return;
     }
-    let secret_err = if cli.windup {
-        secrets::resolve_secrets(&mut cli, &mut |_| {
-            Err("cannot prompt in --windup mode; pass the key as --flag VALUE".into())
-        })
-    } else {
-        secrets::resolve_secrets(&mut cli, &mut secrets::read_secret)
-    };
-    if let Err(e) = secret_err {
-        if cli.windup {
-            println!("{}", windups::base::flags::error_json(&e));
-        } else {
-            eprintln!("jack: {e}");
-        }
-        std::process::exit(2);
-    }
     if !cli.windup && !cli.paths.is_empty() && !(cli.set && secrets::has_secret(&cli)) {
         let listed = cli
             .paths
@@ -85,14 +73,10 @@ fn main() {
             .join(", ");
         let kind = if cli.dry_run {
             "dry run"
-        } else if cli.download_only && cli.print {
-            "download and print"
-        } else if cli.download_only {
-            "download"
         } else if cli.print {
             "print"
         } else {
-            "tag"
+            "identify"
         };
         eprintln!("jack: {kind}: {listed}");
         let _ = std::io::Write::flush(&mut std::io::stderr());

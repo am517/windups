@@ -9,7 +9,7 @@ Ratings, rated and awards from OMDb (The Open Movie Database): https://www.omdba
 
 /// No Debug: holds API keys.
 #[derive(Parser, Default)]
-#[command(name = "jack", version, about = "Tag and sort movie and TV files", after_help = ATTRIBUTION)]
+#[command(name = "jack", version, about = "Identify movie and TV files and report what they are", after_help = ATTRIBUTION)]
 pub(crate) struct Cli {
     /// Files or directories to process
     pub(crate) paths: Vec<PathBuf>,
@@ -31,21 +31,18 @@ pub(crate) struct Cli {
     /// Provider order, comma-separated (e.g. tmdb,thetvdb,omdb)
     #[arg(long, value_delimiter = ',')]
     pub(crate) providers: Option<Vec<String>>,
-    /// TMDB read access token (this run; with --set: saved). `--tmdb-token TOKEN`. No value: prompt (hidden)
-    #[arg(long, num_args = 0..=1, value_name = "TOKEN")]
-    pub(crate) tmdb_token: Option<Option<String>>,
-    /// TheTVDB API key (this run; with --set: saved). `--tvdb-key KEY`. No value: prompt (hidden)
-    #[arg(long, num_args = 0..=1, value_name = "KEY")]
-    pub(crate) tvdb_key: Option<Option<String>>,
-    /// TheTVDB subscriber PIN (this run; with --set: saved). `--tvdb-pin PIN`. No value: prompt (hidden)
-    #[arg(long, num_args = 0..=1, value_name = "PIN")]
-    pub(crate) tvdb_pin: Option<Option<String>>,
-    /// OMDb API key (this run; with --set: saved). `--omdb-key KEY`. No value: prompt (hidden)
-    #[arg(long, num_args = 0..=1, value_name = "KEY")]
-    pub(crate) omdb_key: Option<Option<String>>,
-    /// MP4 tag writer: atomicparsley or exiftool
-    #[arg(long, value_parser = ["atomicparsley", "exiftool"])]
-    pub(crate) mp4_tool: Option<String>,
+    /// TMDB v3 key (32 hex) or read-access token (JWT). `--tmdb-key <KEY>`. Alias: `--tmdb-token`.
+    #[arg(long = "tmdb-key", visible_alias = "tmdb-token", value_name = "KEY")]
+    pub(crate) tmdb_key: Option<String>,
+    /// TheTVDB API key (this run; with --set: saved). `--tvdb-key <KEY>`.
+    #[arg(long, value_name = "KEY")]
+    pub(crate) tvdb_key: Option<String>,
+    /// TheTVDB subscriber PIN (this run; with --set: saved). `--tvdb-pin <PIN>`.
+    #[arg(long, value_name = "PIN")]
+    pub(crate) tvdb_pin: Option<String>,
+    /// OMDb API key (this run; with --set: saved). `--omdb-key <KEY>`.
+    #[arg(long, value_name = "KEY")]
+    pub(crate) omdb_key: Option<String>,
     /// Main config file (default: config.toml in Jack's data folder; see windups/LAYOUT.md)
     #[arg(long)]
     pub(crate) config: Option<PathBuf>,
@@ -58,27 +55,21 @@ pub(crate) struct Cli {
     /// YouTube video id or URL (an online video; combine with --tmdb/--thetvdb to name its show)
     #[arg(long)]
     pub(crate) youtube: Option<String>,
-    /// X post id or URL
+    /// X post id or URL (digits, or an x.com / twitter.com status link)
     #[arg(long)]
     pub(crate) x: Option<String>,
+    /// Wikidata item id or URL (Q123 or a wikidata.org link). Trusted alone.
+    #[arg(long)]
+    pub(crate) wikidata: Option<String>,
+    /// Wikipedia article title or URL. Trusted alone.
+    #[arg(long)]
+    pub(crate) wikipedia: Option<String>,
     /// Title to search for (overrides the filename guess)
     #[arg(long)]
     pub(crate) name: Option<String>,
     /// Release / first-air year (search filter)
     #[arg(long)]
     pub(crate) year: Option<String>,
-    /// Art orientation: poster or landscape
-    #[arg(long, value_parser = ["poster", "landscape"])]
-    pub(crate) art: Option<String>,
-    /// iTunes Grouping (MP4 ©grp, MKV GROUPING)
-    #[arg(long)]
-    pub(crate) grouping: Option<String>,
-    /// File-name language: original or a language code (see [naming])
-    #[arg(long)]
-    pub(crate) file_language: Option<String>,
-    /// Folder-name language: original or a language code
-    #[arg(long)]
-    pub(crate) folder_language: Option<String>,
     /// Media type: tv, movie or auto (forces filename matching and provider search)
     #[arg(long = "type", value_parser = ["tv", "movie", "auto"])]
     pub(crate) kind: Option<String>,
@@ -88,27 +79,12 @@ pub(crate) struct Cli {
     /// Same as --type movie
     #[arg(long)]
     pub(crate) movie: bool,
-    /// Fetch metadata/artwork only (saved beside the file); don't modify media
-    #[arg(short, long, overrides_with = "no_download_only")]
-    pub(crate) download_only: bool,
-    #[arg(long, overrides_with = "download_only")]
-    pub(crate) no_download_only: bool,
     /// Descend into subdirectories (default)
     #[arg(long, overrides_with = "no_recursive")]
     pub(crate) recursive: bool,
     #[arg(long, overrides_with = "recursive")]
     pub(crate) no_recursive: bool,
-    /// Embed artwork into media (default)
-    /// Download all art candidates, list them, and ask which to embed
-    #[arg(long, overrides_with = "no_ask_art")]
-    pub(crate) ask_art: bool,
-    #[arg(long, overrides_with = "ask_art")]
-    pub(crate) no_ask_art: bool,
-    #[arg(long, overrides_with = "no_embed_artwork")]
-    pub(crate) embed_artwork: bool,
-    #[arg(long, overrides_with = "embed_artwork")]
-    pub(crate) no_embed_artwork: bool,
-    /// Print composite metadata to stdout; without -d, modify and write nothing
+    /// Print the results (merged facts). Jack still always says what he did.
     #[arg(short, long, overrides_with = "no_print")]
     pub(crate) print: bool,
     /// Don't print (undoes a saved print = true)
@@ -117,10 +93,7 @@ pub(crate) struct Cli {
     /// --print format: text or json
     #[arg(long, value_parser = ["text", "json"])]
     pub(crate) print_format: Option<String>,
-    /// Destination root for sorted files
-    #[arg(short, long)]
-    pub(crate) output: Option<PathBuf>,
-    /// Show what would change; change nothing
+    /// Show what would happen; change nothing
     #[arg(long, overrides_with = "no_dry_run")]
     pub(crate) dry_run: bool,
     #[arg(long, overrides_with = "dry_run")]
@@ -144,9 +117,7 @@ pub(crate) fn tri(on: bool, off: bool) -> Option<bool> {
 impl From<&Cli> for Settings {
     fn from(c: &Cli) -> Self {
         Settings {
-            output: c.output.clone(),
             dry_run: tri(c.dry_run, c.no_dry_run),
-            download_only: tri(c.download_only, c.no_download_only),
             print: tri(c.print, c.no_print),
             recursive: tri(c.recursive, c.no_recursive),
             print_format: c.print_format.clone(),
@@ -155,10 +126,10 @@ impl From<&Cli> for Settings {
             tmdb: c.tmdb.clone(),
             youtube: c.youtube.clone(),
             x: c.x.clone(),
+            wikidata: c.wikidata.clone(),
+            wikipedia: c.wikipedia.clone(),
             name: c.name.clone(),
             year: c.year.clone(),
-            art_style: c.art.clone(),
-            grouping: c.grouping.clone(),
             kind: c
                 .tv
                 .then(|| "tv".into())
@@ -178,11 +149,7 @@ mod tests {
     fn precedence_flags_main_defaults() {
         let d = tempfile::tempdir().unwrap();
         let cfg = d.path().join("c.toml");
-        fs::write(
-            &cfg,
-            "output = \"/main\"\ntmdb = \"main\"\nimdb = \"main\"\n[tagger]\nexiftool = \"/x\"\n",
-        )
-        .unwrap();
+        fs::write(&cfg, "tmdb = \"main\"\nimdb = \"main\"\nrecursive = true\n").unwrap();
         let m = d.path().join("a.mp4");
         fs::write(&m, "").unwrap();
         fs::write(d.path().join("a.mp4.config"), "tmdb = \"side\"\n").unwrap(); // sidecars are ignored
@@ -194,12 +161,9 @@ mod tests {
             "flag",
         ]);
         let main = config::load(c.config.as_deref()).unwrap();
-        assert_eq!(main.tagger.exiftool, "/x");
-        assert_eq!(main.tagger.mkvpropedit, "mkvpropedit"); // deep-merged default
         let s = config::resolve(&Settings::from(&c), &main.base);
         assert_eq!(s.imdb.as_deref(), Some("flag"));
         assert_eq!(s.tmdb.as_deref(), Some("main"));
-        assert_eq!(s.output, Some(PathBuf::from("/main")));
         assert_eq!(s.recursive, Some(true));
         assert!(s.extensions.unwrap().contains(&"mkv".to_string()));
     }
@@ -210,6 +174,9 @@ mod tests {
         let h = Cli::command().render_long_help().to_string();
         assert!(h.contains("Metadata provided by TheTVDB: https://thetvdb.com"));
         assert!(h.contains("not endorsed or certified by TMDB") && h.contains("omdbapi.com"));
+        assert!(h.contains("--tvdb-key <KEY>"), "{h}");
+        assert!(h.contains("--tmdb-key <KEY>"), "{h}");
+        assert!(h.contains("--tmdb-token"), "{h}");
     }
 
     #[test]
@@ -257,21 +224,14 @@ mod tests {
             "--dry-run",
             "x",
         ]));
-        assert_eq!(
-            (f.print, f.dry_run, f.download_only),
-            (Some(false), Some(true), None)
-        );
+        assert_eq!((f.print, f.dry_run), (Some(false), Some(true)));
         let d = tempfile::tempdir().unwrap();
         let c = d.path().join("c.toml");
         let cs = c.to_str().unwrap();
         fs::write(&c, "[providers]\norder = [\"tmdb\"]\n[providers.tmdb]\nread_token = \"t\"\nbase_url = \"http://t\"\n").unwrap();
         let none =
             || providers::fake::FakeHttp::new(vec![("/movie/1", serde_json::json!({"title":"T"}))]);
-        run(
-            &cli(&["--set", "--config", cs, "-p", "--no-embed-artwork"]),
-            &none(),
-        )
-        .unwrap();
+        run(&cli(&["--set", "--config", cs, "-p"]), &none()).unwrap();
         let (o, _, _) = run(
             &cli(&[
                 "--set",
@@ -289,7 +249,6 @@ mod tests {
         assert!(
             t.contains("print = false")
                 && t.contains("recursive = false")
-                && t.contains("embed_artwork = false")
                 && t.contains("dry_run = false"),
             "{t}"
         );
@@ -318,7 +277,7 @@ mod tests {
         );
         let (o, p, _) = run(&args(&["--recursive", "--no-print"]), &none()).unwrap();
         assert!(
-            o.contains("1 media file(s)") && o.contains("tag: ") && p.is_empty(),
+            o.contains("1 media file(s)") && o.contains("identified: ") && p.is_empty(),
             "{o}"
         );
         let (_, p, _) = run(&args(&["--recursive"]), &none()).unwrap();
