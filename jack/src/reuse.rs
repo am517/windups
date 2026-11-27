@@ -59,6 +59,29 @@ pub fn known_ids(q: &Query, embedded: &Meta) -> Vec<(String, String)> {
     v
 }
 
+/// A settled record that carries every id the user gave (by value, or inside the given link).
+pub fn agrees_with_flags(entry: &Meta, s: &crate::config::Settings) -> bool {
+    if entry.get("resolution").is_some_and(|r| r == "unresolved") {
+        return false;
+    }
+    let pairs = [
+        (&s.imdb, &["imdb_id"][..]),
+        (&s.tmdb, &["tmdb_id", "tmdb_series_id"][..]),
+        (&s.thetvdb, &["thetvdb_id", "thetvdb_series_id"][..]),
+        (&s.wikidata, &["wikidata_id"][..]),
+    ];
+    pairs.iter().all(
+        |(given, keys)| match given.as_deref().filter(|g| !g.is_empty()) {
+            None => true,
+            Some(g) => keys.iter().any(|k| {
+                entry
+                    .get(*k)
+                    .is_some_and(|v| !v.is_empty() && (v == g || g.contains(&format!("/{v}"))))
+            }),
+        },
+    )
+}
+
 fn source_base(s: &str) -> &str {
     s.split(':').next().unwrap_or(s)
 }
