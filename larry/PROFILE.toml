@@ -1,4 +1,4 @@
-# Larry's profile (`larry` is a library windup for now; Daniel calls it).
+# Larry's profile. Daniel calls him as a library when storing; `larry hash` prints hashes for a person.
 name = "larry"
 role = "hashing"
 summary = "Larry fingerprints files: an exact BLAKE3 hash (partial first, full later) to re-find renamed or moved files, and a look-alike fingerprint that only proposes possible duplicates."

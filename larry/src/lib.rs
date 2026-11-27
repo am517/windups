@@ -1,6 +1,7 @@
 //! Larry, the hashing windup. Given a file: its exact hash (re-finds renamed or moved files) and,
 //! when enabled, its look-alike fingerprint (a hint that opens proposals, never merges).
 //! Daniel calls Larry when it stores an entry; Larry never decides what a file is.
+pub mod cli;
 pub mod fingerprint;
 pub mod hash;
 
