@@ -22,6 +22,29 @@ Tom is the vector windup. Drafted Nov 26, 2026 from existing sources only; updat
 - Every windup works fully in isolation with reduced function: it makes human-like choices and does only its own task, never extra tasks just because it is alone (direction, Nov 27).
 - Code today: `tom/src/lib.rs` has an `Embedder` trait (model name + embed) and a `NoEmbedder` stub.
 
+## Vectorizing strategy (PROPOSED, 2026-11-27)
+
+All of this is **PROPOSED** (approved to be recorded as proposed; not built).
+
+- **Original text only.** Vectors come from the original text, never from a Sammy rewrite, so every
+  hit points to an exact location (page, paragraph or timestamp).
+- **Three levels**, all stored and searched together:
+  1. *Passages*, for precise hits: paragraphs for books; 30-60 second overlapping windows for
+     subtitles and transcripts.
+  2. *Segments*: real structure where it exists (chapters, sections); otherwise topic boundaries
+     found where the similarity between adjacent window vectors drops.
+  3. *Summaries*: Sammy writes a title and summary for each segment and for the whole work. They
+     are vectorized **alongside** the passages, never instead of them. Search matches a summary to
+     find the work, then a passage for the exact spot or timestamp.
+- **Photos and videos:** a vision model writes a description, which is vectorized. An image-embedding
+  model in a shared text-and-image space (candidate: Google SigLIP; no Chinese models) lets text
+  queries find images the description missed. Videos: frames sampled at scene changes are
+  described and combined with the transcript.
+- **Efficiency:** Larry's hash means a file is vectorized once, and again only when its content or
+  the model id/version changes. Low-confidence vectors from weak devices are redone later (decided,
+  coding_guidelines §1).
+- Missing subtitles come from the subtitle windup (`docs/subtitle_windup_spec.md`, PROPOSED).
+
 ## 3. Open questions
 Questions 1 and 2 are open for discussion in review (direction, Nov 27).
 
