@@ -101,10 +101,10 @@ pub(crate) fn fetch_from(
                         .cloned()
                         .or_else(|| meta.get("thetvdb_id").cloned());
                 }
-                if q.title.is_empty() {
-                    if let Some(title) = meta.get("title").or_else(|| meta.get("wikipedia_title")) {
-                        q.title = title.clone();
-                    }
+                if q.title.is_empty()
+                    && let Some(title) = meta.get("title").or_else(|| meta.get("wikipedia_title"))
+                {
+                    q.title = title.clone();
                 }
                 if q.year.is_none() {
                     q.year = meta.get("year").cloned();
@@ -124,10 +124,10 @@ pub(crate) fn fetch_from(
     }
     let (mut errs, mut skipped, mut cands) = (vec![], vec![], vec![]);
     for name in &cfg.providers.order {
-        if let Some(only) = only {
-            if !only.iter().any(|s| s == name) {
-                continue;
-            }
+        if let Some(only) = only
+            && !only.iter().any(|s| s == name)
+        {
+            continue;
         }
         if name == "wikidata" && found.iter().any(|(found_name, _)| found_name == "wikidata") {
             continue;
@@ -206,41 +206,44 @@ pub(crate) fn fetch_from(
         Some(g) => m.insert("genre".into(), g),
         None => m.remove("genre"),
     };
-    if !m.contains_key("description") {
-        if let Some(t) = m.get("wikipedia_title").cloned() {
-            match wikipedia::description(&pc.wikipedia, http, &t) {
-                Ok(Some(d)) => {
-                    m.insert("description".into(), d);
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    let _ = writeln!(out, "    warning: wikipedia: {e}");
-                }
+    if !m.contains_key("description")
+        && let Some(t) = m.get("wikipedia_title").cloned()
+    {
+        match wikipedia::description(&pc.wikipedia, http, &t) {
+            Ok(Some(d)) => {
+                m.insert("description".into(), d);
+            }
+            Ok(None) => {}
+            Err(e) => {
+                let _ = writeln!(out, "    warning: wikipedia: {e}");
             }
         }
     }
     let ep = m.get("kind").is_some_and(|k| k == "episode");
-    if ep && !m.contains_key("episode_title") && cfg.matching.episode_title_from_filename {
-        if let Some(t) = &q.episode_title {
-            let _ = writeln!(
-                out,
-                "    warning: no episode title from providers; using the filename's ({t})"
-            );
-            m.insert("episode_title".into(), t.clone());
-        }
+    if ep
+        && !m.contains_key("episode_title")
+        && cfg.matching.episode_title_from_filename
+        && let Some(t) = &q.episode_title
+    {
+        let _ = writeln!(
+            out,
+            "    warning: no episode title from providers; using the filename's ({t})"
+        );
+        m.insert("episode_title".into(), t.clone());
     }
-    if ep && pc.tv_show_year {
-        if let (Some(s), Some(y)) = (m.get("show").cloned(), m.get("year").cloned()) {
-            m.insert("show".into(), format!("{s} ({y})"));
-        }
+    if ep
+        && pc.tv_show_year
+        && let (Some(s), Some(y)) = (m.get("show").cloned(), m.get("year").cloned())
+    {
+        m.insert("show".into(), format!("{s} ({y})"));
     }
-    if pc.original_in_description {
-        if let (Some(o), Some(d)) = (
+    if pc.original_in_description
+        && let (Some(o), Some(d)) = (
             m.get("original_title").cloned(),
             m.get("description").cloned(),
-        ) {
-            m.insert("description".into(), format!("{d}\n\nOriginal title: {o}"));
-        }
+        )
+    {
+        m.insert("description".into(), format!("{d}\n\nOriginal title: {o}"));
     }
     found.extend(cands);
     Ok((m, found))

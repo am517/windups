@@ -138,10 +138,10 @@ pub fn resolve(name: &str, p: &Probe) -> Layout {
     if let Some(d) = &p.env_home {
         return at(d.clone(), d.join(CONFIG_NAME), Source::Env);
     }
-    if let Some(d) = &p.exe_dir {
-        if holds(d) {
-            return at(d.clone(), d.join(CONFIG_NAME), Source::BinaryFolder);
-        }
+    if let Some(d) = &p.exe_dir
+        && holds(d)
+    {
+        return at(d.clone(), d.join(CONFIG_NAME), Source::BinaryFolder);
     }
     let own = windup_dir(&home, name, &os, p.xdg_data_home.as_deref());
     let legacy = home.join(".config/windups").join(name);

@@ -333,20 +333,19 @@ pub fn record_with(
     if !matches!(
         meta.get("lifecycle").map(String::as_str),
         Some("undetermined") | Some("not_identified")
-    ) {
-        if let Some(r) = ruth::reference(meta) {
-            let ids = ruth::ids(meta);
-            windups::works::link(
-                &tx,
-                id,
-                &windups::works::Work {
-                    key: &ruth::key(&r.text),
-                    reference: &r.text,
-                    provisional: r.provisional,
-                    ids: &ids,
-                },
-            )?;
-        }
+    ) && let Some(r) = ruth::reference(meta)
+    {
+        let ids = ruth::ids(meta);
+        windups::works::link(
+            &tx,
+            id,
+            &windups::works::Work {
+                key: &ruth::key(&r.text),
+                reference: &r.text,
+                provisional: r.provisional,
+                ids: &ids,
+            },
+        )?;
     }
     tx.commit()?;
     Ok(id)

@@ -60,21 +60,22 @@ pub(crate) fn process(
     }
     // an online video is fetched by its own site id: that id identifies the video
     let mut label = online_label(path, s, cfg);
-    if let Some(item) = label.as_mut() {
-        if item.info.is_empty() && tools::installed("exiftool") {
-            match online::exif::read(path) {
-                online::exif::Read::Meta(read) if !read.is_empty() => {
-                    let _ = writeln!(out, "    exiftool: read metadata from the file");
-                    item.info.extend(read);
-                }
-                online::exif::Read::Failed(message) => {
-                    let _ = writeln!(out, "    warning: {message}");
-                }
-                online::exif::Read::Missing(message) => {
-                    let _ = writeln!(out, "    {message}");
-                }
-                online::exif::Read::Meta(_) => {}
+    if let Some(item) = label.as_mut()
+        && item.info.is_empty()
+        && tools::installed("exiftool")
+    {
+        match online::exif::read(path) {
+            online::exif::Read::Meta(read) if !read.is_empty() => {
+                let _ = writeln!(out, "    exiftool: read metadata from the file");
+                item.info.extend(read);
             }
+            online::exif::Read::Failed(message) => {
+                let _ = writeln!(out, "    warning: {message}");
+            }
+            online::exif::Read::Missing(message) => {
+                let _ = writeln!(out, "    {message}");
+            }
+            online::exif::Read::Meta(_) => {}
         }
     }
     let label = label;

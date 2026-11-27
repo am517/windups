@@ -63,15 +63,16 @@ impl Filter {
     }
 
     fn matches(&self, id: &str, file: &str) -> bool {
-        if let Some(want) = &self.id {
-            if id != want {
-                return false;
-            }
+        if let Some(want) = &self.id
+            && id != want
+        {
+            return false;
         }
-        if let Some(want) = &self.file {
-            if file != want && Path::new(file) != Path::new(want) {
-                return false;
-            }
+        if let Some(want) = &self.file
+            && file != want
+            && Path::new(file) != Path::new(want)
+        {
+            return false;
         }
         true
     }

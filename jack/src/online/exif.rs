@@ -60,14 +60,13 @@ pub fn from_json(value: &Value) -> Meta {
         &["CreateDate", "DateTimeOriginal", "MediaCreateDate"],
     );
     put(&mut meta, "comment", &["Comment", "UserComment"]);
-    if let Some(date) = meta.get("date").cloned() {
-        if let Some(year) = date
+    if let Some(date) = meta.get("date").cloned()
+        && let Some(year) = date
             .get(..4)
             .filter(|year| year.bytes().all(|b| b.is_ascii_digit()))
-        {
-            meta.entry("year".into())
-                .or_insert_with(|| year.to_string());
-        }
+    {
+        meta.entry("year".into())
+            .or_insert_with(|| year.to_string());
     }
     meta
 }

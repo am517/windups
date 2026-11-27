@@ -11,38 +11,46 @@ pub trait Http {
 
 pub struct Ureq;
 
-fn uerr(url: &str, e: ureq::Error) -> String {
+/// One shared HTTP agent; HTTP error statuses come back as responses so their body can be reported.
+fn agent() -> &'static ureq::Agent {
+    static AGENT: std::sync::OnceLock<ureq::Agent> = std::sync::OnceLock::new();
+    AGENT.get_or_init(|| {
+        ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .build()
+            .into()
+    })
+}
+
+/// Turns a response into JSON, or a one-line error naming the URL without its query (keys stay out).
+fn read_json(
+    url: &str,
+    response: Result<ureq::http::Response<ureq::Body>, ureq::Error>,
+) -> Result<Value, String> {
     let u = url.split('?').next().unwrap_or(url);
-    match e {
-        ureq::Error::Status(c, r) => format!(
-            "{u}: HTTP {c} {}",
-            r.into_string()
-                .unwrap_or_default()
-                .chars()
-                .take(200)
-                .collect::<String>()
-        ),
-        e => format!("{u}: {e}"),
+    let mut response = response.map_err(|e| format!("{u}: {e}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.body_mut().read_to_string().unwrap_or_default();
+        return Err(format!(
+            "{u}: HTTP {} {}",
+            status.as_u16(),
+            body.chars().take(200).collect::<String>()
+        ));
     }
+    response.body_mut().read_json().map_err(|e| e.to_string())
 }
 
 impl Http for Ureq {
     fn get(&self, url: &str, headers: &[(&str, String)]) -> Result<Value, String> {
-        let mut r = ureq::get(url);
+        let mut r = agent().get(url);
         for (k, v) in headers {
-            r = r.set(k, v);
+            r = r.header(*k, v);
         }
-        r.call()
-            .map_err(|e| uerr(url, e))?
-            .into_json()
-            .map_err(|e| e.to_string())
+        read_json(url, r.call())
     }
     fn post(&self, url: &str, body: &Value) -> Result<Value, String> {
-        ureq::post(url)
-            .send_json(body)
-            .map_err(|e| uerr(url, e))?
-            .into_json()
-            .map_err(|e| e.to_string())
+        read_json(url, agent().post(url).send_json(body))
     }
 }
 
@@ -484,43 +492,42 @@ impl Tmdb<'_> {
             digits_after(t, if t.contains('/') { "/movie/" } else { "" })
                 .or_else(|| digits_after(t, "/tv/"))
         });
-        if id.is_none() {
-            if let Some(tt) = q.imdb.as_deref().and_then(imdb_id) {
-                let r = self.get(
-                    &format!("/find/{tt}"),
-                    &[("external_source", "imdb_id".into())],
-                )?;
-                if let Some(x) = r["tv_results"][0]["id"]
-                    .as_u64()
-                    .filter(|_| q.kind.as_deref() != Some("movie"))
-                {
-                    (tv, id) = (true, Some(x.to_string()));
-                } else {
-                    id = r["movie_results"][0]["id"].as_u64().map(|x| x.to_string());
-                }
+        if id.is_none()
+            && let Some(tt) = q.imdb.as_deref().and_then(imdb_id)
+        {
+            let r = self.get(
+                &format!("/find/{tt}"),
+                &[("external_source", "imdb_id".into())],
+            )?;
+            if let Some(x) = r["tv_results"][0]["id"]
+                .as_u64()
+                .filter(|_| q.kind.as_deref() != Some("movie"))
+            {
+                (tv, id) = (true, Some(x.to_string()));
+            } else {
+                id = r["movie_results"][0]["id"].as_u64().map(|x| x.to_string());
             }
         }
         // A trusted id from another source: look this work up, don't take a loose title hit.
-        if id.is_none() {
-            if let Some(tvdb) = q
+        if id.is_none()
+            && let Some(tvdb) = q
                 .thetvdb
                 .as_deref()
                 .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))
+        {
+            let r = self.get(
+                &format!("/find/{tvdb}"),
+                &[("external_source", "tvdb_id".into())],
+            )?;
+            if let Some(x) = r["tv_results"][0]["id"]
+                .as_u64()
+                .filter(|_| q.kind.as_deref() != Some("movie"))
             {
-                let r = self.get(
-                    &format!("/find/{tvdb}"),
-                    &[("external_source", "tvdb_id".into())],
-                )?;
-                if let Some(x) = r["tv_results"][0]["id"]
-                    .as_u64()
-                    .filter(|_| q.kind.as_deref() != Some("movie"))
-                {
-                    (tv, id) = (true, Some(x.to_string()));
-                } else if q.kind.as_deref() != Some("tv") {
-                    if let Some(x) = r["movie_results"][0]["id"].as_u64() {
-                        (tv, id) = (false, Some(x.to_string()));
-                    }
-                }
+                (tv, id) = (true, Some(x.to_string()));
+            } else if q.kind.as_deref() != Some("tv")
+                && let Some(x) = r["movie_results"][0]["id"].as_u64()
+            {
+                (tv, id) = (false, Some(x.to_string()));
             }
         }
         let trusted = [&q.imdb, &q.tmdb, &q.thetvdb, &q.wikidata, &q.wikipedia]
