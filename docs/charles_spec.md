@@ -13,8 +13,23 @@ Charles is the download windup. Everything here is **PROPOSED** (2026-11-27); no
   `not_obtained` record in place. A `paywalled` item is left as it is.
 - For reference trees he fetches only the open copies (daniel_spec, "Reference trees").
 
-## 3. Open questions
-1. **Where downloads live**: his own folder, or handed to Daniel or George?
-2. **Internet search**: which engine, and is it on by default?
-3. **Who says "needed"**: a person, Sammy, or Daniel's queue?
-4. **Tools**: which open-source downloaders (for example `ia` for archive.org)?
+## 3. Warrants (PROPOSED)
+An item is fetched only while it has an outstanding **warrant**. The warrant's source is recorded on
+the task. A warrant is one of:
+- a **project** that calls for it (for example, research for a writing project: get and index the
+  works it mentions);
+- a **standing user rule** (for example, always retrieve the mentions tied to a named topic);
+- a **direct user request**;
+- **another windup** working on a project that would benefit.
+
+## 4. Settings (PROPOSED)
+- Download location: set by the user; default inside Charles's own folder. Once Daniel has
+  ingested an item, it moves out of that folder promptly.
+- Search: **OPEN** (the owner is undecided). Suggested: a self-hosted SearXNG by default (it
+  aggregates several engines), with an option to drive the user's own Chrome for signed-in sites.
+
+## 5. Open questions
+1. **Search** (§4): SearXNG, the user's Chrome, both, or something else?
+2. **Tools**: which open-source downloaders (for example `ia` for archive.org)?
+3. **Where items go after ingest**: into Daniel's storage, or handed to George?
+4. **Warrant expiry**: when does a warrant end (project closed, rule removed)?

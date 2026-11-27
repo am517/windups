@@ -196,7 +196,7 @@ All of this is **PROPOSED**; nothing is built.
   other windups for their refinements. For a work that is `not_obtained` (or `paywalled`), Larry
   (hashing) and Tom (full-text vectors) are blocked; metadata-level low-confidence vectors (below)
   are fine.
-- Obtaining is Charles's job (`docs/charles_spec.md`, PROPOSED), on demand only.
+- Obtaining is Charles's job (`docs/charles_spec.md`, PROPOSED), on demand only: an item is fetched only with an outstanding **warrant** (a project, a standing user rule, a direct request, or another windup's project), recorded on the task.
 - Daniel may catalog a work the owner doesn't have, found anywhere (archive.org, Amazon, the
   Library of Congress, ...), for example a book mentioned in a video. The work record has no copy
   or file, is marked `not_obtained`, and keeps its source URL(s) and the date each was retrieved.
@@ -216,7 +216,7 @@ All of this is **PROPOSED**; nothing is built.
 - A paper's references become mentions. Jack resolves them (DOI first); Charles fetches the open
   copies.
 - Free citation data (OpenAlex, Crossref) maps the tree before anything is downloaded.
-- Depth cap in config, default 2 to 3. Open: the exact default.
+- Depth cap in config, default 2 (PROPOSED).
 - Each paper is `obtained`, `not_obtained` or `paywalled`, so the tree's edge is visible.
 
 ## 9. Personal records
