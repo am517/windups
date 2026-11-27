@@ -9,13 +9,13 @@ Ratings, rated and awards from OMDb (The Open Movie Database): https://www.omdba
 
 /// No Debug: holds API keys.
 #[derive(Parser, Default)]
-#[command(name = "jack", version, about = "Identify movie and TV files and report what they are", after_help = ATTRIBUTION)]
+#[command(name = "jack", version, about = "Identify movie and TV files and report what they are", after_help = ATTRIBUTION, disable_help_flag = true)]
 pub(crate) struct Cli {
     /// Files or directories to process
     pub(crate) paths: Vec<PathBuf>,
-    /// Print Jack's profile (what he does, reads, writes) and exit
-    #[arg(long)]
-    pub(crate) capabilities: bool,
+    /// Usage, the commands, and what I can and can't do; with -j, the same as JSON
+    #[arg(short = 'h', long = "help")]
+    pub(crate) help: bool,
     /// The windup that called this run (a name, e.g. flora); handed through so the database windup doesn't call it back
     #[arg(long, value_name = "NAME")]
     pub(crate) caller: Option<String>,

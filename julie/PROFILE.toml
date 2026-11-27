@@ -5,7 +5,7 @@ purpose = "Check entries against evidence, so what is stored is true."
 personality = "Skeptical"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "julie --capabilities"
+command = "julie -h -j"
 
 [[success_checks]]
 check = "every verdict cites its evidence"

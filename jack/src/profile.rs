@@ -84,8 +84,6 @@ Writes
   What Jack changes. This is not a list of another windup's tables; Daniel stores the shared catalog.
   jack.db — his own archive
   handoff records — one record per item, synced to Daniel
-  file tags — until Lauren takes tagging
-  sorted folders — until Sally takes sorting
 
 Never
 {never}
@@ -108,6 +106,40 @@ Command
         hands = line(&strings(&v, "hands_off")),
         command = s("command"),
     )
+}
+
+/// The commands for `-h`: the universal ones, then Jack's own.
+fn commands() -> Vec<(&'static str, &'static str)> {
+    let own = crate::universal::actions();
+    windups::base::commands::UNIVERSAL
+        .iter()
+        .copied()
+        .chain(own.iter().map(|a| (a.name, a.help)))
+        .collect()
+}
+
+/// `-h`: the flags, the commands and what Jack can and can't do; `-h -j`: the same as JSON.
+pub fn help(as_json: bool) -> String {
+    let commands = commands();
+    if as_json {
+        let mut v: serde_json::Value =
+            serde_json::from_str(&machine()).unwrap_or_else(|_| serde_json::json!({}));
+        v["commands"] = commands
+            .iter()
+            .map(|(name, does)| serde_json::json!({"name": name, "does": does}))
+            .collect();
+        return v.to_string() + "\n";
+    }
+    use clap::CommandFactory;
+    let mut o = crate::cli::Cli::command().render_long_help().to_string();
+    o.push_str("\nCommands:\n");
+    let width = commands.iter().map(|(n, _)| n.len()).max().unwrap_or(0);
+    for (name, does) in &commands {
+        o.push_str(&format!("  {name:width$}  {does}\n"));
+    }
+    o.push('\n');
+    o.push_str(&human());
+    o
 }
 
 /// Structured capabilities for another windup. No commentary inside the values.

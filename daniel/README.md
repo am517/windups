@@ -8,7 +8,7 @@ The on-disk form is one versioned JSON object per entry (`"v": 1`; [`handoff_v1.
 daniel ingest [--db PATH] file.jack.json another.json
 daniel ingest --db ~/.local/share/windups/media.db -
 daniel accept file.jack.json   # alias of ingest
-daniel --capabilities
+daniel -h [-j]
 ```
 
 `ingest` (and `accept`) print one line per file and exit non-zero if any file fails. Re-ingesting the same file updates its entry; it does not duplicate rows. A JSON whose `"v"` is not `1` is rejected.

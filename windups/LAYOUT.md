@@ -84,8 +84,8 @@ work. Help text and docs show the space form. A credential flag with no value st
   nonzero (1). Usage and config errors stay exit code 2.
 - **Windup mode** (`-w` / `--windup`) is how one windup calls another. Beyond the exit code and the
   returned item, it is quiet: no prompts, no menus, no human commentary. Stdout is structured data
-  (JSON) with reasons in their own fields, never inside a value. `jack --capabilities` is prose;
-  `jack -w --capabilities` is that JSON.
+  (JSON) with reasons in their own fields, never inside a value. `jack -h` is prose;
+  `jack -h -j` is that JSON.
 - Windups may later talk to each other in natural language through Sammy (the LLM windup). That
   is not built. Human text and the machine result stay on separate channels so a language layer
   can sit beside them without changing either one.

@@ -5,7 +5,7 @@ purpose = "Talk with the user, find the right help, and report back."
 personality = "Kindness"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "flora --capabilities"
+command = "flora -h -j"
 
 [[success_checks]]
 check = "a request is understood via Sammy and routed through Margaret and Oliver"

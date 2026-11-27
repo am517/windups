@@ -50,18 +50,12 @@ fn main() {
         std::process::exit(universal::main(&args));
     }
     let cli = cli::Cli::read(std::env::args_os()).unwrap_or_else(|e| e.exit());
-    if !cli.capabilities {
-        universal::ensure_folder(cli.config.as_deref());
-    }
-    crate::handoff::set_caller(cli.caller.clone());
-    if cli.capabilities {
-        if cli.windup {
-            println!("{}", profile::machine());
-        } else {
-            println!("{}", profile::human());
-        }
+    if cli.help {
+        print!("{}", profile::help(cli.windup));
         return;
     }
+    universal::ensure_folder(cli.config.as_deref());
+    crate::handoff::set_caller(cli.caller.clone());
     if !cli.windup && !cli.paths.is_empty() && !(cli.set && secrets::has_secret(&cli)) {
         let listed = cli
             .paths

@@ -82,10 +82,16 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 [[package]]
 name = "ben"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "beth"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "bitflags"
@@ -324,6 +330,9 @@ dependencies = [
 [[package]]
 name = "flora"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "foldhash"
@@ -550,10 +559,16 @@ dependencies = [
 [[package]]
 name = "john"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "julie"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "kate"
@@ -574,6 +589,9 @@ dependencies = [
 [[package]]
 name = "lauren"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "libc"
@@ -619,6 +637,9 @@ checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 [[package]]
 name = "margaret"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "mary"
@@ -652,6 +673,9 @@ checksum = "521739c6d2bac4aa25192232afe6841231376b2b26d4d9fae5ecf8ca5772e441"
 [[package]]
 name = "oliver"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "once_cell"
@@ -762,6 +786,9 @@ dependencies = [
 [[package]]
 name = "rover"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "rsqlite-vfs"
@@ -851,6 +878,9 @@ dependencies = [
 [[package]]
 name = "sally"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "same-file"
@@ -864,6 +894,9 @@ dependencies = [
 [[package]]
 name = "sammy"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "serde"
@@ -954,6 +987,9 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 [[package]]
 name = "steve"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "strsim"
@@ -970,6 +1006,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "suzan"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "syn"
@@ -996,6 +1035,9 @@ dependencies = [
 [[package]]
 name = "tammy"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "tempfile"

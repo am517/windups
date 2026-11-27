@@ -5,7 +5,7 @@ purpose = "Ingest new media by orchestrating the other windups."
 personality = "Media Buff"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "tammy --capabilities"
+command = "tammy -h -j"
 
 [[success_checks]]
 check = "an ingest run calls other windups rather than doing their jobs itself"

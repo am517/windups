@@ -5,7 +5,7 @@ purpose = "Make each windup better at its own purpose, and only that."
 personality = "Restless"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "rover --capabilities"
+command = "rover -h -j"
 rules = [
   "leave it as you found it or better",
   "better, faster, stronger: never regress a windup's purpose, its tests or these rules",

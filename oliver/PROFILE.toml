@@ -5,7 +5,7 @@ purpose = "Turn messy requests into the right team of windups."
 personality = "Friendly"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "oliver --capabilities"
+command = "oliver -h -j"
 
 [[success_checks]]
 check = "every plan names the windups used and why"

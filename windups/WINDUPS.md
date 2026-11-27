@@ -150,7 +150,7 @@ data) as unresolved, and changes nothing. Ambiguous cases are for a future LLM w
 ## Profiles (Adam, 2026-10-28)
 - Every windup has `PROFILE.toml` in its repo root: the source of truth for who it is and what it does
   (name, role, summary, kinds, sources, reads, writes, never, hands_off, command).
-- `windups-<name> --capabilities` prints exactly that file (compiled in with `include_str!`).
+- `<name> -h` shows that file for people and `<name> -h -j` as JSON (compiled in with `include_str!`; `--capabilities` was merged into `-h`, card #5).
 - It is copied into media.db's `windups` table and embedded (table `embeddings`, owner `windup`)
   so Margaret and other windups can find the right windup by meaning.
 

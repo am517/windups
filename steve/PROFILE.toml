@@ -5,7 +5,7 @@ purpose = "Find local information in the database."
 personality = "Eager"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "steve --capabilities"
+command = "steve -h -j"
 
 [[success_checks]]
 check = "a search returns only what is in the database"
