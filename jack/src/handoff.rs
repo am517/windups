@@ -2,7 +2,7 @@
 //! (jack.db), with the disagreements Jack found between sources. Daniel, the record keeper, gets
 //! it from there by sync (see sync.rs): one route. `jack export` writes the kept records as
 //! versioned JSON (see schema/handoff_v1.md).
-use crate::archive::{Archive, ArchiveCfg};
+use crate::archive::ArchiveCfg;
 use crate::meta::Meta;
 use std::path::Path;
 use windups::handoff::Handoff;
@@ -38,7 +38,7 @@ pub fn hand_over(
     };
 
     // the archive comes first: if Jack can't keep his own record, that is a real failure
-    let (id, new) = Archive::open(archive)?.write(&h)?;
+    let (id, new) = crate::archive::open(archive)?.write(&h)?;
     Ok(format!(
         "jack.db: {id}{}",
         if new { "" } else { " (already kept)" }
@@ -86,7 +86,7 @@ mod tests {
             ["The.Matrix.1999.mkv", "jack.db"],
             "no sidecar, no loose JSON"
         );
-        let a = Archive::open(&archive(&d)).unwrap();
+        let a = crate::archive::open(&archive(&d)).unwrap();
         let u = a.unsynced(0, 10).unwrap();
         let h = Handoff::read_json(u[0].handoff.as_bytes()).unwrap();
         assert_eq!(h.file, media);

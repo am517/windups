@@ -1,45 +1,19 @@
-//! Jack's own database (`jack.db`): his archive and source of truth. Every record he creates goes
-//! here first, as handoff JSON v1, and stays here after the sync target (Daniel) has it (the
-//! duplication is on purpose: either side can rebuild the other). Sync state is one nullable
-//! column, `synced_at`. The shared core's tables (event log, snapshots) come in by migration.
-use rusqlite::{Connection, OptionalExtension, params};
+//! Jack's own database (`jack.db`): his archive and source of truth. The records table, ids and
+//! sync state come from the shared core (`windups::base::records`); here is only where jack.db
+//! lives, how it is configured, and its migrations (records, event log, snapshots).
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
-use windups::handoff::Handoff;
+pub use windups::base::records::{IdStrategy, Records as Archive, StoredRecord as Unsynced, now};
 
 /// File name of Jack's database inside his folder.
 pub const DB_NAME: &str = "jack.db";
 
-/// Jack's own tables (schema v1, as first shipped).
-const RECORDS_V1: &str = "
-CREATE TABLE IF NOT EXISTS records (
-    seq        INTEGER PRIMARY KEY,
-    id         TEXT NOT NULL UNIQUE,
-    created_at INTEGER NOT NULL,
-    file       TEXT NOT NULL,
-    handoff    TEXT NOT NULL,
-    synced_at  INTEGER
-);
-CREATE INDEX IF NOT EXISTS records_unsynced ON records(seq) WHERE synced_at IS NULL;
-";
-
 /// jack.db migrations in order; index + 1 is `PRAGMA user_version`. Append only.
 pub const MIGRATIONS: &[&str] = &[
-    RECORDS_V1,
+    windups::base::records::SCHEMA_V1,
     windups::base::events::SCHEMA_V1,
     windups::base::snapshot::SCHEMA_V1,
 ];
-
-/// How a record's id is made.
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum IdStrategy {
-    /// From the record's own bytes: an identical re-run is the same record (default).
-    #[default]
-    Content,
-    /// Each run's records are new ones, even when identical.
-    PerRun,
-}
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(default)]
@@ -76,13 +50,6 @@ impl Default for ArchiveCfg {
     }
 }
 
-/// One stored record (from `unsynced` or `page`).
-pub struct Unsynced {
-    pub seq: i64,
-    pub id: String,
-    pub handoff: String,
-}
-
 /// Where jack.db lives when `[archive] database` is empty: beside the config file.
 pub fn default_path(config_file: &Path) -> PathBuf {
     config_file
@@ -90,228 +57,22 @@ pub fn default_path(config_file: &Path) -> PathBuf {
         .map_or_else(|| PathBuf::from(DB_NAME), |d| d.join(DB_NAME))
 }
 
-pub fn now() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs() as i64)
-}
-
-/// Stable id from the record's own bytes (FNV-1a, 128-bit), plus a salt for `per_run`: the same
-/// record always gets the same id, so writing it twice or the target receiving it twice changes nothing.
-pub fn record_id(json: &[u8], salt: &[u8]) -> String {
-    const OFFSET: u128 = 0x6c62272e07bb014262b821756295c58d;
-    const PRIME: u128 = 0x0000000001000000000000000000013b;
-    let h = salt
-        .iter()
-        .chain(json)
-        .fold(OFFSET, |h, b| (h ^ u128::from(*b)).wrapping_mul(PRIME));
-    format!("jack-{h:032x}")
-}
-
-/// One value per process run (time + pid), for `id = "per_run"`.
-fn run_salt() -> &'static [u8] {
-    static S: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
-    S.get_or_init(|| {
-        let t = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_nanos());
-        format!("run:{t}:{}|", std::process::id()).into_bytes()
+/// Opens jack.db as configured in `[archive]`.
+pub fn open(cfg: &ArchiveCfg) -> Result<Archive, String> {
+    Archive::open(&windups::base::records::Options {
+        name: "jack",
+        path: &cfg.database,
+        busy_timeout_secs: cfg.busy_timeout_secs,
+        id: cfg.id,
+        migrations: MIGRATIONS,
     })
-}
-
-pub struct Archive {
-    c: Connection,
-    salt: &'static [u8],
-}
-
-impl Archive {
-    pub fn open(cfg: &ArchiveCfg) -> Result<Self, String> {
-        let p = &cfg.database;
-        if let Some(dir) = Path::new(p).parent().filter(|d| !d.as_os_str().is_empty()) {
-            std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-        }
-        let mut c = Connection::open(p).map_err(|e| format!("{p}: {e}"))?;
-        c.busy_timeout(std::time::Duration::from_secs(cfg.busy_timeout_secs))
-            .map_err(|e| format!("{p}: {e}"))?;
-        windups::base::schema::migrate(&mut c, DB_NAME, MIGRATIONS)?;
-        let salt = match cfg.id {
-            IdStrategy::Content => &[][..],
-            IdStrategy::PerRun => run_salt(),
-        };
-        Ok(Self { c, salt })
-    }
-
-    pub fn conn(&mut self) -> &mut Connection {
-        &mut self.c
-    }
-
-    #[cfg(test)]
-    pub fn with_salt(mut self, salt: &'static [u8]) -> Self {
-        self.salt = salt;
-        self
-    }
-
-    /// Writes one record (as handoff JSON v1). Returns its id and whether it was new.
-    pub fn write(&self, h: &Handoff) -> Result<(String, bool), String> {
-        let mut json = Vec::with_capacity(512);
-        h.write_json(&mut json)?;
-        let id = record_id(&json, self.salt);
-        let json = String::from_utf8(json).map_err(|e| e.to_string())?;
-        let n = self
-            .c
-            .execute(
-                "INSERT INTO records(id, created_at, file, handoff) VALUES (?1, ?2, ?3, ?4)
-                 ON CONFLICT(id) DO NOTHING",
-                params![id, now(), h.file.to_string_lossy(), json],
-            )
-            .map_err(|e| e.to_string())?;
-        if n == 1 {
-            windups::base::events::append(&self.c, "record", &id)?;
-        }
-        Ok((id, n == 1))
-    }
-
-    /// Up to `limit` unsynced records after `after_seq`, oldest first.
-    pub fn unsynced(&self, after_seq: i64, limit: usize) -> Result<Vec<Unsynced>, String> {
-        let mut st = self
-            .c
-            .prepare_cached(
-                "SELECT seq, id, handoff FROM records
-                 WHERE synced_at IS NULL AND seq > ?1 ORDER BY seq LIMIT ?2",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = st
-            .query_map(params![after_seq, limit as i64], |r| {
-                Ok(Unsynced {
-                    seq: r.get(0)?,
-                    id: r.get(1)?,
-                    handoff: r.get(2)?,
-                })
-            })
-            .map_err(|e| e.to_string())?;
-        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
-    }
-
-    /// Up to `limit` records after `after_seq`, synced or not, oldest first (for export).
-    pub fn page(&self, after_seq: i64, limit: usize) -> Result<Vec<Unsynced>, String> {
-        let mut st = self
-            .c
-            .prepare_cached(
-                "SELECT seq, id, handoff FROM records WHERE seq > ?1 ORDER BY seq LIMIT ?2",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = st
-            .query_map(params![after_seq, limit as i64], |r| {
-                Ok(Unsynced {
-                    seq: r.get(0)?,
-                    id: r.get(1)?,
-                    handoff: r.get(2)?,
-                })
-            })
-            .map_err(|e| e.to_string())?;
-        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
-    }
-
-    /// Marks one record synced (only call after the target acknowledged it). Keeps the record.
-    pub fn mark_synced(&self, seq: i64, at: i64) -> Result<(), String> {
-        self.c
-            .execute(
-                "UPDATE records SET synced_at = ?2 WHERE seq = ?1 AND synced_at IS NULL",
-                params![seq, at],
-            )
-            .map(|_| ())
-            .map_err(|e| e.to_string())
-    }
-
-    /// (all records, not yet synced).
-    pub fn counts(&self) -> Result<(i64, i64), String> {
-        self.c
-            .query_row(
-                "SELECT count(*), count(*) - count(synced_at) FROM records",
-                [],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .map_err(|e| e.to_string())
-    }
-
-    /// The newest record whose `file` column equals one of `paths` (raw or canonical).
-    pub fn by_file(
-        &self,
-        paths: &[String],
-    ) -> Result<Option<(String, windups::handoff::Handoff)>, String> {
-        if paths.is_empty() {
-            return Ok(None);
-        }
-        // newest first; a re-run of the same file should win
-        let mut st = self
-            .c
-            .prepare_cached(
-                "SELECT id, handoff FROM records WHERE file = ?1 ORDER BY seq DESC LIMIT 1",
-            )
-            .map_err(|e| e.to_string())?;
-        for p in paths {
-            let row = st
-                .query_row([p], |r| {
-                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-                })
-                .optional()
-                .map_err(|e| e.to_string())?;
-            if let Some((id, json)) = row {
-                let h = windups::handoff::Handoff::read_json(json.as_bytes())?;
-                return Ok(Some((id, h)));
-            }
-        }
-        Ok(None)
-    }
-
-    /// The newest record whose entry or candidates carry any of these ids (`(key, value)`).
-    pub fn by_ids(
-        &self,
-        ids: &[(String, String)],
-    ) -> Result<Option<(String, windups::handoff::Handoff)>, String> {
-        if ids.is_empty() {
-            return Ok(None);
-        }
-        let mut after = 0;
-        let mut best: Option<(i64, String, windups::handoff::Handoff)> = None;
-        loop {
-            let page = self.page(after, 64)?;
-            let Some(last) = page.last() else { break };
-            after = last.seq;
-            for u in page {
-                let Ok(h) = windups::handoff::Handoff::read_json(u.handoff.as_bytes()) else {
-                    continue;
-                };
-                let hit = ids.iter().any(|(k, v)| {
-                    h.entry.get(k).is_some_and(|x| x == v)
-                        || h.candidates
-                            .iter()
-                            .any(|(_, m)| m.get(k).is_some_and(|x| x == v))
-                });
-                if hit {
-                    best = Some((u.seq, u.id, h));
-                }
-            }
-        }
-        Ok(best.map(|(_, id, h)| (id, h)))
-    }
-
-    /// When the record with this id was synced, if it exists.
-    #[cfg(test)]
-    pub fn synced_at(&self, id: &str) -> Option<Option<i64>> {
-        use rusqlite::OptionalExtension;
-        self.c
-            .query_row("SELECT synced_at FROM records WHERE id = ?1", [id], |r| {
-                r.get(0)
-            })
-            .optional()
-            .unwrap()
-    }
 }
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use rusqlite::Connection;
+    use windups::handoff::Handoff;
 
     pub fn handoff(title: &str) -> Handoff {
         Handoff {
@@ -328,7 +89,7 @@ pub mod tests {
     }
 
     pub fn open_temp(d: &tempfile::TempDir) -> Archive {
-        Archive::open(&ArchiveCfg {
+        open(&ArchiveCfg {
             database: d.path().join(DB_NAME).to_string_lossy().into_owned(),
             ..Default::default()
         })
@@ -385,7 +146,7 @@ pub mod tests {
         {
             // exactly what the first jack.db looked like
             let c = Connection::open(&p).unwrap();
-            c.execute_batch(RECORDS_V1).unwrap();
+            c.execute_batch(windups::base::records::SCHEMA_V1).unwrap();
             c.execute_batch("PRAGMA user_version = 1;").unwrap();
             c.execute(
                 "INSERT INTO records(id, created_at, file, handoff) VALUES ('jack-old', 1, '/a', '{}')",
@@ -419,7 +180,11 @@ pub mod tests {
         let (plain, _) = a.write(&handoff("A")).unwrap();
         assert_eq!(
             plain,
-            record_id(a.unsynced(2, 1).unwrap()[0].handoff.as_bytes(), b"")
+            windups::base::records::record_id(
+                "jack",
+                a.unsynced(2, 1).unwrap()[0].handoff.as_bytes(),
+                b""
+            )
         );
     }
 
