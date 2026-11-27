@@ -56,6 +56,20 @@ pub(crate) fn process(
         Some(Ok(a)) => crate::reuse::plan(a, path, &ids, &cfg.providers.order, &cfg.completeness)?,
         _ => crate::reuse::Plan::Fresh,
     };
+    // a user's id outranks an earlier record that doesn't carry it, or never settled
+    let plan = match plan {
+        crate::reuse::Plan::Skip { ref handoff, .. }
+        | crate::reuse::Plan::Fill { ref handoff, .. }
+            if s.has_id() && !crate::reuse::agrees_with_flags(&handoff.entry, s) =>
+        {
+            let _ = writeln!(
+                out,
+                "    jack.db has an earlier record that doesn't match the id you gave; looking it up again"
+            );
+            crate::reuse::Plan::Fresh
+        }
+        p => p,
+    };
     let note = crate::reuse::report(&plan);
     if !note.is_empty() {
         let _ = writeln!(out, "    {note}");

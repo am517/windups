@@ -893,6 +893,11 @@ mod tests {
                 json!({"data":{"id":27498,"name":"Mountain","year":"2017"}}),
             ),
         ]);
+        // an earlier run without flags trusted the wrong tags and saved that work in jack.db
+        let first = cli(&[file.to_str().unwrap(), "--config", cfg.to_str().unwrap()]);
+        let (before, _, _) = run(&first, &h).unwrap();
+        assert!(!before.contains("identified: Mountain"), "{before}");
+        h.calls.borrow_mut().clear();
         let c = cli(&[
             file.to_str().unwrap(),
             "--config",
@@ -904,6 +909,10 @@ mod tests {
         ]);
         let (out, _, _) = run(&c, &h).unwrap();
         assert!(out.contains("identified: Mountain (2017)"), "{out}");
+        assert!(
+            !out.contains("search skipped"),
+            "the stale record was reused: {out}"
+        );
         assert!(out.contains("file tags look wrong"), "{out}");
         for bad in ["imdb_id tt0388795", "tmdb_id 142", "year 2018"] {
             assert!(out.contains(bad), "{bad} not reported: {out}");
