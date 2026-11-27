@@ -32,6 +32,7 @@ orchestrates others. This file is the contract. Anything shared lives in this re
 - **Ben**: rebuilds the windups for new platforms; fetches and installs a missing windup when Oliver asks.
 - **Rover**: refines other windups, bound by each one's purpose and success checks; proposes and tests, never applies unreviewed.
 - **Beth**: trains LoRAs from each windup's training phrases and parameters (later; until then LoRAs are made manually).
+- **George**: the backup windup; receives each windup's checked snapshots and organizes and cares for them outside the windup folders (personality and build position not decided yet).
 
 ## Roster
 
@@ -61,6 +62,7 @@ Every named windup has a crate. The name registry is [`NAMES.md`](NAMES.md).
 | Ben | builds: rebuilds the windups for new platforms; fetches and installs a missing windup when Oliver asks | stub crate | — |
 | Rover | refining: proposes and tests improvements to other windups, within their profiles; never applies unreviewed | stub crate | — |
 | Beth | trains LoRAs from each windup's training phrases and parameters | stub crate | — |
+| George | backups: receives each windup's checked snapshots and organizes and cares for them outside the windup folders | stub crate | TBD |
 
 ## Build order
 
