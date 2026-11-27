@@ -10,6 +10,17 @@ pub struct Config {
     pub serve: ServeCfg,
     pub catalogs: CatalogsCfg,
     pub records: RecordsCfg,
+    pub mentions: MentionsCfg,
+}
+
+/// Storing mentions: below `review_below` confidence a mention is stored for review; the extractor
+/// is told about at most `known_limit` known entities, found from at most `max_query_words` words.
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(default)]
+pub struct MentionsCfg {
+    pub review_below: f64,
+    pub known_limit: usize,
+    pub max_query_words: usize,
 }
 
 /// Where each purpose catalog lives; empty = `<catalog>.db` in Daniel's folder.

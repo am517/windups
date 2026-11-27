@@ -111,7 +111,7 @@ entity:
 
 ```
 people_mentions: catalog, record_id, chunk_id, locator, surface text as it appeared,
-                 start/end offsets, entity_id (or a proposed name when no entity exists yet),
+                 start/end offsets, entity_id (or a proposed name and kind when no entity exists yet),
                  confidence, needs_review, extractor id and version, created_at
 ```
 

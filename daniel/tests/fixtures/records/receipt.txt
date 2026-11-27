@@ -1,0 +1,3 @@
+Example Shop
+Receipt 0001
+Total 0.00
