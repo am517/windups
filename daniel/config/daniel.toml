@@ -41,6 +41,12 @@ review_below = 0.8      # stored with needs_review below this confidence (propos
 known_limit = 50        # known entities passed to the extractor for one chunk
 max_query_words = 200   # words of a chunk used to look those entities up
 
+# `daniel find`: word search over the catalogs, a short candidate list. Personal records are
+# searched only when named (--catalog records), even if listed here.
+[find]
+limit = 5
+catalogs = ["media", "people", "maps", "photos"]
+
 # The shared core (see windups/CULTURE.md).
 [core]
 # Daniel's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.
