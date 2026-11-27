@@ -10,8 +10,10 @@ pub mod connected_cli;
 pub mod find;
 pub mod find_cli;
 pub mod ingest;
+pub mod maps;
 pub mod mentions;
 pub mod people;
+pub mod photos;
 pub mod receive;
 #[cfg(unix)]
 pub mod serve;
