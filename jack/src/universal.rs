@@ -148,7 +148,7 @@ impl Windup for Jack {
             Action {
                 name: "setup",
                 keywords: &["setup", "install", "folder"],
-                help: "make ~/windups/jack/ and the ~/.local/bin/jack link (first run does it too)",
+                help: "make Jack's data folder and the ~/.local/bin/jack link (first run does it too)",
             },
             Action {
                 name: "ask",
@@ -157,7 +157,7 @@ impl Windup for Jack {
             },
         ]
     }
-    fn action(&mut self, name: &str, rest: &str) -> Result<String, String> {
+    fn action(&mut self, name: &str, rest: &[String]) -> Result<String, String> {
         if name == "setup" {
             let n = first_run(&self.layout)?;
             return Ok(if n.is_empty() {
@@ -167,19 +167,17 @@ impl Windup for Jack {
             });
         }
         if name == "ask" {
-            let words: Vec<String> = rest.split_whitespace().map(|s| s.to_string()).collect();
-            let (kind, filter) = crate::ask::Filter::parse(&words)?;
+            let (kind, filter) = crate::ask::Filter::parse(rest)?;
             return crate::ask::query(&self.archive, kind, &filter);
         }
         if name != "tag" {
             return Err(format!("I don't know how to {name}"));
         }
-        let paths: Vec<&str> = rest.split_whitespace().collect();
-        if paths.is_empty() {
+        if rest.is_empty() {
             return Err("tag what? give file or folder paths".into());
         }
         let mut argv = vec!["jack".to_string()];
-        argv.extend(paths.iter().map(|p| p.to_string()));
+        argv.extend(rest.iter().cloned());
         if let Some(c) = &self.config_arg {
             argv.push("--config".into());
             argv.push(c.to_string_lossy().into_owned());
@@ -191,10 +189,10 @@ impl Windup for Jack {
     }
 }
 
-/// Starter config written into a new ~/windups/jack/ (the full defaults are built in).
+/// Starter config written into a new data folder (the full defaults are built in).
 const STARTER_CONFIG: &str = "# Jack's config. Every setting and its default: config/jack.toml in the windups repo\n# (Debian: /usr/share/windups-jack/config.toml.example). Add only what you change.\n";
 
-/// Makes ~/windups/jack/ and ~/.local/bin/jack when this is the default folder (see LAYOUT.md).
+/// Makes the data folder and ~/.local/bin/jack when this is the default folder (see LAYOUT.md).
 pub fn first_run(l: &Layout) -> Result<Vec<String>, String> {
     let (Ok(exe), Some(home)) = (std::env::current_exe(), std::env::var_os("HOME")) else {
         return Ok(vec![]);
@@ -218,7 +216,7 @@ pub fn main(args: &[String]) -> i32 {
     let cmd = if let Some(c) = commands::parse(&rest) {
         c
     } else if rest.first().is_some_and(|s| ACTIONS.contains(&s.as_str())) {
-        Command::Action(rest[0].clone(), rest[1..].join(" "))
+        Command::Action(rest[0].clone(), rest[1..].to_vec())
     } else {
         return 2;
     };

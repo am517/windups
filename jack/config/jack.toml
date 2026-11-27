@@ -1,4 +1,6 @@
-# Jack settings. Copy to ~/.config/windups/jack/config.toml (or use --config <path>).
+# Jack settings. The running config is config.toml in Jack's data folder
+# (macOS: "~/Library/Application Support/Windups/jack/config.toml",
+# Linux: ~/.local/share/windups/jack/config.toml), or --config <path>.
 # Per-file values (name, year, ids, grouping) are flags. Jack never reads sidecar files.
 # Priority: command-line flags > this file.
 
@@ -393,7 +395,9 @@ sync_target = ""
 # How the database windup is reached: "library" (in-process catalog receive) or "socket"
 # (a running `daniel serve`, or later any windup that speaks the same protocol).
 sync_transport = "library"
-daniel_socket = "~/windups/daniel/daniel.sock"
+# Empty = daniel.sock inside Daniel's data folder (the path has a space on macOS; Jack builds it
+# as a path, not a shell string). Set a path to point somewhere else.
+daniel_socket = ""
 socket_timeout_secs = 30
 max_frame_bytes = 16777216
 
@@ -414,7 +418,7 @@ keep_batches = 200
 level = 6
 
 [core.snapshots]
-# Folder for checked snapshots; empty = backups/ inside Jack's own folder (e.g. ~/windups/jack/backups/)
+# Folder for checked snapshots; empty = backups/ inside Jack's own data folder.
 dir = ""
 # Snapshots kept (any holding the originals of summarized events are always kept).
 keep = 14

@@ -68,7 +68,7 @@ impl Default for ArchiveCfg {
             sync_batch: 32,
             sync_target: String::new(),
             sync_transport: "library".into(),
-            daniel_socket: "~/windups/daniel/daniel.sock".into(),
+            daniel_socket: String::new(),
             socket_timeout_secs: 30,
             max_frame_bytes: 16 << 20,
             id: IdStrategy::Content,

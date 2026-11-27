@@ -17,7 +17,7 @@ impl Caller for Process {
         let (p, a) = cmd.split_first()?;
         let o = Command::new(p)
             .args(a)
-            .arg("--capabilities")
+            .args(["--capabilities", "--windup"])
             .output()
             .ok()?;
         o.status

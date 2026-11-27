@@ -187,8 +187,9 @@ pub struct Config {
     pub completeness: crate::completeness::CompletenessCfg,
 }
 
-/// Jack's folder: --config > JACK_HOME > the binary's folder (if it holds config.toml or jack.db)
-/// > the legacy ~/.config/windups/jack/ (see windups::base::layout).
+/// Jack's folder: `--config`, then `JACK_HOME`, then the binary's folder when it already holds
+/// `config.toml` or `jack.db`, then the data folder. The legacy `~/.config/windups/jack/` is used
+/// only when that is all that exists. See `windups::base::layout`.
 pub fn layout(explicit: Option<&Path>) -> windups::base::layout::Layout {
     use windups::base::layout::{Probe, resolve};
     resolve("jack", &Probe::real("jack", explicit))

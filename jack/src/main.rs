@@ -54,12 +54,16 @@ fn main() {
     }
     crate::handoff::set_caller(cli.caller.clone());
     if cli.capabilities {
-        print!("{}", profile::PROFILE);
+        if cli.windup {
+            println!("{}", profile::machine());
+        } else {
+            println!("{}", profile::human());
+        }
         return;
     }
     let secret_err = if cli.windup {
         secrets::resolve_secrets(&mut cli, &mut |_| {
-            Err("cannot prompt in --windup mode; pass the key as --flag=VALUE".into())
+            Err("cannot prompt in --windup mode; pass the key as --flag VALUE".into())
         })
     } else {
         secrets::resolve_secrets(&mut cli, &mut secrets::read_secret)
@@ -72,17 +76,43 @@ fn main() {
         }
         std::process::exit(2);
     }
+    if !cli.windup && !cli.paths.is_empty() && !(cli.set && secrets::has_secret(&cli)) {
+        let listed = cli
+            .paths
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let kind = if cli.dry_run {
+            "dry run"
+        } else if cli.download_only && cli.print {
+            "download and print"
+        } else if cli.download_only {
+            "download"
+        } else if cli.print {
+            "print"
+        } else {
+            "tag"
+        };
+        eprintln!("jack: {kind}: {listed}");
+        let _ = std::io::Write::flush(&mut std::io::stderr());
+    }
     match run::run(&cli, &providers::Ureq) {
         Ok((s, printed, failed)) => {
             if cli.windup {
                 // machine-readable result or failure only
                 print!("{printed}");
+            } else if s.trim().is_empty() && printed.trim().is_empty() {
+                eprintln!("jack: finished without saying what happened");
+                std::process::exit(1);
             } else if printed.is_empty() && cli.emit_json.as_deref() != Some("-") {
                 print!("{s}");
             } else {
                 eprint!("{s}");
                 print!("{printed}");
             }
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            let _ = std::io::Write::flush(&mut std::io::stderr());
             if failed > 0 {
                 std::process::exit(1);
             }
