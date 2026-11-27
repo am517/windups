@@ -499,9 +499,6 @@ version = "0.1.0"
 [[package]]
 name = "kate"
 version = "0.1.0"
-dependencies = [
- "windups",
-]
 
 [[package]]
 name = "larry"
@@ -934,9 +931,6 @@ dependencies = [
 [[package]]
 name = "tom"
 version = "0.1.0"
-dependencies = [
- "windups",
-]
 
 [[package]]
 name = "toml"

@@ -3,6 +3,7 @@ name = "margaret"
 version = "0.1.0"
 edition = "2024"
 description = "Margaret: directory (stub)"
-license = "MIT"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]

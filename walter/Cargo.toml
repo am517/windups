@@ -3,7 +3,8 @@ name = "walter"
 version = "0.1.0"
 edition = "2024"
 description = "Walter, the patrol windup: finds unfinished work in the shared database and calls the right windup back"
-license = "MIT"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 rusqlite = "0.32"

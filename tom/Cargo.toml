@@ -3,7 +3,5 @@ name = "tom"
 version = "0.1.0"
 edition = "2024"
 description = "Tom, the vector/embedding windup (stub)"
-license = "MIT"
-
-[dependencies]
-windups.workspace = true
+license.workspace = true
+repository.workspace = true
