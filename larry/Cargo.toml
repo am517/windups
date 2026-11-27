@@ -10,6 +10,7 @@ repository.workspace = true
 blake3 = "1.8.7"
 rusqlite = "0.43"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml = "1"
 windups.workspace = true
 
