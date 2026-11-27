@@ -17,11 +17,13 @@
 //! - `config`: the `[core]` config table and showing a config with secrets hidden
 //! - `relationships`: `[relationships]` in config (assistant, matchmaker, database, llm); lookup and isolation fallbacks
 //! - `flags`: universal `--windup`/`-w` and `--json`/`-j`
+//! - `help`: `-h/--help` (and `-h -j`): usage, commands, what I can and can't do
 pub mod audit;
 pub mod commands;
 pub mod config;
 pub mod events;
 pub mod flags;
+pub mod help;
 pub mod install;
 pub mod layout;
 pub mod migrate;

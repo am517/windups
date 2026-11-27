@@ -26,7 +26,7 @@ These flags are honored by every windup (parsed in `windups::base::flags`; each 
 
 | Flag | What it does |
 | --- | --- |
-| `--json` / `-j` | The result as JSON on stdout, reasons in their own fields; no prompts or commentary. With `-p`, the facts too (each item's `metadata`). Replaces `--emit-json`, `--print-format json` and the sidecar. `jack -j --capabilities` is the structured profile. |
+| `--json` / `-j` | The result as JSON on stdout, reasons in their own fields; no prompts or commentary. With `-p`, the facts too (each item's `metadata`). Replaces `--emit-json`, `--print-format json` and the sidecar. `-h -j` is the help as JSON (profile + commands). |
 | `--windup` / `-w` | Same as `-j`; kept only until windups talk to each other over Noise. |
 
 Exit codes (see also `WINDUPS.md`): **0** all ok, **1** some items failed or could not be identified, **2** usage or config errors.

@@ -5,7 +5,7 @@ purpose = "Train each windup's LoRA from its own training phrases and parameters
 personality = "Empathetic"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "beth --capabilities"
+command = "beth -h -j"
 
 [[success_checks]]
 check = "a LoRA is trained only from that windup's own phrases and parameters"

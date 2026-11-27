@@ -139,23 +139,7 @@ impl Windup for Jack {
         Ok(format!("exported {n} record(s) to {to}"))
     }
     fn actions(&self) -> Vec<Action> {
-        vec![
-            Action {
-                name: "identify",
-                keywords: &["identify", "metadata", "fetch", "lookup"],
-                help: "find out what files are (identify PATH...; same as jack PATH...)",
-            },
-            Action {
-                name: "setup",
-                keywords: &["setup", "install", "folder"],
-                help: "make Jack's data folder and the ~/.local/bin/jack link (first run does it too)",
-            },
-            Action {
-                name: "ask",
-                keywords: &["ask", "summaries", "images", "posters"],
-                help: "subjective data from jack.db as JSON (ask summaries|images [--file PATH] [--id ID])",
-            },
-        ]
+        actions()
     }
     fn action(&mut self, name: &str, rest: &[String]) -> Result<String, String> {
         if name == "setup" {
@@ -205,6 +189,27 @@ pub fn ensure_folder(config_arg: Option<&Path>) {
         Ok(n) => n.iter().for_each(|l| eprintln!("jack: {l}")),
         Err(e) => eprintln!("jack: warning: setup: {e}"),
     }
+}
+
+/// Jack's own commands (his one job), after the universal ones.
+pub fn actions() -> Vec<Action> {
+    vec![
+        Action {
+            name: "identify",
+            keywords: &["identify", "metadata", "fetch", "lookup"],
+            help: "find out what files are (identify PATH...; same as jack PATH...)",
+        },
+        Action {
+            name: "setup",
+            keywords: &["setup", "install", "folder"],
+            help: "make Jack's data folder and the ~/.local/bin/jack link (first run does it too)",
+        },
+        Action {
+            name: "ask",
+            keywords: &["ask", "summaries", "images", "posters"],
+            help: "subjective data from jack.db as JSON (ask summaries|images [--file PATH] [--id ID])",
+        },
+    ]
 }
 
 pub fn main(args: &[String]) -> i32 {

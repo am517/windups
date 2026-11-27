@@ -1,9 +1,8 @@
 fn main() {
-    match std::env::args().nth(1).as_deref() {
-        Some("--capabilities") => print!("{}", suzan::PROFILE),
-        _ => {
-            eprintln!("suzan: stub; only --capabilities for now");
-            std::process::exit(2);
-        }
-    }
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    std::process::exit(windups::base::help::stub_main(
+        env!("CARGO_PKG_VERSION"),
+        suzan::PROFILE,
+        &args,
+    ));
 }

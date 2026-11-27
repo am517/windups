@@ -1,10 +1,10 @@
-//! Capabilities: windups that answer `--capabilities`, and the sources their profiles name.
+//! Capabilities: windups that answer `-h -j`, and the sources their profiles name.
 //! Anything not seen before is recorded and wakes what waits for it; a new source also wakes
 //! everything waiting for "new_source".
 use crate::caller::Caller;
 use rusqlite::{Connection, params};
 
-/// (version, sources) from a `--capabilities` answer: JSON from `-w`, or TOML from a stub.
+/// (version, sources) from a `-h -j` answer (JSON), or TOML from an older stub.
 fn profile_fields(profile: &str) -> (String, Vec<String>) {
     let from_json = serde_json::from_str::<serde_json::Value>(profile).ok();
     if let Some(v) = from_json.filter(|v| v.is_object()) {

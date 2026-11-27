@@ -15,7 +15,7 @@ reads = ["media files", "yt-dlp .info.json", "yt-dlp --dump-json", "exiftool"]
 writes = ["jack.db", "handoff records"]
 never = ["guess between candidates", "overwrite a source's data", "treat an unresolved decision as identified", "replace the file's own facts without independent evidence", "silently drop an item", "merge entries on a fingerprint hint", "edit the media file"]
 hands_off = ["sammy: any step still ambiguous (parse, lookup, match, refine, conflict) via the Escalation trait; decisions recorded with provenance", "user: needs_flags items (--year, --imdb)"]
-command = "jack [--capabilities] [--tmdb ID | --thetvdb ID | --imdb ID | --wikidata ID | --wikipedia ID | --youtube ID | --x ID | --name NAME --year YEAR] PATH..."
+command = "jack [-h [-j]] [--tmdb ID | --thetvdb ID | --imdb ID | --wikidata ID | --wikipedia ID | --youtube ID | --x ID | --name NAME --year YEAR] PATH..."
 
 # Kinds Jack knows about but cannot do. `why` is its own field, never stuffed into the kind name.
 [[cant]]

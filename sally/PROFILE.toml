@@ -5,7 +5,7 @@ purpose = "Organize files: rename, move, and sort them."
 personality = "Orderly"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "sally --capabilities"
+command = "sally -h -j"
 
 [[success_checks]]
 check = "files are renamed, moved or sorted only when asked"

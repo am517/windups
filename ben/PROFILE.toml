@@ -5,7 +5,7 @@ purpose = "Keep the windups running on every platform Adam uses, with no system 
 personality = "Handy"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "ben --capabilities"
+command = "ben -h -j"
 
 [[success_checks]]
 check = "each windup builds and passes its tests on every target platform"

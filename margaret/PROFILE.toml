@@ -5,7 +5,7 @@ purpose = "Know every windup and point callers to the right one."
 personality = "Matchmaker"
 personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
 status = "stub"
-command = "margaret --capabilities"
+command = "margaret -h -j"
 
 [[success_checks]]
 check = "every installed windup's profile is listed"

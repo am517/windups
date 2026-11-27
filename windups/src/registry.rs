@@ -1,4 +1,4 @@
-//! Windups introduce themselves: each one's profile (`<name> --capabilities`) is kept in the
+//! Windups introduce themselves: each one's profile (`<name> -h -j`) is kept in the
 //! `windups` table, so others (Walter, Margaret) can find who does what.
 use rusqlite::{Connection, params};
 
