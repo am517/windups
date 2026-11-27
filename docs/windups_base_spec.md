@@ -63,5 +63,11 @@ A windup adds its own commands only for its one job (e.g. Jack's `ask`). A real 
 - Backups: the windup makes its own checked snapshots and hands them to George, the backup windup, stored outside the folder.
 - Outside the folder: only backups and the unlock key (see identity_and_security.md).
 
+## 5a. Sammy's part in vectorizing (PROPOSED, 2026-11-27)
+Sammy has no spec yet, so this lives here. Sammy writes a title and summary for each segment and
+for each whole work; Tom vectorizes them alongside the original passages, never instead of them,
+and never vectorizes a Sammy rewrite of the text itself. A vision model (through Sammy) writes
+photo and video-frame descriptions. Details: `docs/tom_spec.md`, "Vectorizing strategy".
+
 ## 6. Base modules (today, `windups/src/base/`)
 `layout`, `install`, `schema`, `events`, `snapshot`, `records`, `sync`, `sync_records`, `sync_socket`, `audit`, `commands`, `talk`, `migrate`, `relocate`, `config`, `relationships`, `personality`, `flags`, `help`, `wire`. To add: identity/keys, recovery phrase, Noise transport, encrypted settings, backup hand-off, multi-device (later). Function-level detail (inputs, outputs, errors, tests) comes next.

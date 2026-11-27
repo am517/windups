@@ -101,6 +101,11 @@ The same text layer is in every catalog that holds text (media, records, photos)
 Status values follow the existing rules: lifecycle and unresolved flags as in media.db; ingested
 is not the same as valid.
 
+### Tags (PROPOSED, 2026-11-27)
+No mass automatic tags: in an earlier reference database, about 30% of rows were noisy auto-tags.
+Only a small set of chosen tags: people, places and a few topics. Vector levels and summaries:
+`docs/tom_spec.md`, "Vectorizing strategy".
+
 ## 6. Mentions
 
 **Decided (2026-11-27):** mentions cover people, places, things, ideas and topics, and are the
