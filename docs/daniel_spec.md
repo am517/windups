@@ -191,6 +191,12 @@ different, smaller model never stands in.
 
 All of this is **PROPOSED**; nothing is built.
 
+- **Mention flow (PROPOSED):** a mention goes to Jack, who only fetches metadata and neither knows
+  nor cares whether the item is owned. Jack returns the results to Daniel, and Daniel activates the
+  other windups for their refinements. For a work that is `not_obtained` (or `paywalled`), Larry
+  (hashing) and Tom (full-text vectors) are blocked; metadata-level low-confidence vectors (below)
+  are fine.
+- Obtaining is Charles's job (`docs/charles_spec.md`, PROPOSED), on demand only.
 - Daniel may catalog a work the owner doesn't have, found anywhere (archive.org, Amazon, the
   Library of Congress, ...), for example a book mentioned in a video. The work record has no copy
   or file, is marked `not_obtained`, and keeps its source URL(s) and the date each was retrieved.
@@ -201,7 +207,17 @@ All of this is **PROPOSED**; nothing is built.
 - Walter may flag dead or changed source links by adding items to Julie's task list.
 - Metadata only, and each source's terms are respected. Amazon still needs the API check first
   (jack_spec).
-- Open: which sources first, and who adds such works (Jack, Sammy from a mention, or a person).
+- Status of a work: `obtained`, `not_obtained` or `paywalled` (PROPOSED), so the edge of what can be
+  obtained is visible.
+- First sources (PROPOSED, a suggestion the owner may change): archive.org and the Library of
+  Congress. Who adds works: answered by the mention flow above.
+
+### Reference trees for papers (PROPOSED, 2026-11-27)
+- A paper's references become mentions. Jack resolves them (DOI first); Charles fetches the open
+  copies.
+- Free citation data (OpenAlex, Crossref) maps the tree before anything is downloaded.
+- Depth cap in config, default 2 to 3. Open: the exact default.
+- Each paper is `obtained`, `not_obtained` or `paywalled`, so the tree's edge is visible.
 
 ## 9. Personal records
 

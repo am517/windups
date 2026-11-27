@@ -1,5 +1,6 @@
 # Subtitle windup — functional spec (PROPOSED stub)
-Name: TBD by the owner. Everything here is **PROPOSED** (2026-11-27); nothing is built.
+Name: the owner proposed **John**, but John is already the device-group windup (NAMES.md), so the
+name is on hold until the owner chooses. Everything here is **PROPOSED** (2026-11-27); nothing is built.
 
 ## 1. Purpose
 - Makes timestamped subtitles for a video or recording that has none, using speech-to-text.
