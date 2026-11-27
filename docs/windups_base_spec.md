@@ -64,4 +64,4 @@ A windup adds its own commands only for its one job (e.g. Jack's `ask`). A real 
 - Outside the folder: only backups and the unlock key (see identity_and_security.md).
 
 ## 6. Base modules (today, `windups/src/base/`)
-`layout`, `install`, `schema`, `events`, `snapshot`, `sync`, `sync_socket`, `audit`, `commands`, `talk`, `migrate`, `relocate`, `config`, `relationships`, `personality`, `flags`, `wire`. To add: identity/keys, recovery phrase, Noise transport, encrypted settings, backup hand-off, multi-device (later). Function-level detail (inputs, outputs, errors, tests) comes next.
+`layout`, `install`, `schema`, `events`, `snapshot`, `records`, `sync`, `sync_records`, `sync_socket`, `audit`, `commands`, `talk`, `migrate`, `relocate`, `config`, `relationships`, `personality`, `flags`, `help`, `wire`. To add: identity/keys, recovery phrase, Noise transport, encrypted settings, backup hand-off, multi-device (later). Function-level detail (inputs, outputs, errors, tests) comes next.
