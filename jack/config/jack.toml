@@ -437,8 +437,10 @@ stale_after_days = 7
 # as confirming sources, unpicked ones are ignored. `--pick "1 6"` gives the picks without a prompt.
 # Ask on a terminal only (never in a pipe or for another windup).
 ask = true
-# Keep at most this many hits from each source's search list (e.g. tmdb:search).
+# Keep at most this many hits from each source's search list (e.g. tmdb:search). `--limit N`
+# changes it for one run; "more" at the prompt searches again with `more` extra per source.
 per_source = 5
+more = 5
 
 [embedded]
 # Read the file's own metadata first; it is the truth for facts (not wording) and always kept as
@@ -504,6 +506,7 @@ conflict = "Sources disagree: {detail}. Kept the file's own values; recorded for
 id_not_found = "The id you gave was not found: {detail}. Check the id (and --type movie or --type tv); I did not search by title instead."
 year_mismatch = "A source found a different year than the one you gave: {detail}. Nothing was accepted; check --year or give the id of the right work."
 sources_disagree = "Sources found different works: {detail}. Nothing was accepted; give the id of the right work."
+pick_fetch_failed = "I couldn't fetch the full details of your pick ({detail}), so nothing was accepted. Try again later, or pick another candidate."
 too_few_sources = "Not enough sources confirm it: {detail}."
 needs_llm_windup = "Needs judgement. Kept for the LLM windup (if configured) or for you to decide with an id (--imdb, --tmdb, or --thetvdb)."
 

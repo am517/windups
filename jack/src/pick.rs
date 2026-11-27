@@ -9,8 +9,10 @@ use serde::Deserialize;
 pub struct CandidatesCfg {
     /// Ask on a terminal (never in a pipe or for another windup).
     pub ask: bool,
-    /// Hits kept from each source's search list.
+    /// Hits kept from each source's search list (`--limit N` for one run).
     pub per_source: usize,
+    /// How many more per source each "more" at the prompt asks for.
+    pub more: usize,
 }
 
 impl Default for CandidatesCfg {
@@ -18,6 +20,7 @@ impl Default for CandidatesCfg {
         CandidatesCfg {
             ask: true,
             per_source: 5,
+            more: 5,
         }
     }
 }
@@ -114,17 +117,92 @@ pub fn list(query_title: &str, found: &[(String, Meta)]) -> List {
             .next()
             .map(|i| format!(", {i}"))
             .unwrap_or_default();
-        n += 1;
         l.groups[pos].1.push(Row {
-            n,
+            n: 0,
             index,
-            text: format!("{n}. {t} ({year}){id}, score {score}"),
+            text: format!("{t} ({year}){id}, score {score}"),
         });
+    }
+    // numbered in the order shown
+    for (_, rows) in l.groups.iter_mut() {
+        for r in rows.iter_mut() {
+            n += 1;
+            r.n = n;
+            r.text = format!("{n}. {}", r.text);
+        }
     }
     l
 }
 
+/// The full record of a picked search hit, fetched from its own source by the hit's id.
+/// An error when the source has no id lookup, the hit has no id, or the fetch fails.
+pub fn details(
+    source: &str,
+    hit: &Meta,
+    cfg: &crate::config::Config,
+    http: &dyn crate::providers::Http,
+) -> Result<Meta, String> {
+    let tv = hit.get("kind").is_some_and(|k| k != "movie");
+    let mut q = crate::providers::Query {
+        title: title(hit).unwrap_or("").to_string(),
+        year: hit.get("year").cloned(),
+        kind: Some(if tv { "tv" } else { "movie" }.into()),
+        ..Default::default()
+    };
+    let id = match source {
+        "tmdb" => {
+            q.tmdb = hit.get("tmdb_series_id").or(hit.get("tmdb_id")).cloned();
+            q.tmdb.clone()
+        }
+        "thetvdb" => {
+            q.thetvdb = hit.get("thetvdb_id").cloned();
+            q.thetvdb.clone()
+        }
+        _ => return Err(format!("{source} has no lookup by id in Jack yet")),
+    };
+    if id.is_none_or(|i| i.is_empty()) {
+        return Err("the hit has no id to look up".into());
+    }
+    let only = [source.to_string()];
+    let (_, f) = crate::fetch::fetch_from(&q, cfg, http, &mut String::new(), &[], Some(&only))?;
+    f.into_iter()
+        .find(|(s, _)| s == source)
+        .map(|(_, m)| m)
+        .ok_or(format!("{source} returned no details"))
+}
+
 impl List {
+    /// The list for `-j`: every candidate by source, with its number, facts, ids and score.
+    pub fn json(&self, found: &[(String, Meta)]) -> serde_json::Value {
+        let groups: Vec<serde_json::Value> = self
+            .groups
+            .iter()
+            .map(|(src, rows)| {
+                let rows: Vec<serde_json::Value> = rows
+                    .iter()
+                    .map(|r| {
+                        let (s, m) = &found[r.index];
+                        let ids: serde_json::Map<String, serde_json::Value> = m
+                            .iter()
+                            .filter(|(k, v)| k.ends_with("_id") && !v.is_empty())
+                            .map(|(k, v)| (k.clone(), v.clone().into()))
+                            .collect();
+                        serde_json::json!({
+                            "n": r.n,
+                            "from": if crate::candidates::is_search(s) { "search" } else { "lookup" },
+                            "kind": m.get("kind"),
+                            "title": title(m),
+                            "year": m.get("year"),
+                            "ids": ids,
+                            "score": m.get("match_score").and_then(|v| v.parse::<f64>().ok()),
+                        })
+                    })
+                    .collect();
+                serde_json::json!({ "source": src, "rows": rows })
+            })
+            .collect();
+        serde_json::json!({ "groups": groups, "not_found": self.not_found })
+    }
     pub fn is_empty(&self) -> bool {
         self.groups.is_empty()
     }

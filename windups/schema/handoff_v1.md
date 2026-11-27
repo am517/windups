@@ -39,4 +39,27 @@ Jack keeps every handoff in his own `jack.db` (the `records.handoff` column, und
 
 Jack's `jack.db` stores the full handoff, including subjective fields (descriptions, posters). The copy he syncs to the database windup is the same object with those fields removed (see `jack/src/objective.rs`). Other windups ask Jack for the rest: `jack ask summaries`, `jack ask images`.
 
-Jack only emits a settled `entry` when one identity agrees across sources, or when the caller gave an id flag (`--imdb`, `--tmdb`, `--thetvdb`/`--tvdb`; later `--wikidata` / `--wikipedia`). `--name` and `--year` only filter the search; they are not a trusted match. Even with an id he still looks up the same work on the other sources to fill in ids and facts. Unresolved runs keep candidates in `jack.db` and do not offer a list to the caller.
+Jack only emits a settled `entry` when one identity agrees across sources, or when the caller gave an id flag (`--imdb`, `--tmdb`, `--thetvdb`/`--tvdb`; later `--wikidata` / `--wikipedia`). `--name` and `--year` only filter the search; they are not a trusted match. Even with an id he still looks up the same work on the other sources to fill in ids and facts. Unresolved runs keep candidates in `jack.db`. A calling windup gets the list in the `-j` result (below), never a prompt.
+
+## Jack's `-j` result (`"v": 1`, Nov 27 addition)
+`jack -j` prints one object: `{"v":1, "ok":bool, "items":[...]}`. Each item has `file`, `ok`, `lifecycle`, `reason`, `error`, `metadata` (with `-p`) and, since Nov 27, `candidates`. The new field is optional, so `v` stays 1: readers that don't know it ignore it, and `null` means no list was kept.
+
+```json
+"candidates": {
+  "groups": [
+    {"source": "tmdb", "rows": [
+      {"n": 1, "from": "lookup", "kind": "movie", "title": "Mountain", "year": "2017",
+       "ids": {"tmdb_id": "462145"}, "score": 1.0}
+    ]}
+  ],
+  "not_found": ["wikidata"]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `groups` | Candidates by source (`tmdb` and `tmdb:search` are one source), in the order shown to a person. |
+| `n` | The number a person types (or passes to `--pick`); numbered across the whole list. |
+| `from` | `lookup` (a source's full record) or `search` (a search-list hit). |
+| `kind`, `title`, `year`, `ids`, `score` | What the row says; `ids` holds every `*_id` field; `score` is the similarity Jack recorded (or `null`). |
+| `not_found` | Sources whose rows had no title and no id. |

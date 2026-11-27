@@ -3,40 +3,52 @@
 use std::fmt::Write as _;
 use std::io::{IsTerminal, Write};
 
-/// Prints the question immediately (the report is shown only at the end of the run). The list
-/// goes to the terminal once and is not repeated in the report. Returns the picks typed, if any.
-/// `interactive` is false for a pipe and for another windup: no question, no list.
-pub fn ask(
+/// Asks "see candidates (y/n)?" first (decided Nov 27). Prints it immediately: the report is
+/// shown only at the end of the run.
+pub fn wants_list(
     list: &crate::pick::List,
-    interactive: bool,
     read: &mut dyn FnMut() -> String,
     out: &mut String,
-) -> Option<String> {
-    if !interactive {
-        return None;
-    }
+) -> bool {
     let question = "Would you like to see candidates (y/n)?";
     eprintln!("{question}");
     let _ = std::io::stderr().flush();
     let _ = writeln!(out, "    {question}");
     let answer = read();
-    let yes = matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes");
-    if !yes {
-        return None;
+    if !matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
+        return false;
     }
     if list.is_empty() {
         eprintln!("I don't have any candidates to show.");
         let _ = writeln!(out, "    I don't have any candidates to show.");
-        return None;
+        return false;
     }
+    true
+}
+
+/// Shows the list once, on the terminal (not repeated in the report), and reads the picks.
+/// `more`: "more" searches again with more results.
+pub fn choose(
+    list: &crate::pick::List,
+    more: bool,
+    read: &mut dyn FnMut() -> String,
+    out: &mut String,
+) -> String {
     for line in list.lines() {
         eprintln!("{line}");
     }
-    eprintln!("Pick at most one per source (numbers separated by spaces; Enter for none):");
+    eprintln!(
+        "Pick at most one per source (numbers separated by spaces; Enter for none{}):",
+        if more {
+            "; \"more\" for more results"
+        } else {
+            ""
+        }
+    );
     let _ = std::io::stderr().flush();
     let picks = read();
     let _ = writeln!(out, "    picked: {}", picks.trim());
-    Some(picks)
+    picks
 }
 
 pub fn person_is_here() -> bool {
@@ -67,19 +79,15 @@ mod tests {
     }
 
     #[test]
-    fn a_person_sees_the_list_only_after_yes_and_a_pipe_is_not_asked() {
+    fn a_person_sees_the_list_only_after_yes() {
         let mut shown = String::new();
-        assert_eq!(ask(&list(), false, &mut || "y".into(), &mut shown), None);
-        assert!(shown.is_empty(), "a pipe or a windup is not asked: {shown}");
-
-        let mut shown = String::new();
-        assert_eq!(ask(&list(), true, &mut || "n".into(), &mut shown), None);
+        assert!(!wants_list(&list(), &mut || "n".into(), &mut shown));
         assert!(shown.contains("Would you like to see candidates (y/n)?"));
-
-        let mut answers = vec!["1 2".to_string(), "y".to_string()];
         let mut shown = String::new();
-        let picks = ask(&list(), true, &mut || answers.pop().unwrap(), &mut shown);
-        assert_eq!(picks.as_deref(), Some("1 2"));
+        assert!(wants_list(&list(), &mut || "y".into(), &mut shown));
+        let mut shown = String::new();
+        let picks = choose(&list(), true, &mut || "1 2".into(), &mut shown);
+        assert_eq!(picks, "1 2");
         // the list went to the terminal once; the report only records the picks
         assert!(!shown.contains("The Office"), "{shown}");
         assert!(shown.contains("picked: 1 2"), "{shown}");

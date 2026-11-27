@@ -83,6 +83,9 @@ pub(crate) struct Cli {
     /// separated by spaces (e.g. `--pick "1 6"`; `--pick 0` picks none). No prompt is shown.
     #[arg(long, value_name = "NUMBERS")]
     pub(crate) pick: Option<String>,
+    /// Search-list hits kept per source for this run (default `[candidates] per_source`, 5)
+    #[arg(long, value_name = "N")]
+    pub(crate) limit: Option<usize>,
     /// Descend into subdirectories (default)
     #[arg(long, overrides_with = "no_recursive")]
     pub(crate) recursive: bool,

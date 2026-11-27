@@ -225,7 +225,26 @@ pub(crate) fn process(
         }
     }
     if unresolved && !crate::escalate::sammy_available() && !cfg.windup {
-        unresolved = !pick(cfg, &mut meta, &found, out);
+        let mut stdin = || {
+            let mut line = String::new();
+            let _ = std::io::stdin().read_line(&mut line);
+            line
+        };
+        let prompt: Option<&mut dyn FnMut() -> String> =
+            if cfg.picks.is_none() && cfg.candidates.ask && crate::offer::person_is_here() {
+                Some(&mut stdin)
+            } else {
+                None
+            };
+        unresolved = !pick(
+            cfg,
+            &mut meta,
+            &mut found,
+            guessed.as_ref(),
+            http,
+            prompt,
+            out,
+        );
     }
     // the user's id outranks the file's tags: tags that disagree with it look wrong
     let user_anchor = s.has_id();
@@ -346,6 +365,12 @@ pub(crate) fn process(
         }
     }
     hk.done.push((file.clone(), meta.clone()));
+    let title = meta
+        .get("show")
+        .or(meta.get("title"))
+        .map_or("", |t| t.as_str());
+    hk.lists
+        .push((file.clone(), crate::pick::list(title, &found).json(&found)));
     if unresolved {
         if crate::escalate::sammy_available() {
             // Sammy rows of the can't-decide table. The live client is a later card.
@@ -502,38 +527,67 @@ fn incomplete(
 }
 
 /// Can't decide, no Sammy: list the candidates by source and take the user's picks (typed on a
-/// terminal, or `--pick`). Picked candidates are confirming sources; the rest are ignored.
-/// True when the picks settle the match.
-fn pick(cfg: &Config, meta: &mut Meta, found: &[(String, Meta)], out: &mut String) -> bool {
+/// terminal via `prompt`, or `--pick`). "more" at the prompt searches again with more results.
+/// Each pick's full details are fetched from its source before consensus; picked candidates are
+/// confirming sources and the rest are ignored. True when the picks settle the match.
+pub(crate) fn pick(
+    cfg: &Config,
+    meta: &mut Meta,
+    found: &mut Vec<(String, Meta)>,
+    q: Option<&providers::Query>,
+    http: &dyn Http,
+    prompt: Option<&mut dyn FnMut() -> String>,
+    out: &mut String,
+) -> bool {
     let title = meta
         .get("show")
         .or(meta.get("title"))
         .cloned()
         .unwrap_or_default();
-    let list = crate::pick::list(&title, found);
-    let typed = match &cfg.picks {
-        Some(p) => {
+    let mut list = crate::pick::list(&title, found);
+    let typed = match (&cfg.picks, prompt) {
+        (Some(p), _) => {
             for line in list.lines() {
                 let _ = writeln!(out, "    {line}");
             }
             Some(p.clone())
         }
-        None if cfg.candidates.ask && crate::offer::person_is_here() => crate::offer::ask(
-            &list,
-            true,
-            &mut || {
-                let mut line = String::new();
-                let _ = std::io::stdin().read_line(&mut line);
-                line
-            },
-            out,
-        ),
-        None => {
+        (None, Some(read)) => {
+            if !crate::offer::wants_list(&list, read, out) {
+                None
+            } else {
+                let mut limit = cfg.candidates.per_source;
+                loop {
+                    let t = crate::offer::choose(&list, q.is_some(), read, out);
+                    if t.trim() != "more" {
+                        break Some(t);
+                    }
+                    let Some(q) = q else { break None };
+                    limit += cfg.candidates.more.max(1);
+                    let mut c = cfg.clone();
+                    c.candidates.per_source = limit;
+                    match crate::fetch::fetch_from(q, &c, http, &mut String::new(), &[], None) {
+                        Ok((_, f)) => {
+                            let _ = writeln!(
+                                out,
+                                "    searched again with up to {limit} results per source"
+                            );
+                            *found = f;
+                            list = crate::pick::list(&title, found);
+                        }
+                        Err(e) => {
+                            let _ = writeln!(out, "    more: the new search failed: {e}");
+                        }
+                    }
+                }
+            }
+        }
+        (None, None) => {
             // not on a terminal: show the list once so `--pick` can name the numbers
             if !list.is_empty() {
                 let _ = writeln!(
                     out,
-                    "    candidates (pick with --pick \"N ...\", at most one per source):"
+                    "    candidates (pick with --pick \"N ...\", at most one per source; --limit N for more):"
                 );
                 for line in list.lines() {
                     let _ = writeln!(out, "      {line}");
@@ -551,15 +605,32 @@ fn pick(cfg: &Config, meta: &mut Meta, found: &[(String, Meta)], out: &mut Strin
             return false;
         }
     };
-    let rows: Vec<(String, Meta)> = picks
-        .iter()
-        .map(|&i| {
-            (
-                crate::pick::base(&found[i].0).to_string(),
-                found[i].1.clone(),
-            )
-        })
-        .collect();
+    // a pick from a search list carries only a name, a year and an id: fetch its full details
+    let mut rows: Vec<(String, Meta)> = vec![];
+    let mut fetched = false;
+    for &i in &picks {
+        let (src, m) = &found[i];
+        let base = crate::pick::base(src).to_string();
+        if !crate::candidates::is_search(src) {
+            rows.push((base, m.clone()));
+            continue;
+        }
+        match crate::pick::details(&base, m, cfg, http) {
+            Ok(d) => {
+                fetched = true;
+                rows.push((base, d));
+            }
+            Err(e) => {
+                let _ = writeln!(
+                    out,
+                    "    pick: couldn't fetch the details of the {base} pick: {e}; nothing accepted"
+                );
+                meta.insert("unresolved_reason".into(), "pick_fetch_failed".into());
+                meta.insert("unresolved_detail".into(), format!("{base}: {e}"));
+                return false;
+            }
+        }
+    }
     match crate::decide::picked(&rows, &crate::decide::Rules::from(&cfg.matching)) {
         crate::decide::Decision::Sure { .. } => {
             let mut m = crate::sorter::merge(&rows, &cfg.merge);
@@ -581,9 +652,20 @@ fn pick(cfg: &Config, meta: &mut Meta, found: &[(String, Meta)], out: &mut Strin
             );
             let _ = writeln!(
                 out,
-                "    picked: {} (confirmed by your pick)",
-                names.join(", ")
+                "    picked: {} ({}confirmed by your pick)",
+                names.join(", "),
+                if fetched {
+                    "full details fetched; "
+                } else {
+                    ""
+                }
             );
+            // the fetched details join the record's sources
+            for (s, d) in &rows {
+                if !found.iter().any(|(fs, fm)| fs == s && fm == d) {
+                    found.push((s.clone(), d.clone()));
+                }
+            }
             *meta = m;
             true
         }
