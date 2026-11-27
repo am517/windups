@@ -11,6 +11,7 @@ pub mod find;
 pub mod find_cli;
 pub mod ingest;
 pub mod mentions;
+pub mod people;
 pub mod receive;
 #[cfg(unix)]
 pub mod serve;
