@@ -3,6 +3,7 @@ name = "rover"
 version = "0.1.0"
 edition = "2024"
 description = "Rover: refines other windups (stub)"
-license = "MIT"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]

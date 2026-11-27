@@ -3,7 +3,8 @@ name = "larry"
 version = "0.1.0"
 edition = "2024"
 description = "Larry, the hashing windup: exact, partial and look-alike fingerprints of media files"
-license = "MIT"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 blake3 = "1.8.7"

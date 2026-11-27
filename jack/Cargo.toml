@@ -3,9 +3,8 @@ name = "jack"
 version = "0.2.0"
 edition = "2024"
 description = "Identify movie and TV files and report what they are"
-license = "MIT"
-repository = "https://github.com/am517/windups"
-homepage = "https://github.com/am517/windups"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

@@ -3,6 +3,7 @@ name = "sally"
 version = "0.1.0"
 edition = "2024"
 description = "Sally: organizes files (stub)"
-license = "MIT"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]

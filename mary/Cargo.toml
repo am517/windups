@@ -3,7 +3,8 @@ name = "mary"
 version = "0.1.0"
 edition = "2024"
 description = "Mary, the summary windup (stub)"
-license = "MIT"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 windups.workspace = true

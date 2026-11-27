@@ -3,7 +3,8 @@ name = "windups"
 version = "0.1.0"
 edition = "2024"
 description = "Shared library for all windups: settings, media.db, raw archive"
-license = "MIT"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 rusqlite = { version = "0.32", features = ["bundled", "backup"] }
