@@ -13,6 +13,8 @@ Lauren is the tagging windup. Drafted Nov 26, 2026 from the repo's existing sour
 - Embedded art is JPEG (QUESTIONS.md answer 3, Oct 28: MP4 `covr` only allows JPEG/PNG); Kate makes the JPEG (Kate's profile).
 - She acts only on sure decisions and keeps her complete action history (coding_guidelines §1); her own record is written before she touches a file (§4).
 - **Hard gate (Nov 27, after a wrong write):** she never writes to a file whose entry is unresolved or needs judgment. Only a resolved identity is written, and a regression test must enforce it. Repairing a file an older Jack wrote wrongly: `docs/repair_wrong_tags.md`.
+- **Read-only trees (Nov 27):** she never writes in a tree marked read-only, such as the personal-records source folder (`docs/daniel_spec.md` §9). If a write would be needed there, she skips and says why.
+- **Quality rule (Nov 27, coding_guidelines §1):** tags written into a file are permanent, so she writes with the best method available, never a placeholder.
 - She uses free, locally installed tools when present and says clearly when one is missing (§3). Jack's old tagger used AtomicParsley or exiftool for MP4 and mkvpropedit/mkvmerge for MKV (`jack/src/tagger.rs`, in git history before #25).
 
 ## 3. Responses
@@ -32,3 +34,4 @@ Start from Jack's old `tagger.rs` / `art.rs` (in git history), one job per file:
 5. **Formats**: MP4 and MKV only to start?
 6. **Who calls her, and when**: after Daniel stores an entry, by Tammy, or only on a person's request?
 7. **Undo**: restoring a wrong write is wanted when the pre-write state exists (Nov 27). Does she save a file's existing tags (and art) before each write, and where: her own DB, a sidecar, or Daniel? Without that, the only repair is to clear the tags and re-tag from the identity.
+8. **Read-only trees in config**: how is a tree marked read-only? A list of paths in her config, or a flag Daniel keeps per catalog?

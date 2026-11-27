@@ -12,6 +12,7 @@ Larry is the hashing windup. Drafted Nov 26, 2026 from existing sources only; up
 - Partial hashing by default (size + start/middle/end chunks); full on request; files under `full_below_bytes` are hashed whole (`larry/config/larry.toml`; tested).
 - Look-alike fingerprints only propose (`possible_same`); they never merge (tested). He never merges entries or decides what a file is (PROFILE `never`).
 - Real fingerprint (later): align by audio first, then compare frames at matching times; sampled-frame pHashes via ffmpeg, optional Chromaprint; tune `max_distance` (WINDUPS.md round 6; TODO.md).
+- Text hash: `larry::hash::text_hash` (always whole, `b3:`) gives each of Daniel's chunks its content hash, so Tom re-embeds only changed text (#44, #47).
 - A full-hash pass over partial-hashed files as resources permit (TODO.md).
 
 ## 3. Open questions
