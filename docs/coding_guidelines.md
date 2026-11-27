@@ -62,7 +62,7 @@
  - As few dependencies as necessary
  - Only well-made crates that serve a specific purpose and would be hard to reimplement (e.g. SQLite, TLS/HTTP, TOML parsing, fuzzy matching).
  - Never add a dependency just to make code shorter.
- - No software from China (models included), e.g. BAAI's bge models are out
+ - Chinese software and models (rule changed Nov 27): allowed only if (A) they get no money or support from us (free) and (B) they don't phone home (no telemetry or network calls, verified or blocked), and only when clearly better than the alternatives
  - Runtimes (decided Nov 27): llama.cpp is the default runtime for all models (LLMs and embeddings); ONNX Runtime and Candle only if needed. In general: the most efficient and most universal option with the fewest dependencies
  - A C or C++ library is allowed as a dependency when no Rust version exists (e.g. libjxl for lossless JPEG to JPEG XL); all new code is Rust.
  - Always use the latest versions of dependencies and tools where possible; always install Rust with rustup (latest stable); check for updates now and then

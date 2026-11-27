@@ -12,9 +12,9 @@ Tom is the vector windup. Drafted Nov 26, 2026 from existing sources only; updat
 - Chunk vectors go through Daniel (`daniel/src/chunk_vectors.rs`, #47). `not_embedded` lists what to embed for a model and version, and `store` refuses a vector made from text that has since changed.
 - The same text and model give the same vector (success check 2).
 - Vectors go to the shared `vectors` table via Daniel (PROFILE `writes`; `windups/schema/vectors.sql`).
-- Model: a small local embedding model, swappable behind a module (QUESTIONS.md answer 4, Oct 28; bge-small / all-MiniLM, 384 dims, were the proposal). bge-m3 was the Nov 27 lean but is **dropped**: it comes from BAAI (China), against the no-Chinese-software rule (coding_guidelines §3).
+- Model: a small local embedding model, swappable behind a module (QUESTIONS.md answer 4, Oct 28; bge-small / all-MiniLM, 384 dims, were the proposal). bge-m3 (BAAI, China) is not the lean, but it is a candidate under the Chinese-software conditions (coding_guidelines §3: free, no phoning home, clearly better).
 - **DECIDED (2026-11-27):** the quality tier is a normal computer; Pi support is a bonus.
-- **DECIDED (2026-11-27):** the embedding models are tested, then one is picked. Test set: the owner's notes plus the Bible text; score: whether a search retrieves the right passage. **PROPOSED** candidates: multilingual-e5-large, EmbeddingGemma, arctic-embed-l-v2.0.
+- **DECIDED (2026-11-27):** the embedding models are tested, then one is picked. Test set: the owner's notes plus the Bible text; score: whether a search retrieves the right passage. **PROPOSED** candidates: multilingual-e5-large, EmbeddingGemma, arctic-embed-l-v2.0, bge-m3 (under coding_guidelines §3).
 - **Runtime, DECIDED (2026-11-27):** llama.cpp is the default runtime for all models (LLMs and embeddings). ONNX Runtime and Candle are dropped unless needed.
 - **DECIDED in principle (2026-11-27):** vectors from a compressed copy of the chosen model are stored `confidence = low` and queued for regeneration on a capable computer; a different small model never stands in.
 - The embedding model "gets only a plugin hook until Sammy exists" (WINDUPS.md, Jack Nov 1).
@@ -37,7 +37,7 @@ All of this is **PROPOSED** (approved to be recorded as proposed; not built).
      are vectorized **alongside** the passages, never instead of them. Search matches a summary to
      find the work, then a passage for the exact spot or timestamp.
 - **Photos and videos:** a vision model writes a description, which is vectorized. An image-embedding
-  model in a shared text-and-image space (candidate: Google SigLIP; no Chinese models) lets text
+  model in a shared text-and-image space (candidate: Google SigLIP; Chinese models only under coding_guidelines §3) lets text
   queries find images the description missed. Videos: frames sampled at scene changes are
   described and combined with the transcript.
 - **Efficiency:** Larry's hash means a file is vectorized once, and again only when its content or

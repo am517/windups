@@ -179,8 +179,8 @@ vector for a model and version, or whose text changed since. `store` refuses a v
 model id and version, or one made from text that has since changed (`chunk_changed`). `search`
 ranks within one model and version.
 
-Tom's model: not chosen. bge-m3 is **no longer the lean**: it comes from BAAI (China), which
-conflicts with the no-Chinese-software rule (coding_guidelines §3). See `docs/tom_spec.md` for the
+Tom's model: not chosen. bge-m3 (BAAI, China) is back among the candidates under the conditions in
+coding_guidelines §3 (free, no phoning home, clearly better). See `docs/tom_spec.md` for the
 proposed bake-off.
 
 Low-confidence vectors (coding_guidelines §1): a vector made by a compressed copy of the chosen
@@ -270,8 +270,8 @@ Answers are marked DECIDED or PROPOSED as given; a PROPOSED answer is not built 
 4. **How far does Daniel's `find` go once Steve exists?** Open.
 5. **Japanese and similar text in FTS.** Open.
 6. **Licence for very large corpora.** Open.
-7. **Tom's model.** See `docs/tom_spec.md`: bge-m3 is dropped (no-Chinese-software rule). **PROPOSED (2026-11-27):**
-   candidates multilingual-e5-large, EmbeddingGemma and arctic-embed-l-v2.0. **DECIDED:** test, then
+7. **Tom's model.** See `docs/tom_spec.md`: bge-m3 is a candidate again, under coding_guidelines §3. **PROPOSED (2026-11-27):**
+   candidates multilingual-e5-large, EmbeddingGemma, arctic-embed-l-v2.0 and bge-m3. **DECIDED:** test, then
    pick (see `docs/tom_spec.md`).
 8. **When SQLite vectors stop being enough.** Open.
 9. **Map geometry.** Open.
