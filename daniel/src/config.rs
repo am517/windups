@@ -11,6 +11,15 @@ pub struct Config {
     pub catalogs: CatalogsCfg,
     pub records: RecordsCfg,
     pub mentions: MentionsCfg,
+    pub find: FindCfg,
+}
+
+/// `daniel find`: candidates shown at most, and the catalogs searched when none is named.
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(default)]
+pub struct FindCfg {
+    pub limit: usize,
+    pub catalogs: Vec<String>,
 }
 
 /// Storing mentions: below `review_below` confidence a mention is stored for review; the extractor

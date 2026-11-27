@@ -11,6 +11,16 @@ daniel accept file.jack.json   # alias of ingest
 daniel -h [-j]
 ```
 
+Purpose catalogs (media/reference in media.db; people, records, maps and photos beside it) are described in [`docs/daniel_spec.md`](../docs/daniel_spec.md). Word search over them:
+
+```zsh
+daniel find kyoto temples                 # media, people, maps, photos; 5 candidates at most
+daniel find --catalog people --limit 10 ada
+daniel find --catalog records -j receipt   # personal records only when named
+```
+
+`find` only reads: a catalog that doesn't exist yet is reported as skipped, never created.
+
 `ingest` (and `accept`) print one line per file and exit non-zero if any file fails. Re-ingesting the same file updates its entry; it does not duplicate rows. A JSON whose `"v"` is not `1` is rejected.
 
 ```zsh

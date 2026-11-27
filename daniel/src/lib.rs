@@ -4,6 +4,8 @@
 pub mod alert;
 pub mod catalog;
 pub mod config;
+pub mod find;
+pub mod find_cli;
 pub mod ingest;
 pub mod mentions;
 pub mod receive;
