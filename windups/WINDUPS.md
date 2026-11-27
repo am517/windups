@@ -126,7 +126,7 @@ Ruth, Ben, Rover and Beth sit outside this numbered sequence (Ruth and the stubs
 ## Command line
 
 - `--help`, `--version`, `--config <path>`, `--dry-run` (changes nothing, shows everything), `--set`.
-- `--print` / `--print-format json` for humans and scripts (stdout = data, stderr = report).
+- `--print` for humans; `-j/--json` (with `-p` for the facts) for scripts: JSON on stdout only.
 - Exit codes: 0 all OK, 1 some items failed, 2 usage or config error.
 
 ## Quality bar

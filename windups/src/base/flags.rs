@@ -1,16 +1,15 @@
 //! Universal CLI flags every windup honors, so a caller can talk to any of them the same way.
 //! These are flags, not commands: they modify how a run speaks, and they never prompt.
 //!
-//! - `--windup` / `-w`: called by another windup. No interaction (no prompts, no menus).
-//!   Machine-readable result or failure only on stdout (JSON). Human text is suppressed.
-//! - `--json` / `-j`: also write the JSON next to the media file (off by default; useful
-//!   for testing). Distinct from a windup's own `--emit-json` / `--print-format json`.
+//! - `--json` / `-j`: the result as JSON on stdout, reasons in their own fields; no prompts or
+//!   commentary (windups_base_spec §1). Replaces `--emit-json`, `--print-format json` and sidecars.
+//! - `--windup` / `-w`: same output as `-j`; kept only until windups talk over Noise (card #7).
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Flags {
-    /// Called by another windup: no interaction; JSON only on stdout.
+    /// Called by another windup: same as `json` (until Noise).
     pub windup: bool,
-    /// Write a JSON sidecar next to the media file (off by default).
+    /// The result as JSON on stdout; no prompts.
     pub json: bool,
 }
 

@@ -182,8 +182,7 @@ impl Windup for Jack {
             argv.push("--config".into());
             argv.push(c.to_string_lossy().into_owned());
         }
-        use clap::Parser;
-        let cli = crate::cli::Cli::try_parse_from(argv).map_err(|e| e.to_string())?;
+        let cli = crate::cli::Cli::read(argv).map_err(|e| e.to_string())?;
         crate::run::run(&cli, &crate::providers::Ureq).map(|(s, _, _)| s)
     }
 }
@@ -243,7 +242,7 @@ pub fn main(args: &[String]) -> i32 {
             0
         }
         Err(e) => {
-            if uf.windup {
+            if uf.windup || uf.json {
                 println!("{}", windups::base::flags::error_json(&e));
             } else {
                 eprintln!("jack: {e}");

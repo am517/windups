@@ -19,10 +19,10 @@ pub(crate) struct Cli {
     /// The windup that called this run (a name, e.g. flora); handed through so the database windup doesn't call it back
     #[arg(long, value_name = "NAME")]
     pub(crate) caller: Option<String>,
-    /// Called by another windup: no prompts; JSON result or failure on stdout only
+    /// Called by another windup: same as -j (kept until windups talk over Noise)
     #[arg(short = 'w', long = "windup")]
     pub(crate) windup: bool,
-    /// Write the handoff JSON beside the media file (off by default; useful for testing)
+    /// The result as JSON on stdout (with -p, the facts too); reasons in their own fields; no prompts
     #[arg(short = 'j', long = "json")]
     pub(crate) json: bool,
     /// Save the other option flags as defaults in the main config. A key is only saved (no scan). Other flags are saved, then any given paths are run
@@ -90,17 +90,24 @@ pub(crate) struct Cli {
     /// Don't print (undoes a saved print = true)
     #[arg(long, overrides_with = "print")]
     pub(crate) no_print: bool,
-    /// --print format: text or json
-    #[arg(long, value_parser = ["text", "json"])]
-    pub(crate) print_format: Option<String>,
     /// Show what would happen; change nothing
     #[arg(long, overrides_with = "no_dry_run")]
     pub(crate) dry_run: bool,
     #[arg(long, overrides_with = "dry_run")]
     pub(crate) no_dry_run: bool,
-    /// Write one versioned handoff JSON per entry to stdout (`-`) or to a directory
-    #[arg(long, value_name = "DIR|-")]
-    pub(crate) emit_json: Option<String>,
+}
+
+impl Cli {
+    /// Parses the flags; `-j` and `-w` give the same JSON-only result (`-w` goes once windups use Noise).
+    pub(crate) fn read<I, T>(args: I) -> Result<Self, clap::Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<std::ffi::OsString> + Clone,
+    {
+        let mut c = Self::try_parse_from(args)?;
+        c.windup |= c.json;
+        Ok(c)
+    }
 }
 
 /// `--x` / `--no-x` (last wins) -> Some(true) / Some(false) / None.
@@ -120,7 +127,6 @@ impl From<&Cli> for Settings {
             dry_run: tri(c.dry_run, c.no_dry_run),
             print: tri(c.print, c.no_print),
             recursive: tri(c.recursive, c.no_recursive),
-            print_format: c.print_format.clone(),
             imdb: c.imdb.clone(),
             thetvdb: c.thetvdb.clone(),
             tmdb: c.tmdb.clone(),
@@ -182,7 +188,7 @@ mod tests {
     #[test]
     fn type_flags_conflicts_and_set() {
         assert!(Cli::try_parse_from(["jack", "--tv", "--movie", "x"]).is_err());
-        let c = Cli::try_parse_from(["jack", "--caller", "flora", "-w", "-j", "x"]).unwrap();
+        let c = Cli::read(["jack", "--caller", "flora", "-j", "x"]).unwrap();
         assert_eq!(
             c.caller.as_deref(),
             Some("flora"),

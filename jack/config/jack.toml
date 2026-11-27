@@ -26,9 +26,6 @@ dry_run = false
 # Print the facts. Jack still always says what he did.
 print = false
 
-# Print as "text" or "json".
-print_format = "text"
-
 
 [tagger]
 
