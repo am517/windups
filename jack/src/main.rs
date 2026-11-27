@@ -19,6 +19,7 @@ mod meta;
 mod objective;
 mod offer;
 mod online;
+mod pick;
 mod print;
 mod process;
 mod profile;

@@ -35,11 +35,13 @@ pub(crate) fn process(
     }
     // look in jack.db before searching
     let guessed = query(path, s, cfg).ok();
+    // a user's id outranks the file's tags: they don't pick the jack.db record either
+    let no_tags = Meta::new();
     let ids = crate::reuse::known_ids(
         guessed
             .as_ref()
             .unwrap_or(&crate::providers::Query::default()),
-        &own,
+        if s.has_id() { &no_tags } else { &own },
     );
     let dbp = std::path::Path::new(&cfg.archive.database);
     let opened = if cfg.archive.database == ":memory:" || dbp.exists() {
@@ -208,6 +210,22 @@ pub(crate) fn process(
             unresolved = false;
         }
     }
+    if unresolved && !crate::escalate::sammy_available() && !cfg.windup {
+        unresolved = !pick(cfg, &mut meta, &found, out);
+    }
+    // the user's id outranks the file's tags: tags that disagree with it look wrong
+    let user_anchor = s.has_id();
+    if user_anchor && !own.is_empty() {
+        let bad = crate::facts::suspect(&own, &found);
+        if !bad.is_empty() {
+            let _ = writeln!(
+                out,
+                "    file tags look wrong: {}; not used and not counted as a source",
+                bad.join(", ")
+            );
+            meta.insert("suspect_file_tags".into(), bad.join("; "));
+        }
+    }
     // only an id is proof; the user's --name/--year or channel mapping settles names, not identity
     let id_flag = [
         &s.imdb,
@@ -228,7 +246,7 @@ pub(crate) fn process(
     let user_named = s.name.is_some() && s.year.is_some();
     let ev = crate::facts::evidence(&meta, &own, id_flag || by_site_id, user_named);
     if !own.is_empty() {
-        if !unresolved {
+        if !unresolved && !user_anchor {
             // the file's facts stand unless independent evidence confirms the source means the same thing
             if let Some(e) = ev {
                 meta.insert("evidence".into(), e.into());
@@ -315,27 +333,11 @@ pub(crate) fn process(
     }
     hk.done.push((file.clone(), meta.clone()));
     if unresolved {
-        let title = meta
-            .get("show")
-            .or(meta.get("title"))
-            .map_or("", |value| value.as_str());
-        let candidates = crate::offer::lines(title, &found);
         if crate::escalate::sammy_available() {
             // Sammy rows of the can't-decide table. The live client is a later card.
             let _ = writeln!(
                 out,
                 "    sammy: I would talk this through, but Sammy is not connected yet"
-            );
-        } else if !cfg.windup {
-            crate::offer::ask(
-                &candidates,
-                crate::offer::person_is_here(),
-                &mut || {
-                    let mut line = String::new();
-                    let _ = std::io::stdin().read_line(&mut line);
-                    line
-                },
-                out,
             );
         }
         let _ = writeln!(
@@ -483,4 +485,99 @@ fn incomplete(
     }
     hk.done.push((path.to_string_lossy().into_owned(), m));
     Ok(())
+}
+
+/// Can't decide, no Sammy: list the candidates by source and take the user's picks (typed on a
+/// terminal, or `--pick`). Picked candidates are confirming sources; the rest are ignored.
+/// True when the picks settle the match.
+fn pick(cfg: &Config, meta: &mut Meta, found: &[(String, Meta)], out: &mut String) -> bool {
+    let title = meta
+        .get("show")
+        .or(meta.get("title"))
+        .cloned()
+        .unwrap_or_default();
+    let list = crate::pick::list(&title, found);
+    let typed = match &cfg.picks {
+        Some(p) => {
+            for line in list.lines() {
+                let _ = writeln!(out, "    {line}");
+            }
+            Some(p.clone())
+        }
+        None if cfg.candidates.ask && crate::offer::person_is_here() => crate::offer::ask(
+            &list,
+            true,
+            &mut || {
+                let mut line = String::new();
+                let _ = std::io::stdin().read_line(&mut line);
+                line
+            },
+            out,
+        ),
+        None => {
+            // not on a terminal: show the list once so `--pick` can name the numbers
+            if !list.is_empty() {
+                let _ = writeln!(
+                    out,
+                    "    candidates (pick with --pick \"N ...\", at most one per source):"
+                );
+                for line in list.lines() {
+                    let _ = writeln!(out, "      {line}");
+                }
+            }
+            None
+        }
+    };
+    let Some(typed) = typed else { return false };
+    let picks = match list.parse(&typed) {
+        Ok(p) if p.is_empty() => return false,
+        Ok(p) => p,
+        Err(e) => {
+            let _ = writeln!(out, "    pick: {e}");
+            return false;
+        }
+    };
+    let rows: Vec<(String, Meta)> = picks
+        .iter()
+        .map(|&i| {
+            (
+                crate::pick::base(&found[i].0).to_string(),
+                found[i].1.clone(),
+            )
+        })
+        .collect();
+    match crate::decide::picked(&rows, &crate::decide::Rules::from(&cfg.matching)) {
+        crate::decide::Decision::Sure { .. } => {
+            let mut m = crate::sorter::merge(&rows, &cfg.merge);
+            if let Some(sc) = meta.get("match_score") {
+                m.insert("match_score".into(), sc.clone());
+            }
+            m.insert("evidence".into(), "user".into());
+            let names: Vec<&str> = rows.iter().map(|(s, _)| s.as_str()).collect();
+            let asserted: Meta = ["show", "title", "year"]
+                .iter()
+                .filter_map(|k| m.get(*k).map(|v| (k.to_string(), v.clone())))
+                .collect();
+            crate::escalate::apply(
+                &mut m,
+                crate::escalate::Step::Match,
+                "user_picked",
+                &asserted,
+                &names.join(", "),
+            );
+            let _ = writeln!(
+                out,
+                "    picked: {} (confirmed by your pick)",
+                names.join(", ")
+            );
+            *meta = m;
+            true
+        }
+        crate::decide::Decision::Unresolved { reason, detail, .. } => {
+            let _ = writeln!(out, "    pick: {detail}");
+            meta.insert("unresolved_reason".into(), reason.into());
+            meta.insert("unresolved_detail".into(), detail);
+            false
+        }
+    }
 }

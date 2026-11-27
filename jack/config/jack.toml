@@ -431,6 +431,15 @@ stale_after_days = 7
 [core.talk.synonyms]
 # Extra words for `jack talk`, e.g. backup = ["stash"]
 
+[candidates]
+# When Jack can't decide, he lists the candidates grouped by source, numbered across the list.
+# You pick at most one per source (numbers separated by spaces, Enter for none); picked ones count
+# as confirming sources, unpicked ones are ignored. `--pick "1 6"` gives the picks without a prompt.
+# Ask on a terminal only (never in a pipe or for another windup).
+ask = true
+# Keep at most this many hits from each source's search list (e.g. tmdb:search).
+per_source = 5
+
 [embedded]
 # Read the file's own metadata first; it is the truth for facts (not wording) and always kept as
 # source "embedded". A source's value replaces it only when written the same way or when independent

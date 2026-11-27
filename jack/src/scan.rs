@@ -92,8 +92,11 @@ pub(crate) fn query(path: &Path, s: &Settings, cfg: &Config) -> Result<Query, St
     } else {
         crate::meta::Meta::new()
     };
-    let heard = crate::embedded_input::hear(&own);
-    crate::embedded_input::fill(&mut q, &heard);
+    // a user's id outranks the file's own tags: they fill nothing then (they are checked later)
+    if !s.has_id() {
+        let heard = crate::embedded_input::hear(&own);
+        crate::embedded_input::fill(&mut q, &heard);
+    }
     crate::embedded_input::flags_win(&mut q, s);
     Ok(q)
 }

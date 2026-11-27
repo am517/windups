@@ -182,6 +182,22 @@ fn confirming(rows: &[&(String, Meta)]) -> usize {
         .len()
 }
 
+/// The user's picks: sure when they name one work and enough sources were picked.
+pub fn picked(rows: &[(String, Meta)], r: &Rules) -> Decision {
+    let rows: Vec<&(String, Meta)> = rows.iter().collect();
+    if rows.is_empty() {
+        return Decision::unresolved("no_match", "nothing was picked", 0.0);
+    }
+    match anchored(&rows, r) {
+        Decision::Unresolved { reason, detail, .. } => Decision::unresolved(
+            reason,
+            detail.replace("the given id is one work, but found sources", "the picks"),
+            1.0,
+        ),
+        sure => sure,
+    }
+}
+
 /// A user's id: sure when the found sources agree on one work and enough of them found it.
 fn anchored(fetched: &[&(String, Meta)], r: &Rules) -> Decision {
     let split = dissent(fetched, r.year_tolerance);
@@ -331,7 +347,11 @@ pub fn decide_by(q: &Query, s: &Settings, found: &[(String, Meta)], r: &Rules) -
         }
         exact(&q.title, q.year.as_deref(), &m)
     };
-    let found: Vec<&(String, Meta)> = found.iter().filter(|(src, _)| src != "embedded").collect();
+    // the file's own tags are not a source; a row with no title and no id found nothing
+    let found: Vec<&(String, Meta)> = found
+        .iter()
+        .filter(|(src, m)| src != "embedded" && !crate::pick::is_empty_row(m))
+        .collect();
     let best = found
         .iter()
         .map(|(_, meta)| scored(meta))
@@ -902,5 +922,23 @@ mod tests {
             1,
             "at least one source confirms"
         );
+    }
+
+    #[test]
+    fn picks_confirm_one_work_and_picks_of_different_works_settle_nothing() {
+        let r = Rules {
+            year_tolerance: 1,
+            threshold: 0.90,
+            user_year_tolerance: 1,
+            min_confirming: 1,
+        };
+        let one = vec![ids("tmdb", "Mountain", "2017", &[("tmdb_id", "462145")])];
+        assert!(picked(&one, &r).is_sure());
+        let two = vec![
+            one[0].clone(),
+            ids("thetvdb", "Mountain", "2005", &[("thetvdb_id", "555")]),
+        ];
+        assert_eq!(picked(&two, &r).reason(), Some("sources_disagree"));
+        assert_eq!(picked(&[], &r).reason(), Some("no_match"));
     }
 }

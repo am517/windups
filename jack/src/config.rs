@@ -78,6 +78,20 @@ pub struct Settings {
 }
 
 impl Settings {
+    /// The user gave an id flag. A given id outranks everything the file's own tags say.
+    pub fn has_id(&self) -> bool {
+        [
+            &self.imdb,
+            &self.tmdb,
+            &self.thetvdb,
+            &self.wikidata,
+            &self.wikipedia,
+            &self.youtube,
+            &self.x,
+        ]
+        .iter()
+        .any(|v| v.as_ref().is_some_and(|v| !v.is_empty()))
+    }
     /// Fill unset fields of `self` from `lower`.
     pub fn over(self, lower: &Settings) -> Settings {
         let l = lower.clone();
@@ -123,6 +137,10 @@ pub struct Config {
     pub windup: bool,
     pub online: crate::online::OnlineCfg,
     pub embedded: crate::filemeta::EmbeddedCfg,
+    pub candidates: crate::pick::CandidatesCfg,
+    /// `--pick N...`: this run's candidate picks; not a config file key.
+    #[serde(skip)]
+    pub picks: Option<String>,
     pub explain: crate::explain::ExplainCfg,
     pub review: crate::review::ReviewCfg,
     pub completeness: crate::completeness::CompletenessCfg,

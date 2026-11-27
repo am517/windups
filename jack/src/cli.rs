@@ -79,6 +79,10 @@ pub(crate) struct Cli {
     /// Same as --type movie
     #[arg(long)]
     pub(crate) movie: bool,
+    /// Candidate picks, as numbered in the list Jack shows: at most one per source,
+    /// separated by spaces (e.g. `--pick "1 6"`; `--pick 0` picks none). No prompt is shown.
+    #[arg(long, value_name = "NUMBERS")]
+    pub(crate) pick: Option<String>,
     /// Descend into subdirectories (default)
     #[arg(long, overrides_with = "no_recursive")]
     pub(crate) recursive: bool,

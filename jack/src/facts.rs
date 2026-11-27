@@ -24,6 +24,52 @@ fn y4(v: &str) -> String {
     v.chars().take(4).collect()
 }
 
+/// The file's own tags that disagree with every found source holding the same field, used when
+/// the user gave an id: that id outranks the file, so these look like wrong file data (e.g. an
+/// earlier bad write). Ids must match exactly; facts as in [`same`]. Search lists don't count.
+pub fn suspect(own: &Meta, found: &[(String, Meta)]) -> Vec<String> {
+    const IDS: [&str; 5] = [
+        "imdb_id",
+        "tmdb_id",
+        "thetvdb_id",
+        "tmdb_series_id",
+        "thetvdb_series_id",
+    ];
+    let rows: Vec<&Meta> = found
+        .iter()
+        .filter(|(s, _)| s != "embedded" && !crate::candidates::is_search(s))
+        .map(|(_, m)| m)
+        .collect();
+    let mut bad = vec![];
+    for k in IDS.iter().chain(["title", "show", "year"].iter()) {
+        let Some(v) = own.get(*k).filter(|v| !v.is_empty()) else {
+            continue;
+        };
+        let mut vals: Vec<&str> = rows
+            .iter()
+            .filter_map(|m| m.get(*k))
+            .map(|x| x.as_str())
+            .filter(|x| !x.is_empty())
+            .collect();
+        vals.sort();
+        vals.dedup();
+        if vals.is_empty() {
+            continue;
+        }
+        let agrees = vals.iter().any(|x| {
+            if IDS.contains(k) {
+                *x == v.as_str()
+            } else {
+                same(k, v, x)
+            }
+        });
+        if !agrees {
+            bad.push(format!("{k} {v} (sources say {})", vals.join(" / ")));
+        }
+    }
+    bad
+}
+
 /// Same value, only written differently.
 pub fn same(field: &str, a: &str, b: &str) -> bool {
     if field == "year" {
