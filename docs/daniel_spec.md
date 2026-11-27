@@ -187,6 +187,22 @@ Low-confidence vectors (coding_guidelines §1): a vector made by a compressed co
 model is stored with `confidence = low` and queued for regeneration on a capable computer. A
 different, smaller model never stands in.
 
+## 8a. Works not obtained (PROPOSED, 2026-11-27)
+
+All of this is **PROPOSED**; nothing is built.
+
+- Daniel may catalog a work the owner doesn't have, found anywhere (archive.org, Amazon, the
+  Library of Congress, ...), for example a book mentioned in a video. The work record has no copy
+  or file, is marked `not_obtained`, and keeps its source URL(s) and the date each was retrieved.
+- Whatever the source offers (metadata, description, table of contents, free preview text) is
+  indexed and vectorized as `confidence = low`. The mention links to the work.
+- When the item is obtained, Larry hashes it, Tom vectorizes the full text, and the record is
+  upgraded in place. Nothing is downloaded until it is needed.
+- Walter may flag dead or changed source links by adding items to Julie's task list.
+- Metadata only, and each source's terms are respected. Amazon still needs the API check first
+  (jack_spec).
+- Open: which sources first, and who adds such works (Jack, Sammy from a mention, or a person).
+
 ## 9. Personal records
 
 **Decided (2026-11-27):** designed now; **nothing is ingested for real** until Daniel is final.
