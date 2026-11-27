@@ -14,8 +14,8 @@ Tom is the vector windup. Drafted Nov 26, 2026 from existing sources only; updat
 - Vectors go to the shared `vectors` table via Daniel (PROFILE `writes`; `windups/schema/vectors.sql`).
 - Model: a small local embedding model, swappable behind a module (QUESTIONS.md answer 4, Oct 28; bge-small / all-MiniLM, 384 dims, were the proposal). bge-m3 was the Nov 27 lean but is **dropped**: it comes from BAAI (China), against the no-Chinese-software rule (coding_guidelines §3).
 - **DECIDED (2026-11-27):** the quality tier is a normal computer; Pi support is a bonus.
-- **PROPOSED (2026-11-27):** a bake-off on real data of multilingual-e5-large, EmbeddingGemma and arctic-embed-l-v2.0 picks the model.
-- **Runtime, DECIDED (2026-11-27):** the most efficient and most universal option with few dependencies. **PROPOSED:** llama.cpp as the default (shared with LLMs) if the chosen model works well there; compare ONNX Runtime and Candle only if needed.
+- **DECIDED (2026-11-27):** the embedding models are tested, then one is picked. Test set: the owner's notes plus the Bible text; score: whether a search retrieves the right passage. **PROPOSED** candidates: multilingual-e5-large, EmbeddingGemma, arctic-embed-l-v2.0.
+- **Runtime, DECIDED (2026-11-27):** llama.cpp is the default runtime for all models (LLMs and embeddings). ONNX Runtime and Candle are dropped unless needed.
 - **DECIDED in principle (2026-11-27):** vectors from a compressed copy of the chosen model are stored `confidence = low` and queued for regeneration on a capable computer; a different small model never stands in.
 - The embedding model "gets only a plugin hook until Sammy exists" (WINDUPS.md, Jack Nov 1).
 - Larry (hashing) is his peer windup (direction, Nov 27).
@@ -26,6 +26,6 @@ Tom is the vector windup. Drafted Nov 26, 2026 from existing sources only; updat
 Questions 1 and 2 are open for discussion in review (direction, Nov 27).
 
 1. **Wait for Sammy?** The Nov 1 note says only a plugin hook until Sammy exists. Is Tom blocked on Sammy, or may he run a model himself?
-2. **Model and runtime**: answered above (bake-off, llama.cpp proposed). Open: the real-data test set for the bake-off, and how results are scored.
+2. **Model and runtime**: answered above (test, then pick; llama.cpp). Open: the exact passage set and the pass mark for "retrieves the right passage".
 3. **Where the model file lives**: in Tom's folder (one binary + one DB rule), or elsewhere?
 4. **Determinism**: "same text and model give the same vector": exact bytes, or within a tolerance (floating point can differ across CPUs)?

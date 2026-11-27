@@ -62,7 +62,7 @@
  - Only well-made crates that serve a specific purpose and would be hard to reimplement (e.g. SQLite, TLS/HTTP, TOML parsing, fuzzy matching).
  - Never add a dependency just to make code shorter.
  - No software from China (models included), e.g. BAAI's bge models are out
- - Runtimes (Nov 27): choose the most efficient and most universal option with the fewest dependencies. Proposed: llama.cpp as the default for LLMs and embeddings, if the chosen embedding model works well there; compare ONNX Runtime and Candle only if needed
+ - Runtimes (decided Nov 27): llama.cpp is the default runtime for all models (LLMs and embeddings); ONNX Runtime and Candle only if needed. In general: the most efficient and most universal option with the fewest dependencies
  - A C or C++ library is allowed as a dependency when no Rust version exists (e.g. libjxl for lossless JPEG to JPEG XL); all new code is Rust.
  - Always use the latest versions of dependencies and tools where possible; always install Rust with rustup (latest stable); check for updates now and then
  - Only use free sources for any integrations: free to use; a paid tier is fine as long as a publicly accessible free version exists
@@ -113,6 +113,8 @@
  - Deliberate redundancy (own archive + Daniel's catalog) enables reconstruction
  - No sidecars unless requested by the user
  - Windup DB is the source of truth
+ - Tasks (decided Nov 27): planned actions and task lists live in their own operational database, apart from the catalogs
+ - Storage, current direction (open, Nov 27): one encrypted database whose records carry a sensitivity level; each windup has a clearance for its role, which Daniel enforces when serving reads. Nothing leaves the windups except to the user. See docs/daniel_spec.md §12 Q1
  - Schema version with ordered, transactional forward migrations
  - Never move a user's old folder automatically; `migrate` only when asked, after the copy verifies.
  - Settings are viewed and changed only through the windup's `config` command and `--set`; any text shown is plain, for the user only, with no internal dev notes

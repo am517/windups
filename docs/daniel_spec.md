@@ -210,14 +210,16 @@ embed, guess metadata, extract mentions or merge entities.
 
 Answers are marked DECIDED or PROPOSED as given; a PROPOSED answer is not built until confirmed.
 
-1. **One file or several?** **PROPOSED (2026-11-27):** a **shared encrypted archive database** (media,
-   people, maps) that Walter and other windups read, and a **separate personal encrypted
-   database** (records, family photos) with its own key. Keys live in the OS keychain
-   ([identity_and_security.md](identity_and_security.md)). The files live in a global windups data
-   folder in the platform's standard app-data location (not the home folder). Daniel is the only
-   writer. The owner leans toward one file; this needs a final yes. Today's code supports any
-   layout through `[catalogs]`. Still open: does this replace the "one database per windup" rule
-   for Daniel's catalogs (coding_guidelines §4)?
+1. **Storage layout.** **OPEN, current direction (2026-11-27, awaiting confirmation; replaces the
+   two-file proposal):** **one encrypted database** in which every record has a **sensitivity
+   level**, government-style (for example a diary at the highest level, a photo at the lowest).
+   Each windup gets a **clearance** for its role, and Daniel enforces it whenever he serves a read.
+   All windups are trusted as a group; the levels limit the damage if one is compromised. Nothing
+   leaves the windups except to the user, at any level. Keys live in the OS keychain
+   ([identity_and_security.md](identity_and_security.md)); the file lives in the windups folder in
+   the platform's app-data location (not the home folder). Daniel is the only writer. Open
+   sub-questions: the level names and how many there are; the default clearance of each windup;
+   who assigns a record's level. Today's code supports any layout through `[catalogs]`.
 2. **Who settles an `undecided` purpose?** Open. (Julie is the judge, see Q12; does that cover
    purpose?)
 3. **Cast and crew.** **DECIDED (2026-11-27):** cast and crew are **links from media to people, with a role**.
@@ -227,16 +229,18 @@ Answers are marked DECIDED or PROPOSED as given; a PROPOSED answer is not built 
 5. **Japanese and similar text in FTS.** Open.
 6. **Licence for very large corpora.** Open.
 7. **Tom's model.** See `docs/tom_spec.md`: bge-m3 is dropped (no-Chinese-software rule). **PROPOSED (2026-11-27):**
-   a bake-off on real data of multilingual-e5-large, EmbeddingGemma and arctic-embed-l-v2.0.
+   candidates multilingual-e5-large, EmbeddingGemma and arctic-embed-l-v2.0. **DECIDED:** test, then
+   pick (see `docs/tom_spec.md`).
 8. **When SQLite vectors stop being enough.** Open.
 9. **Map geometry.** Open.
 10. **Mentions while Sammy is missing.** Open: confirm that chunks simply stay `mentions = 'pending'`.
 11. **Who reads photo EXIF.** **PROPOSED (2026-11-27):** (agreed) **Jack reads** photo EXIF and other in-file
     metadata; **Lauren only writes** it.
-12. **Links between catalogs.** **DECIDED (2026-11-27):** **Walter checks cross-catalog links**: he flags
-    dangling ones and suggests new ones. **PROPOSED (2026-11-27):** Walter suggests, **Julie accepts or rejects**.
-    Still open: how Walter learns the catalogs' paths (follows from Q1).
+12. **Links between catalogs.** **DECIDED (2026-11-27):** Walter checks cross-catalog links,
+    including dangling ones and possible new ones, and only reports: he adds items to Julie's task
+    list. **Julie decides.** How Walter reaches the catalogs follows from Q1.
 13. **Julie.** **DECIDED (2026-11-27):** Julie is the judge: she runs the best model, can query other windups and
     sees the whole picture. Daniel still does all writing, and windups still work without her.
-14. **Tasks.** **PROPOSED (2026-11-27):** (agreed) tasks (planned actions such as Suzan's) live in a **separate
-    operational database**, apart from the catalogs. See `docs/suzan_spec.md` for the flow.
+14. **Tasks.** **DECIDED (2026-11-27):** tasks (planned actions such as Suzan's, and Julie's task
+    list) live in their **own separate operational database**, apart from the catalogs. See
+    `docs/suzan_spec.md` for the flow.
