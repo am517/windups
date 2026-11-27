@@ -57,7 +57,7 @@ source of truth, and only if real queries show SQLite is not enough.
 
 SQLite cannot enforce a foreign key across files, so a link to another catalog is a pair
 `(catalog, id)`, for example `place_feature_id` in photos points at `maps_features.id`.
-Walter's audit reports a link whose target is missing. Daniel never deletes a row because a link
+A link whose target is missing is meant to be reported by Walter's audit (not built; Q12). Daniel never deletes a row because a link
 dangles.
 
 - Photos → maps: a photo's place is a map feature (`place_feature_id`) and/or coordinates.
@@ -224,3 +224,10 @@ embed, guess metadata, extract mentions or merge entities.
 9. **Map geometry:** is GeoJSON text enough, or is a binary format wanted for large layers?
 10. **Who extracts mentions while Sammy is missing?** As decided, nobody writes; confirm that
     mentions simply wait (marked `mentions_pending`) until Sammy's extractor exists.
+11. **Photos ingest: who reads a photo's EXIF** (time taken, coordinates)? Lauren is the exiftool
+    front end, but for writing. Does she also read for Daniel, does Larry, or does Daniel call
+    exiftool himself? Storage is ready (`daniel/src/photos.rs`); finding and reading photos is not
+    built.
+12. **Dangling links between catalogs** (§4): should Walter's patrol cover Daniel's other catalogs
+    (for example a photo's `place_feature_id` with no map feature), and how does Walter learn
+    their paths: from Daniel, or from his own config?
