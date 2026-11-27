@@ -13,6 +13,7 @@ pub enum Catalog {
 }
 
 const PEOPLE_1: &str = include_str!("../schema/people_001.sql");
+const PEOPLE_2: &str = include_str!("../schema/people_002.sql");
 const RECORDS_1: &str = include_str!("../schema/records_001.sql");
 const MAPS_1: &str = include_str!("../schema/maps_001.sql");
 const PHOTOS_1: &str = include_str!("../schema/photos_001.sql");
@@ -50,7 +51,7 @@ impl Catalog {
         let with_text = |sql: &str| format!("{sql}\n{}", windups::db::text_layer(self.name()));
         match self {
             Catalog::Media => Vec::new(),
-            Catalog::People => vec![PEOPLE_1.to_string()],
+            Catalog::People => vec![PEOPLE_1.to_string(), PEOPLE_2.to_string()],
             Catalog::Records => vec![with_text(RECORDS_1)],
             Catalog::Maps => vec![MAPS_1.to_string()],
             Catalog::Photos => vec![with_text(PHOTOS_1)],
@@ -204,6 +205,7 @@ mod tests {
         // reopening is a no-op, and each catalog kept its own version
         let c = open(Catalog::Photos, &media).unwrap();
         assert_eq!(count(&c, "SELECT count(*) FROM catalog_versions"), 4);
+        assert_eq!(Catalog::People.latest(), 2);
         for cat in Catalog::ALL {
             assert_eq!(version(&c, cat).unwrap(), cat.latest());
         }

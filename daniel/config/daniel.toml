@@ -35,6 +35,12 @@ photos = ""
 [records]
 ingest = false
 
+# Mentions are written only by a final extractor (Sammy's); a placeholder may preview, never write.
+[mentions]
+review_below = 0.8      # stored with needs_review below this confidence (proposed entities always)
+known_limit = 50        # known entities passed to the extractor for one chunk
+max_query_words = 200   # words of a chunk used to look those entities up
+
 # The shared core (see windups/CULTURE.md).
 [core]
 # Daniel's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.

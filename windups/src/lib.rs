@@ -5,6 +5,7 @@ pub mod db;
 pub mod decisions;
 pub mod handoff;
 pub mod lifecycle;
+pub mod mentions;
 pub mod names;
 pub mod paths;
 pub mod proposals;

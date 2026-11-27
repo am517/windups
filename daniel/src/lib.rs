@@ -5,10 +5,12 @@ pub mod alert;
 pub mod catalog;
 pub mod config;
 pub mod ingest;
+pub mod mentions;
 pub mod receive;
 #[cfg(unix)]
 pub mod serve;
 pub mod store;
+pub mod text;
 pub mod walter;
 
 pub use store::{HandoffJson, StoreCfg};

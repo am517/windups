@@ -30,6 +30,11 @@ impl Default for HashCfg {
     }
 }
 
+/// Hash of a piece of text (a chunk), always whole: `b3:` + BLAKE3 of its UTF-8 bytes.
+pub fn text_hash(text: &str) -> String {
+    format!("b3:{}", blake3::hash(text.as_bytes()).to_hex())
+}
+
 pub fn file_hash(path: &Path, cfg: &HashCfg) -> std::io::Result<String> {
     let mut f = std::fs::File::open(path)?;
     let size = f.metadata()?.len();
@@ -54,6 +59,12 @@ pub fn file_hash(path: &Path, cfg: &HashCfg) -> std::io::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn equal_text_has_an_equal_whole_hash() {
+        assert_eq!(text_hash("a b"), text_hash("a b"));
+        assert_ne!(text_hash("a b"), text_hash("a c"));
+        assert!(text_hash("").starts_with("b3:"));
+    }
     #[test]
     fn whole_for_small_partial_for_big_same_bytes_same_hash() {
         let d = tempfile::tempdir().unwrap();
