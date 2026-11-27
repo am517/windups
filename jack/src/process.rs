@@ -306,14 +306,7 @@ pub(crate) fn process(
     }
     let _ = writeln!(out, "    ids: {}", found_ids(&meta, s));
     if !dry && !print {
-        match crate::handoff::hand_over(
-            path,
-            &meta,
-            &found,
-            &cfg.archive,
-            cfg.emit_json.as_deref(),
-            cfg.sidecar_json,
-        ) {
+        match crate::handoff::hand_over(path, &meta, &found, &cfg.archive) {
             Ok(w) => {
                 let _ = writeln!(out, "    {w}");
             }
@@ -481,14 +474,7 @@ fn incomplete(
     // file purgatory: only the file's own values, kept under a stable id until identified or merged
     m.insert("lifecycle".into(), crate::stage::UNDETERMINED.into());
     if !Settings::flag(s.dry_run) {
-        match crate::handoff::hand_over(
-            path,
-            &m,
-            &found,
-            &cfg.archive,
-            cfg.emit_json.as_deref(),
-            cfg.sidecar_json,
-        ) {
+        match crate::handoff::hand_over(path, &m, &found, &cfg.archive) {
             Ok(w) => {
                 let _ = writeln!(out, "    kept as incomplete: {w}");
             }

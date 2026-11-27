@@ -60,16 +60,9 @@ Jack's folder holds three things: the `jack` binary, his own database `jack.db`,
 
 - Each record carries `synced_at`: empty until the sync target acknowledges it. At the end of every run Jack syncs to Daniel, the record keeper (`[archive] sync_target = "daniel"`; `sync_transport = "library"` calls `daniel::receive` in-process, `"socket"` talks to a running `daniel serve` over `daniel_socket`, see `../windups/COMMANDS.md`), in batches with one result per record; a record is marked synced only after its ack, so a retry is safe. Jack keeps his records after syncing (on purpose). If media.db can't be opened, records just wait in `jack.db`. `sync_target = "none"` (or `[store] enabled = false`) keeps them local. No `<file>.jack.json` is written beside the media (`[store] handoff_json` and `fallback_suffix` are ignored).
 - `[archive] id`: `content` (default; an identical re-run is the same record) or `per_run`.
-- Universal commands (see `../windups/COMMANDS.md`): `jack status|health|sync|backup|export [-|DIR]|version|config|log [N]|help|talk WORDS...`, plus Jack's own `identify PATH...`, `ask` and `setup`. A real file or folder with one of those names is still treated as a path. `jack export` writes every record (JSONL); `--emit-json` stays for one run's entries.
+- Universal commands (see `../windups/COMMANDS.md`): `jack status|health|sync|backup|export [-|DIR]|version|config|log [N]|help|talk WORDS...`, plus Jack's own `identify PATH...`, `ask` and `setup`. A real file or folder with one of those names is still treated as a path. `jack export` writes every record (JSONL).
 - Jack's folder: see `../windups/LAYOUT.md` (`--config` > `JACK_HOME` > the binary's folder > the data folder > legacy `~/.config/windups/jack/`). The first run makes the data folder and links `~/.local/bin/jack`; snapshots go in `<folder>/backups/`.
-- `--emit-json -` writes one JSON object per entry to stdout (the run report goes to stderr, so this can be piped). `--emit-json DIR` writes `<filename>.jack.json` into that directory.
-- Do not combine `--emit-json -` with `--print` if you need a clean JSON stream.
-
-```zsh
-jack movie.mkv --emit-json - | daniel ingest --db ~/.local/share/windups/media.db -
-```
-
-Re-ingesting the same file updates its entry; it does not create duplicates.
+- `-j` / `--json` prints the run's result as one JSON object on stdout (`{"v":1,"ok":..,"items":[{file, ok, lifecycle, reason, error, metadata}]}`); add `-p` for the facts in `metadata`. No prompts, no commentary. `--emit-json`, `--print-format` and the `-j` sidecar are gone; `jack export [-|DIR]` writes the kept records.
 
 ## API keys
 

@@ -40,9 +40,7 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
         return Err("no files or directories given (see --help)".into());
     }
     let mut cfg = config::load(cli.config.as_deref())?;
-    cfg.emit_json = cli.emit_json.clone();
     cfg.windup = cli.windup;
-    cfg.sidecar_json = cli.json;
     // discover relationships (assistant / matchmaker / database / llm); isolation if nobody answers
     let found = windups::base::relationships::resolve(
         cfg.relationships.clone(),
@@ -169,6 +167,7 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
             "lifecycle": m.get("lifecycle"),
             "reason": m.get("unresolved_reason"),
             "error": if unresolved { serde_json::Value::String(more.into()) } else { serde_json::Value::Null },
+            "metadata": printed_facts(&pr.json, file),
         }));
     }
     if cli.windup {
@@ -193,6 +192,14 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
         let _ = writeln!(o, "dry run: changed nothing");
     }
     Ok((o, pr.text, failed + key_failures))
+}
+
+/// With `-p -j`, the facts printed for `file`; otherwise null.
+fn printed_facts(printed: &[serde_json::Value], file: &str) -> serde_json::Value {
+    printed
+        .iter()
+        .find(|p| p["file"].as_str() == Some(file))
+        .map_or(serde_json::Value::Null, |p| p["metadata"].clone())
 }
 
 /// No media was processed. Human mode says why; windup mode returns a structured failure.
@@ -463,47 +470,32 @@ mod tests {
         assert!(!p.contains("SECRETTOK"));
         assert_eq!(listing(), before);
         assert_eq!(fs::read(&m).unwrap(), b"x");
-        // json is clean stdout
+        // -p -j: one JSON result on stdout, the facts in their own field
         let (_, p, _) = run(
-            &cli(&[
-                "--config",
-                cs,
-                "--print",
-                "--print-format",
-                "json",
-                "--tmdb",
-                "603",
-                ms,
-            ]),
+            &cli(&["--config", cs, "-p", "-j", "--tmdb", "603", ms]),
             &h(),
         )
         .unwrap();
         let v: serde_json::Value = serde_json::from_str(&p).unwrap();
-        assert_eq!(v[0]["file"], ms);
-        assert_eq!(v[0]["metadata"]["year"], "1999");
+        assert_eq!(v["ok"], true);
+        assert_eq!(v["items"][0]["file"], ms);
+        assert_eq!(v["items"][0]["metadata"]["year"], "1999");
         assert_eq!(listing(), before);
+        // -j without -p: the status only, no facts
+        let (_, p, _) = run(
+            &cli(&["--config", cs, "-j", "--dry-run", "--tmdb", "603", ms]),
+            &h(),
+        )
+        .unwrap();
+        let v: serde_json::Value = serde_json::from_str(&p).unwrap();
+        assert!(v["items"][0]["metadata"].is_null(), "{v}");
         let (_, p, _) = run(&cli(&["--config", cs, "-p", "--tmdb", "603", ms]), &h()).unwrap();
         assert!(p.contains("title: The Matrix"));
         assert!(!d.path().join("The Matrix (1999).mp4.meta.json").exists());
         assert!(!d.path().join("The Matrix (1999).mp4.poster.jpg").exists());
         assert_eq!(fs::read(&m).unwrap(), b"x");
-        // --set saves print + print_format; config then drives json
-        run(
-            &cli(&["--set", "--config", cs, "-p", "--print-format", "json"]),
-            &h(),
-        )
-        .unwrap();
-        let t = fs::read_to_string(&cfg).unwrap();
-        assert!(
-            t.contains("print = true") && t.contains("print_format = \"json\""),
-            "{t}"
-        );
-        let (_, p, _) = run(&cli(&["--config", cs, "--tmdb", "603", ms]), &h()).unwrap();
-        assert!(
-            serde_json::from_str::<serde_json::Value>(&p)
-                .unwrap()
-                .is_array()
-        );
+        // the old --print-format flag is gone
+        assert!(Cli::read(["jack", "--print-format", "json", ms]).is_err());
     }
 
     #[test]
@@ -664,7 +656,7 @@ mod tests {
     }
 
     #[test]
-    fn json_sidecar_and_db_first_skip() {
+    fn json_flag_writes_nothing_beside_the_media_and_db_first_skip() {
         use serde_json::json;
         let d = tempfile::tempdir().unwrap();
         let cfgp = d.path().join("c.toml");
@@ -691,7 +683,7 @@ mod tests {
             cli(&v)
         };
         let (out, _, failed) = run(&args(&["--json"]), &h).unwrap();
-        // dry-run does not write the sidecar or jack.db
+        // dry-run writes nothing
         assert_eq!(failed, 0, "{out}");
         assert!(!d.path().join("The.Matrix.1999.mkv.jack.json").exists());
 
@@ -704,10 +696,10 @@ mod tests {
         ]);
         let (out, _, failed) = run(&args(&["--json", "--no-dry-run"]), &h).unwrap();
         assert_eq!(failed, 0, "{out}");
-        let side = d.path().join("The.Matrix.1999.mkv.jack.json");
-        assert!(side.exists(), "sidecar: {out}");
-        let js = fs::read_to_string(&side).unwrap();
-        assert!(js.contains("The Matrix") && js.contains("\"v\":1"), "{js}");
+        assert!(
+            !d.path().join("The.Matrix.1999.mkv.jack.json").exists(),
+            "no sidecar: {out}"
+        );
 
         // second run: no HTTP needed when the record is complete
         let quiet = providers::fake::FakeHttp::new(vec![]);

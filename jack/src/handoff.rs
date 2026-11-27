@@ -1,11 +1,10 @@
 //! The handoff: Jack only fetches and verifies; one entry per file goes into his own archive
 //! (jack.db), with the disagreements Jack found between sources. Daniel, the record keeper, gets
-//! it from there by sync (see sync.rs): one route. `--emit-json` also writes the versioned JSON
-//! (see schema/handoff_v1.md).
+//! it from there by sync (see sync.rs): one route. `jack export` writes the kept records as
+//! versioned JSON (see schema/handoff_v1.md).
 use crate::archive::{Archive, ArchiveCfg};
 use crate::meta::Meta;
-use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use windups::handoff::Handoff;
 
 static CALLER: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
@@ -15,16 +14,14 @@ pub fn set_caller(c: Option<String>) {
     let _ = CALLER.set(c);
 }
 
-/// Keeps one entry for `path` in Jack's own archive (jack.db), and writes it as JSON when
-/// `--emit-json` asks. Nothing is jotted beside the media; the sync at the end of the run takes it
-/// to Daniel, and if he can't be reached the record just waits in jack.db.
+/// Keeps one entry for `path` in Jack's own archive (jack.db). Nothing is jotted beside the media;
+/// the sync at the end of the run takes it to Daniel, and if he can't be reached the record just
+/// waits in jack.db.
 pub fn hand_over(
     path: &Path,
     entry: &Meta,
     found: &[(String, Meta)],
     archive: &ArchiveCfg,
-    emit_json: Option<&str>,
-    sidecar: bool,
 ) -> Result<String, String> {
     let conflicts = if entry.get("resolution").is_some_and(|r| r == "unresolved") {
         vec![]
@@ -42,61 +39,10 @@ pub fn hand_over(
 
     // the archive comes first: if Jack can't keep his own record, that is a real failure
     let (id, new) = Archive::open(archive)?.write(&h)?;
-    let mut notes = vec![format!(
+    Ok(format!(
         "jack.db: {id}{}",
         if new { "" } else { " (already kept)" }
-    )];
-    if sidecar {
-        notes.push(emit_sidecar(&h, path)?);
-    }
-    if let Some(dest) = emit_json {
-        notes.push(emit(&h, dest, path)?);
-    }
-    Ok(notes.join("; "))
-}
-
-/// `-j` / `--json`: write `<file>.jack.json` beside the media (off by default).
-fn emit_sidecar(h: &Handoff, media: &Path) -> Result<String, String> {
-    let mut s = media.as_os_str().to_owned();
-    s.push(".jack.json");
-    let p = PathBuf::from(s);
-    write_file(h, &p)?;
-    Ok(format!("handoff json: {}", p.display()))
-}
-
-fn write_file(h: &Handoff, path: &Path) -> Result<(), String> {
-    let f = std::fs::File::create(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let mut w = BufWriter::new(f);
-    h.write_json(&mut w)?;
-    w.write_all(b"\n")
-        .map_err(|e| format!("{}: {e}", path.display()))?;
-    w.flush().map_err(|e| format!("{}: {e}", path.display()))?;
-    Ok(())
-}
-
-/// `--emit-json -` writes one object to stdout; `--emit-json DIR` writes `<name>.jack.json` there.
-fn emit(h: &Handoff, dest: &str, media: &Path) -> Result<String, String> {
-    if dest == "-" {
-        let stdout = std::io::stdout();
-        let mut w = BufWriter::new(stdout.lock());
-        h.write_json(&mut w)?;
-        w.write_all(b"\n").map_err(|e| e.to_string())?;
-        w.flush().map_err(|e| e.to_string())?;
-        Ok("handoff json: stdout".into())
-    } else {
-        std::fs::create_dir_all(dest).map_err(|e| format!("{dest}: {e}"))?;
-        let mut p = PathBuf::from(dest);
-        p.push(
-            media
-                .file_name()
-                .unwrap_or_else(|| std::ffi::OsStr::new("handoff")),
-        );
-        let mut s = p.into_os_string();
-        s.push(".jack.json");
-        let p = PathBuf::from(s);
-        write_file(h, &p)?;
-        Ok(format!("handoff json: {}", p.display()))
-    }
+    ))
 }
 
 #[cfg(test)]
@@ -128,7 +74,7 @@ mod tests {
             ("lifecycle", "unverified"),
         ]);
         let found = vec![("tmdb".into(), meta(&[("title", "The Matrix")]))];
-        let r = hand_over(&media, &entry, &found, &archive(&d), None, false).unwrap();
+        let r = hand_over(&media, &entry, &found, &archive(&d)).unwrap();
         assert!(r.starts_with("jack.db: jack-"), "{r}");
         let mut left: Vec<_> = std::fs::read_dir(d.path())
             .unwrap()
@@ -147,40 +93,8 @@ mod tests {
         assert_eq!(h.from, "jack");
         assert_eq!(h.entry.get("title").map(String::as_str), Some("The Matrix"));
         assert_eq!(h.candidates[0].0, "tmdb");
-        // asked for explicitly, --emit-json DIR still writes the same v1 object
-        let dest = d.path().join("out");
-        let r = hand_over(
-            &media,
-            &entry,
-            &found,
-            &archive(&d),
-            Some(dest.to_str().unwrap()),
-            false,
-        )
-        .unwrap();
+        let r = hand_over(&media, &entry, &found, &archive(&d)).unwrap();
         assert!(r.contains("(already kept)"), "{r}");
-        let emitted = dest.join("The.Matrix.1999.mkv.jack.json");
-        let h2 = Handoff::read_json(std::fs::File::open(&emitted).unwrap()).unwrap();
-        assert_eq!(h, h2);
         assert_eq!(a.counts().unwrap(), (1, 1), "the re-run did not duplicate");
-    }
-
-    #[test]
-    fn json_flag_writes_a_sidecar_beside_the_media() {
-        let d = tempfile::tempdir().unwrap();
-        let media = d.path().join("Heat.1995.mkv");
-        std::fs::write(&media, b"x").unwrap();
-        let entry = meta(&[
-            ("kind", "movie"),
-            ("title", "Heat"),
-            ("year", "1995"),
-            ("lifecycle", "unverified"),
-        ]);
-        let r = hand_over(&media, &entry, &[], &archive(&d), None, true).unwrap();
-        assert!(r.contains("handoff json:"), "{r}");
-        let side = d.path().join("Heat.1995.mkv.jack.json");
-        assert!(side.exists(), "sidecar {}", side.display());
-        let h = Handoff::read_json(std::fs::File::open(&side).unwrap()).unwrap();
-        assert_eq!(h.entry.get("title").map(String::as_str), Some("Heat"));
     }
 }

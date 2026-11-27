@@ -44,14 +44,12 @@ mod to_daniel;
 mod tools;
 mod universal;
 
-use clap::Parser;
-
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if universal::is_command(&args) {
         std::process::exit(universal::main(&args));
     }
-    let cli = cli::Cli::parse();
+    let cli = cli::Cli::read(std::env::args_os()).unwrap_or_else(|e| e.exit());
     if !cli.capabilities {
         universal::ensure_folder(cli.config.as_deref());
     }
@@ -89,7 +87,7 @@ fn main() {
             } else if s.trim().is_empty() && printed.trim().is_empty() {
                 eprintln!("jack: finished without saying what happened");
                 std::process::exit(1);
-            } else if printed.is_empty() && cli.emit_json.as_deref() != Some("-") {
+            } else if printed.is_empty() {
                 print!("{s}");
             } else {
                 eprint!("{s}");

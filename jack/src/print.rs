@@ -11,9 +11,10 @@ pub(crate) struct Printed {
     pub(crate) json: Vec<serde_json::Value>,
 }
 
-pub(crate) fn print_meta(path: &Path, s: &Settings, _cfg: &Config, meta: &Meta, p: &mut Printed) {
+/// With `-j`, the facts go into the JSON result (one entry per file); otherwise as text.
+pub(crate) fn print_meta(path: &Path, _s: &Settings, cfg: &Config, meta: &Meta, p: &mut Printed) {
     let m = meta.clone();
-    if s.print_format.as_deref() == Some("json") {
+    if cfg.windup {
         p.json
             .push(serde_json::json!({"file": path.to_string_lossy(), "metadata": m}));
     } else {

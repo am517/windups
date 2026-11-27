@@ -61,8 +61,6 @@ pub struct Settings {
     pub dry_run: Option<bool>,
     /// Print composite metadata to stdout.
     pub print: Option<bool>,
-    /// "text" or "json".
-    pub print_format: Option<String>,
     pub imdb: Option<String>,
     pub thetvdb: Option<String>,
     pub tmdb: Option<String>,
@@ -88,7 +86,6 @@ impl Settings {
             recursive: self.recursive.or(l.recursive),
             dry_run: self.dry_run.or(l.dry_run),
             print: self.print.or(l.print),
-            print_format: self.print_format.or(l.print_format),
             imdb: self.imdb.or(l.imdb),
             thetvdb: self.thetvdb.or(l.thetvdb),
             tmdb: self.tmdb.or(l.tmdb),
@@ -121,15 +118,9 @@ pub struct Config {
     pub relationships: windups::base::relationships::Relationships,
     /// The shared core: event log limits, snapshots, talk synonyms (`[core]`).
     pub core: windups::base::config::BaseCfg,
-    /// `--emit-json`; not a config file key (skipped on load).
-    #[serde(skip)]
-    pub emit_json: Option<String>,
-    /// `--windup` / `-w`; not a config file key.
+    /// `-j` / `--json` (or `-w`): the result as JSON on stdout, no prompts; not a config file key.
     #[serde(skip)]
     pub windup: bool,
-    /// `-j` / `--json` sidecar beside the media; not a config file key.
-    #[serde(skip)]
-    pub sidecar_json: bool,
     pub online: crate::online::OnlineCfg,
     pub embedded: crate::filemeta::EmbeddedCfg,
     pub explain: crate::explain::ExplainCfg,

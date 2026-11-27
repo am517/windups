@@ -50,9 +50,6 @@ pub(crate) fn save_flags(cli: &Cli) -> Result<String, String> {
     if let Some(v) = &Settings::from(cli).kind {
         ch.push(s("type", v));
     }
-    if let Some(v) = &cli.print_format {
-        ch.push(s("print_format", v));
-    }
     let f = Settings::from(cli);
     for (k, v) in [
         ("dry_run", f.dry_run),
