@@ -41,6 +41,7 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
     }
     let mut cfg = config::load(cli.config.as_deref())?;
     cfg.windup = cli.windup;
+    cfg.picks = cli.pick.clone();
     // discover relationships (assistant / matchmaker / database / llm); isolation if nobody answers
     let found = windups::base::relationships::resolve(
         cfg.relationships.clone(),
@@ -829,6 +830,161 @@ mod tests {
                 json!({"data":{"id":27498,"name":"Mountain","year":"2017"}}),
             ),
         ]);
+        assert!(out.contains("identified: Mountain (2017)"), "{out}");
+    }
+
+    /// Nov 27 rerun: the file still carries an old writer's wrong tags (Brokeback Mountain,
+    /// IMDb tt0388795, TMDB 142, year 2018). The user's `--thetvdb 27498 --year 2017` outranks
+    /// them: Jack reports the tags as wrong, never looks them up, and identifies Mountain (2017).
+    #[cfg(unix)]
+    #[test]
+    fn wrong_file_tags_are_reported_and_a_user_id_outranks_them() {
+        use serde_json::json;
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let probe = d.path().join("ffprobe");
+        fs::write(
+            &probe,
+            "#!/bin/sh\necho '{\"format\":{\"tags\":{\"title\":\"Brokeback Mountain\",\"date\":\"2018\",\"IMDB_ID\":\"tt0388795\",\"TMDB_ID\":\"142\"}}}'\n",
+        )
+        .unwrap();
+        fs::set_permissions(&probe, fs::Permissions::from_mode(0o755)).unwrap();
+        let cfg = d.path().join("c.toml");
+        fs::write(
+            &cfg,
+            format!(
+                "[store]\nenabled = false\n[archive]\nsync_target = \"none\"\n\
+                 [online]\nffprobe = {:?}\n\
+                 [providers]\norder = [\"tmdb\", \"thetvdb\", \"omdb\", \"tvmaze\"]\n\
+                 [providers.tmdb]\nread_token = \"t\"\nbase_url = \"http://tmdb\"\n\
+                 [providers.thetvdb]\napi_key = \"k\"\nbase_url = \"http://tvdb\"\n\
+                 [providers.omdb]\napi_key = \"o\"\nbase_url = \"http://omdb/\"\n\
+                 [providers.tvmaze]\nbase_url = \"http://maze\"\n",
+                probe.to_str().unwrap()
+            ),
+        )
+        .unwrap();
+        let file = d.path().join("Folder With Spaces/video.mp4");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, "bytes").unwrap();
+        let h = providers::fake::FakeHttp::new(vec![
+            ("/find/27498", json!({"tv_results":[],"movie_results":[]})),
+            // the wrong work: reachable only through the file's bad tags
+            (
+                "/movie/142",
+                json!({"id":142,"title":"Brokeback Mountain","release_date":"2005-09-10","imdb_id":"tt0388795"}),
+            ),
+            (
+                "i=tt0388795",
+                json!({"Title":"Brokeback Mountain","Year":"2005","imdbID":"tt0388795","Response":"True"}),
+            ),
+            (
+                "i=tt6203570",
+                json!({"Title":"Mountain","Year":"2017","imdbID":"tt6203570","Response":"True"}),
+            ),
+            ("/login", json!({"data":{"token":"T"}})),
+            ("/series/27498", json!({"__status": 404})),
+            (
+                "/movies/27498/extended",
+                json!({"data":{"remoteIds":[{"sourceName":"IMDB","id":"tt6203570"},{"sourceName":"TheMovieDB.com","id":"462145"}]}}),
+            ),
+            (
+                "/movies/27498",
+                json!({"data":{"id":27498,"name":"Mountain","year":"2017"}}),
+            ),
+        ]);
+        let c = cli(&[
+            file.to_str().unwrap(),
+            "--config",
+            cfg.to_str().unwrap(),
+            "--thetvdb",
+            "27498",
+            "--year",
+            "2017",
+        ]);
+        let (out, _, _) = run(&c, &h).unwrap();
+        assert!(out.contains("identified: Mountain (2017)"), "{out}");
+        assert!(out.contains("file tags look wrong"), "{out}");
+        for bad in ["imdb_id tt0388795", "tmdb_id 142", "year 2018"] {
+            assert!(out.contains(bad), "{bad} not reported: {out}");
+        }
+        let calls = h.calls.borrow();
+        assert!(
+            !calls
+                .iter()
+                .any(|c| c.contains("/movie/142") || c.contains("tt0388795")),
+            "the file's wrong ids were looked up: {calls:?}"
+        );
+        assert_eq!(fs::read(&file).unwrap(), b"bytes");
+    }
+
+    /// Can't decide: the candidates are listed once, grouped by source, and `--pick` settles it.
+    #[test]
+    fn candidates_are_listed_once_by_source_and_picks_settle_the_match() {
+        use serde_json::json;
+        let d = tempfile::tempdir().unwrap();
+        let cfg = d.path().join("c.toml");
+        fs::write(
+            &cfg,
+            "[store]\nenabled = false\n[archive]\nsync_target = \"none\"\n\
+             [embedded]\nenabled = false\n\
+             [candidates]\nper_source = 2\n\
+             [providers]\norder = [\"tmdb\", \"thetvdb\"]\n\
+             [providers.tmdb]\nread_token = \"t\"\nbase_url = \"http://tmdb\"\n\
+             [providers.thetvdb]\napi_key = \"k\"\nbase_url = \"http://tvdb\"\n",
+        )
+        .unwrap();
+        let file = d.path().join("Mountain.2017.mp4");
+        fs::write(&file, "x").unwrap();
+        let http = || {
+            providers::fake::FakeHttp::new(vec![
+                (
+                    "/search/movie",
+                    json!({"results":[
+                        {"id":462145,"title":"Mountain","release_date":"2017-09-28"},
+                        {"id":7,"title":"Mountain Men","release_date":"2017-01-01"},
+                        {"id":8,"title":"Mountain Three","release_date":"2017-01-01"}]}),
+                ),
+                (
+                    "/movie/462145",
+                    json!({"id":462145,"title":"Mountain","release_date":"2017-09-28"}),
+                ),
+                ("/login", json!({"data":{"token":"T"}})),
+                (
+                    "/search?type=movie",
+                    json!({"data":[{"tvdb_id":"555","name":"Mountain","year":"2005"}]}),
+                ),
+                ("/movies/555/extended", json!({"data":{}})),
+                (
+                    "/movies/555",
+                    json!({"data":{"id":555,"name":"Mountain","year":"2005"}}),
+                ),
+                ("/movies/555/translations", json!({"data":{}})),
+            ])
+        };
+        let args = |extra: &[&'static str]| {
+            let mut a = vec![
+                file.to_str().unwrap().to_string(),
+                "--config".into(),
+                cfg.to_str().unwrap().to_string(),
+                "--movie".into(),
+            ];
+            a.extend(extra.iter().map(|s| s.to_string()));
+            a
+        };
+        let a = args(&[]);
+        let refs: Vec<&str> = a.iter().map(String::as_str).collect();
+        let (out, _, _) = run(&cli(&refs), &http()).unwrap();
+        assert!(out.contains("candidates (pick with --pick"), "{out}");
+        assert_eq!(out.matches("tmdb:\n").count(), 1, "listed once: {out}");
+        assert!(out.contains("thetvdb:"), "{out}");
+        // the search list is capped by [candidates] per_source
+        assert!(!out.contains("Mountain Three"), "{out}");
+        assert!(!out.contains("identified:"), "{out}");
+        let a = args(&["--pick", "1"]);
+        let refs: Vec<&str> = a.iter().map(String::as_str).collect();
+        let (out, _, _) = run(&cli(&refs), &http()).unwrap();
+        assert!(out.contains("picked: tmdb"), "{out}");
         assert!(out.contains("identified: Mountain (2017)"), "{out}");
     }
 

@@ -37,7 +37,8 @@ jack movie.mp4 -p                                    # print the facts; Jack alw
 ## Config
 
 - Main config: `"~/Library/Application Support/Windups/jack/config.toml"` on macOS, `~/.local/share/windups/jack/config.toml` on Linux (old installs: `~/.config/windups/jack/config.toml`) or `--config <path>`; deep-merged over the built-in defaults in `config/jack.toml`, which documents every key. Quote the macOS path; it contains a space.
-- Embedded ids, names and dates count as flags. An embedded id is trusted the way `--imdb` is. `--name` and `--year` only filter.
+- Embedded ids, names and dates count as flags when you give no id. An id you give outranks the file's tags; tags that disagree with it are reported as "file tags look wrong" and not used. `--name` and `--year` only filter.
+- When Jack can't decide, he lists the candidates once, grouped by source. Pick at most one per source by number, at the prompt or with `--pick "1 6"`. Picks count as confirming sources.
 - A title is accepted only when it is the single result at or above `[matching] fuzzy_threshold` (default 0.90). The score is stored with the decision.
 - When Jack cannot decide and Sammy is not connected, a person is asked `Would you like to see candidates (y/n)?`. A pipe or another windup gets exit code 1 and the reason.
 - Precedence: flags > main config > built-in defaults. `~` is expanded in paths.
