@@ -7,6 +7,7 @@
  - Preserve intentional humor in windup personalities
  - Naming windups after people is on purpose
  - Windups get first names only
+ - Standing rule: every new windup name is added to `windups/NAMES.md` (and the roster) as part of creating that windup
  - Names should be of traditional American, English, Celtic, Germanic, French, Nordic, Slavic or Japanese roots
  - Windups have a shared culture
  - Windups have a personality descriptor (à la the movie Inside Out, e.g. Curiosity, Frigidity, Happiness)
