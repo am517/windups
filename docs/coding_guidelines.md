@@ -24,6 +24,8 @@
  - They keep their complete action history
  - They act only on sure decisions
  - Quality of permanent records: a windup may scale down (a cheaper method, fewer sources) when it reads or uses data, but when it writes permanent records it uses the best-quality method available. A placeholder (rule-based, partial or test method) may preview, never write permanent records; if the best method is missing, the write waits and says why
+ - Low-confidence records (decided in principle, Nov 27): two stand-ins may be written, marked `confidence = low` and queued for regeneration on a capable computer: vectors made by a compressed copy of the same model, and a placeholder summary that is the best source summary with its source noted. A different, smaller model never stands in for vectors
+ - Quality tier (Nov 27): the reference is a normal computer; running on a Pi is a bonus, not a requirement
  - Tasks are living records: check for existing work, records and sources before starting from scratch
 - Communication
  - They're open about what they're doing
@@ -59,6 +61,8 @@
  - As few dependencies as necessary
  - Only well-made crates that serve a specific purpose and would be hard to reimplement (e.g. SQLite, TLS/HTTP, TOML parsing, fuzzy matching).
  - Never add a dependency just to make code shorter.
+ - No software from China (models included), e.g. BAAI's bge models are out
+ - Runtimes (Nov 27): choose the most efficient and most universal option with the fewest dependencies. Proposed: llama.cpp as the default for LLMs and embeddings, if the chosen embedding model works well there; compare ONNX Runtime and Candle only if needed
  - A C or C++ library is allowed as a dependency when no Rust version exists (e.g. libjxl for lossless JPEG to JPEG XL); all new code is Rust.
  - Always use the latest versions of dependencies and tools where possible; always install Rust with rustup (latest stable); check for updates now and then
  - Only use free sources for any integrations: free to use; a paid tier is fine as long as a publicly accessible free version exists

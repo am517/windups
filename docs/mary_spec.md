@@ -16,7 +16,7 @@ Mary is the summary windup. Drafted Nov 26, 2026 from existing sources only; upd
 - Code today: `mary/src/lib.rs` has a `Summarizer` trait and a `NoSummary` stub.
 
 ## 3. Open questions
-1. **How she summarizes**: with Sammy (an LLM) only, or also without Sammy (for example extractive: first sentence(s) of the longest stored text)? Without Sammy, does she do nothing? The quality rule (Nov 27, coding_guidelines §1) says a placeholder never writes permanent records. Is a stored summary permanent (then nothing is written without Sammy), or a rebuildable derivative?
+1. **How she summarizes**: with Sammy (an LLM) only, or also without Sammy (for example extractive: first sentence(s) of the longest stored text)? Without Sammy, does she do nothing? The quality rule (Nov 27, coding_guidelines §1) says a placeholder never writes permanent records. Is a stored summary permanent (then nothing is written without Sammy), or a rebuildable derivative? **DECIDED in principle (2026-11-27):** without the best model, the placeholder summary is the best source summary with its source noted, stored `confidence = low` and queued for regeneration on a capable computer.
 2. **Length**: what counts as "short" (characters, sentences)? A config value with what default?
 3. **Truth vs fact**: jack_spec says truths aren't synced to Daniel, but Mary's profile says she writes the summary via Daniel. Which wins for Mary?
 4. **Language**: summarize in the source text's language, or always English?
