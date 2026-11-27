@@ -23,6 +23,7 @@
  - Employ deduction, logic and pattern-noticing, using classical algorithms first (since they're cheaper) followed by Sammy if needed
  - They keep their complete action history
  - They act only on sure decisions
+ - Quality of permanent records: a windup may scale down (a cheaper method, fewer sources) when it reads or uses data, but when it writes permanent records it uses the best-quality method available. A placeholder (rule-based, partial or test method) may preview, never write permanent records; if the best method is missing, the write waits and says why
  - Tasks are living records: check for existing work, records and sources before starting from scratch
 - Communication
  - They're open about what they're doing
