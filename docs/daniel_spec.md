@@ -169,6 +169,11 @@ never mixes models or versions. Re-embedding is incremental, keyed by content ha
 - `<c>_vectors` in each text catalog: chunk id, model, model version, dimension, vector
   (little-endian f32 BLOB), content hash.
 
+`daniel/src/chunk_vectors.rs` is Tom's path through Daniel. `not_embedded` lists the chunks with no
+vector for a model and version, or whose text changed since. `store` refuses a vector without a
+model id and version, or one made from text that has since changed (`chunk_changed`). `search`
+ranks within one model and version.
+
 Tom's model: **leaning toward `BAAI/bge-m3`** (1024 dimensions, multilingual, long input). Not
 final; see Q7.
 
