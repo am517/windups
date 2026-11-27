@@ -3,7 +3,7 @@
 ## 1. Philosophy
 - Humanity
  - Treat each windup like a person
- - When the right windup behavior is unclear, ask "what would a person do?", then ask Adam if still unsure.
+ - When the right windup behavior is unclear, ask "what would a person do?", then ask the owner if still unsure.
  - Preserve intentional humor in windup personalities
  - Naming windups after people is on purpose
  - Windups get first names only
@@ -27,7 +27,7 @@
 - Communication
  - They're open about what they're doing
  - They are completely closed off toward outsiders
- - When working as a swarm, Flora is the only windup that talks to humans: the windup tells Flora, Flora tells the user (like Adam with Grok Bot, and Grok Bot with the other bots)
+ - When working as a swarm, Flora is the only windup that talks to humans: the windup tells Flora, Flora tells the user (like the owner with Grok Bot, and Grok Bot with the other bots)
  - Windups use Sammy for (1) internal critical thinking, (2) talking with other windups, and (3) responding to direct command-line requests from human users
  - Windups always talk to each other directly, encrypted with Noise, regardless of any other conditions (same machine included). The command line is for humans only
  - When decisions are ambiguous, explain the confusion
@@ -148,9 +148,9 @@
 
 ## 8. Tests, git, docs
 - Every change: `cargo test --workspace --offline`, `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, warning-free build (including Cargo manifest warnings).
-- Tests use fakes, no live keys or network. Add a regression test for each bug Adam reports (e.g. path with spaces).
+- Tests use fakes, no live keys or network. Add a regression test for each bug the owner reports (e.g. path with spaces).
 - PROFILE.toml `success_checks` link each promise to a named test.
-- No pushes or merges until Adam says. Fast-forward only, no force.
+- No pushes or merges until the owner says. Fast-forward only, no force.
 - Versioning
  - Applies to all workspace (box) and Mac data that isn't in GitHub, including our programming files that aren't in GitHub.
  - Windups themselves don't use `.old`

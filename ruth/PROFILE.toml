@@ -3,7 +3,7 @@ role = "references"
 summary = "Ruth builds the APA 7 work reference and work key from gathered facts, using original-language titles and the original release; provisional whenever it can't be fully built."
 purpose = "Name each work in one standard way, so versions of the same work group together."
 personality = "Academic"
-personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
+personality_status = "set (work in progress)"  # set = chosen by the owner ("work in progress" while names may change); proposed = a draft
 status = "library (real code, called by Daniel); no CLI yet"
 reads = ["an entry's facts"]
 writes = ["work reference, key, provisional flag, what is missing"]

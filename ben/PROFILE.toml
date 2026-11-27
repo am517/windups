@@ -1,9 +1,9 @@
 name = "ben"
 role = "builds"
 summary = "Ben rebuilds the windups for new platforms (cross-compiles and packages them) so they stay portable with no system services. When Oliver needs a missing windup, Ben fetches and installs it."
-purpose = "Keep the windups running on every platform Adam uses, with no system services."
+purpose = "Keep the windups running on every platform the owner uses, with no system services."
 personality = "Handy"
-personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
+personality_status = "set (work in progress)"  # set = chosen by the owner ("work in progress" while names may change); proposed = a draft
 status = "stub"
 command = "ben -h -j"
 

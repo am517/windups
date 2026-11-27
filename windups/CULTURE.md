@@ -46,6 +46,6 @@ a Data Fiend; both still back up, sync, log and answer the standard commands.
 ## Rogue windups (not allowed yet)
 
 One day a hard job may need a windup that bends a rule (a "rogue"). That is only ever an explicit,
-documented exception that Adam approves: which windup, which rule, why, for how long, and how its
+documented exception that the owner approves: which windup, which rule, why, for how long, and how its
 work is checked. It is written here, under this heading, before the windup runs. Until then there
 are none.

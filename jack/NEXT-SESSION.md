@@ -1,6 +1,6 @@
-# Note for Coding Bot: next Jack session (from Adam, 2026-10-25)
+# Note for Coding Bot: next Jack session (from the owner, 2026-10-25)
 
-Read this before starting work. Design items marked "discuss" should be iterated with Adam before implementing.
+Read this before starting work. Design items marked "discuss" should be iterated with the owner before implementing.
 
 ## Config file
 - name, year, grouping (and other per-file values) are per-file only; remove from main config, or default them to blank if they must exist.
@@ -32,7 +32,7 @@ Read this before starting work. Design items marked "discuss" should be iterated
 - Or is Jack a meta windup that calls Sammy and Lauren?
 - How focused should each windup be? With potentially 1000 windups in a community, define roles thoughtfully now.
 
-## Grok Bot's suggestions (Adam approved, 2026-10-25)
+## Grok Bot's suggestions (approved 2026-10-25)
 - Split roles: Jack only fetches metadata and outputs standard, versioned JSON. Lauren consumes that JSON and does file work (tags, art embedding, renaming, sorting). Jack may offer a convenience command that calls Lauren to keep the one-step workflow.
 - Windup rule of thumb: one job per windup, JSON in/out, versioned schema, composable via pipes. Enables a future GUI and reuse.
 - Database: SQLite + `sqlite-vec` extension for vectors (no server). Local embeddings via a small model (e.g. fastembed from Rust), no API needed. Since it's shared across windups, place it at something like `~/.local/share/windups/media.db` rather than under jack's config dir. Design and version the schema before coding.

@@ -1,6 +1,6 @@
 # Windups roster
 
-Drafted Nov 20, 2026 by Grok Bot. Every name and role is taken from the repo's name registry (`windups/NAMES.md` and each `PROFILE.toml`, `main` @ bd74f45), the handoffs, and Adam's notes. No role is invented. The grouping into categories is my proposal, for Adam to adjust. Build position is from NAMES.md (— means outside the numbered sequence).
+Drafted Nov 20, 2026 by Grok Bot. Every name and role is taken from the repo's name registry (`windups/NAMES.md` and each `PROFILE.toml`, `main` @ bd74f45), the handoffs, and the owner's notes. No role is invented. The grouping into categories is my proposal, open to adjustment. Build position is from NAMES.md (— means outside the numbered sequence).
 
 ## Core / infrastructure (the critical windups named in the coding guidelines)
 | Name | Role | Personality | Status | Pos. |
@@ -38,7 +38,7 @@ Drafted Nov 20, 2026 by Grok Bot. Every name and role is taken from the repo's n
 | Tammy | Super windup: ingests new media by orchestrating the others | Media Buff | stub | 15 |
 
 ## Counts and TBDs
-- 22 named windups in NAMES.md, plus George (the backup windup, named by Adam Nov 20, 2026; not yet in NAMES.md) = 23.
+- 22 named windups in NAMES.md, plus George (the backup windup, named Nov 20, 2026; not yet in NAMES.md) = 23.
 - TBD: George's personality and build position. Categories are a proposal; Steve, Ruth and Tammy could arguably be "data" rather than "media".
-- Not windups: Sampy/Dory (a display model). Unnamed ideas (a refusal monitor, a profile-managing windup) stay out until Adam names them (NAMES.md).
-- All personalities: set by Adam Nov 10, "work in progress" (he may switch to Inside Out-style emotion names).
+- Not windups: Sampy/Dory (a display model). Unnamed ideas (a refusal monitor, a profile-managing windup) stay out until they are named (NAMES.md).
+- All personalities: set Nov 10, "work in progress" (the owner may switch to Inside Out-style emotion names).

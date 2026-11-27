@@ -3,7 +3,7 @@ role = "thinking"
 summary = "Sammy is the shared LLM thinking service (local or remote models). When evidence alone can't settle it (ambiguous candidates, conflicting sources), Sammy weighs it and decides. A resource like any other: entries wait for him. A list of available models is future work."
 purpose = "Think and decide well when evidence alone can't."
 personality = "Smart"
-personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
+personality_status = "set (work in progress)"  # set = chosen by the owner ("work in progress" while names may change); proposed = a draft
 status = "stub"
 command = "sammy -h -j"
 

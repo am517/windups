@@ -1,11 +1,11 @@
 # Timeline / to-do
 
-One windup at a time; a new one starts only when the current one is complete (Adam, 2026-10-27).
+One windup at a time; a new one starts only when the current one is complete (2026-10-27).
 
 ## Now: Jack + this repo, until both are satisfactory
 - [x] WINDUPS.md standard (draft 1), shared settings, schema v1 draft with example searches
 - [x] Jack: no sidecars, filename_max 255 (chars on macOS, bytes on Linux), longest description fallback
-- [x] Adam reviewed schema v1 and communication proposal (2026-10-28)
+- [x] The owner reviewed schema v1 and communication proposal (2026-10-28)
 - [x] Shared `windups` crate: settings, paths, open/migrate media.db (user_version), raw pruning
 - [x] Jack hands each entry to Daniel (`windups::handoff`); Daniel writes media.db (in-process). Long term, Jack does not own DB writes.
 - [x] Shared core `windups::base` (2026-11-10): universal commands + talk, event log, checked snapshots, migrations, layout, sync trait, audit, personalities; Jack on it; Jack syncs to Daniel (one route); CULTURE.md
@@ -22,7 +22,7 @@ One windup at a time; a new one starts only when the current one is complete (Ad
 - [ ] Embeddings: plug in a small local model (fastembed-rs) behind `Embedder`; embed texts, media, windup profiles; sqlite-vec index when size needs it (waits for Sammy)
 - [x] Tidy-up / unresolved-retry windup (unnamed): superseded by Walter (`walter pending`, `walter patrol`). No separate name.
 - [ ] Review what a windup did to a given file (e.g. a macOS QuickLook metadata plugin, or similar). Implementation TBD
-- [ ] Refusal-monitor windup — TBD (no role from Adam yet)
+- [ ] Refusal-monitor windup — TBD (no role yet)
 - [ ] Sammy: implement Jack's `Escalation` (per-step decide-or-defer, recorded in `decisions`) and `Explainer`
 - [ ] Post-run review pass (Jack `[review]`, off by default): Sammy implements `Reviewer`; per field in chunks with minimal context; flags only, never rewrites; record flags in `decisions` (step=review) once media ids are at hand
 - [ ] Wikidata and YouTube searches still take one result (srlimit=1 / maxResults=1); keep the full list like the others
