@@ -1,8 +1,8 @@
 //! Syncing Jack's archive to the database windup named in `[relationships] database`
 //! (legacy `[archive] sync_target` is still read when that field is empty).
 //! Records are sent in batches; each is marked synced only after its own acknowledgement.
-use crate::archive::{Archive, now};
-use windups::base::sync::{SendError, SyncTarget};
+use crate::archive::Archive;
+use windups::base::sync::SyncTarget;
 
 /// Empty means Daniel's own folder / `daniel.sock` (see LAYOUT.md). A set path is used as given.
 fn daniel_socket(a: &crate::archive::ArchiveCfg) -> std::path::PathBuf {
@@ -52,79 +52,25 @@ pub fn connect<'a>(
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct SyncReport {
-    pub sent: usize,
-    pub rejected: usize,
-    pub unreachable: Option<String>,
-}
-
-/// Sends every unsynced record, `batch` at a time, marking each synced only after its ack.
-pub fn sync(a: &Archive, t: &mut dyn SyncTarget, batch: usize) -> Result<SyncReport, String> {
-    let mut r = SyncReport::default();
-    let mut after = 0;
-    loop {
-        let rows = a.unsynced(after, batch.max(1))?;
-        let Some(last) = rows.last() else {
-            return Ok(r);
-        };
-        after = last.seq;
-        let payloads: Vec<(String, String)> = rows
-            .iter()
-            .map(|u| {
-                let body = crate::objective::json_for_database(&u.handoff)
-                    .unwrap_or_else(|_| u.handoff.clone());
-                (u.id.clone(), body)
-            })
-            .collect();
-        let recs: Vec<(&str, &str)> = payloads
-            .iter()
-            .map(|(id, h)| (id.as_str(), h.as_str()))
-            .collect();
-        let results = t.send_batch(&recs);
-        for (u, res) in rows
-            .iter()
-            .zip(results.into_iter().chain(std::iter::repeat_with(|| {
-                Err(SendError::Unreachable("no answer for this record".into()))
-            })))
-        {
-            match res {
-                Ok(()) => {
-                    a.mark_synced(u.seq, now())?;
-                    r.sent += 1;
-                }
-                Err(SendError::Rejected(_)) => r.rejected += 1,
-                Err(SendError::Unreachable(e)) => {
-                    r.unreachable = Some(e);
-                    return Ok(r);
-                }
-            }
-        }
-    }
+/// What Daniel gets from a record: facts only (truths stay in jack.db).
+fn facts_only(handoff: &str) -> String {
+    crate::objective::json_for_database(handoff).unwrap_or_else(|_| handoff.to_string())
 }
 
 /// One line for the run report (and the `sync` command).
 pub fn report(a: &Archive, target: Option<&mut (dyn SyncTarget + '_)>, batch: usize) -> String {
-    let synced = match target {
-        None => Ok(None),
-        Some(t) => sync(a, t, batch).map(Some),
-    };
-    let (all, left) = a.counts().unwrap_or((0, 0));
-    let tail = match synced {
-        Err(e) => format!("sync failed ({e})"),
-        Ok(None) => "no sync target configured".into(),
-        Ok(Some(r)) => match r.unreachable {
-            Some(e) => format!("synced {}; target unreachable ({e})", r.sent),
-            None if r.rejected > 0 => format!("synced {}; target refused {}", r.sent, r.rejected),
-            None => format!("synced {}", r.sent),
-        },
-    };
-    format!("archive: {all} record(s) in jack.db, {left} not yet synced; {tail}")
+    windups::base::sync_records::report(a, crate::archive::DB_NAME, target, batch, &facts_only)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use windups::base::sync::SendError;
+    use windups::base::sync_records::SyncReport;
+
+    fn sync(a: &Archive, t: &mut dyn SyncTarget, batch: usize) -> Result<SyncReport, String> {
+        windups::base::sync_records::sync(a, t, batch, &facts_only)
+    }
     use crate::archive::tests::{handoff, open_temp};
     use std::collections::BTreeMap;
 
@@ -176,7 +122,7 @@ mod tests {
         let mut t = Jar::default();
         let r = sync(&a, &mut t, 1).unwrap();
         assert_eq!((r.sent, r.unreachable), (2, None));
-        assert!(a.synced_at(&id).unwrap().is_some());
+        assert!(a.synced_at(&id).unwrap().unwrap().is_some());
         assert_eq!(
             a.counts().unwrap(),
             (2, 0),
@@ -223,7 +169,11 @@ mod tests {
         });
         let r = sync(&a, &mut t, 2).unwrap();
         assert_eq!((r.sent, r.rejected, t.0.batches), (3, 1, 2));
-        assert_eq!(a.synced_at(&bad), Some(None), "the refused one waits");
+        assert_eq!(
+            a.synced_at(&bad).unwrap(),
+            Some(None),
+            "the refused one waits"
+        );
     }
 
     #[test]

@@ -4,7 +4,9 @@
 //! - `schema`: `PRAGMA user_version` and ordered, transactional forward migrations
 //! - `events`: the append-only event log (whole, then compressed batches, then summaries)
 //! - `snapshot`: checked online-backup snapshots and the off-device hook
+//! - `records`: a windup's own records table (write first, keep after sync, stable ids)
 //! - `sync`: the generic sync-target trait (per-record results, batch capable)
+//! - `sync_records`: send unsynced records to the target, marking each only on its ack
 //! - `wire` + `sync_socket`: the length-prefixed JSON protocol over a Unix socket, and its client
 //! - `migrate`: the explicit move from `~/.config/windups/<name>/` into the data folder
 //! - `relocate`: config paths into a migrated folder (rewritten in the new copy only)
@@ -24,11 +26,13 @@ pub mod install;
 pub mod layout;
 pub mod migrate;
 pub mod personality;
+pub mod records;
 pub mod relationships;
 pub mod relocate;
 pub mod schema;
 pub mod snapshot;
 pub mod sync;
+pub mod sync_records;
 #[cfg(unix)]
 pub mod sync_socket;
 pub mod talk;

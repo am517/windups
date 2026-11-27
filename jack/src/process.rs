@@ -43,7 +43,7 @@ pub(crate) fn process(
     );
     let dbp = std::path::Path::new(&cfg.archive.database);
     let opened = if cfg.archive.database == ":memory:" || dbp.exists() {
-        Some(crate::archive::Archive::open(&cfg.archive))
+        Some(crate::archive::open(&cfg.archive))
     } else {
         None
     };

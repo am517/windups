@@ -45,7 +45,7 @@ fn split_config(args: &[String]) -> (Option<PathBuf>, Vec<String>) {
 impl Jack {
     pub fn open(config_arg: Option<&Path>) -> Result<Self, String> {
         let cfg = config::load(config_arg)?;
-        let archive = Archive::open(&cfg.archive)?;
+        let archive = crate::archive::open(&cfg.archive)?;
         Ok(Jack {
             layout: config::layout(config_arg),
             cfg,
@@ -71,7 +71,7 @@ pub fn sync_with(a: &mut Archive, cfg: &Config) -> String {
 
 /// The end-of-run sync (opens jack.db itself).
 pub fn sync_line(cfg: &Config) -> String {
-    match Archive::open(&cfg.archive) {
+    match crate::archive::open(&cfg.archive) {
         Ok(mut a) => sync_with(&mut a, cfg),
         Err(e) => format!("warning: archive: {e}"),
     }

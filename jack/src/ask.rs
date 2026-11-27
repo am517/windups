@@ -176,7 +176,7 @@ mod tests {
     use crate::meta::Meta;
 
     fn open(d: &tempfile::TempDir) -> Archive {
-        Archive::open(&ArchiveCfg {
+        crate::archive::open(&ArchiveCfg {
             database: d.path().join("jack.db").to_string_lossy().into_owned(),
             ..Default::default()
         })
