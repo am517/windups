@@ -12,7 +12,17 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../schema/006_returns.sql"),
     include_str!("../schema/007_work_ids_walter.sql"),
     include_str!("../schema/008_windup_state.sql"),
+    include_str!("../schema/009_text_layer_model_version.sql"),
 ];
+
+/// The text layer every text-holding catalog has (extracts, chunks, word index, vectors), with
+/// `@c@` standing for the catalog name. media.db has it as migration 9.
+pub const TEXT_LAYER: &str = include_str!("../schema/text_layer.sql");
+
+/// The text layer for one catalog.
+pub fn text_layer(catalog: &str) -> String {
+    TEXT_LAYER.replace("@c@", catalog)
+}
 
 pub fn latest_version() -> i64 {
     MIGRATIONS.len() as i64
@@ -76,6 +86,12 @@ mod tests {
             .query_row("SELECT title FROM media", [], |r| r.get(0))
             .unwrap();
         assert_eq!(t, "Old");
+    }
+    #[test]
+    fn media_text_layer_is_the_shared_template() {
+        let body: String = TEXT_LAYER.lines().skip(1).collect::<Vec<_>>().join("\n");
+        assert!(MIGRATIONS[8].contains(&body.replace("@c@", "media")));
+        assert!(!text_layer("records").contains("@c@"));
     }
     #[test]
     fn reopen_is_idempotent() {

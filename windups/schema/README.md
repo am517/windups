@@ -29,4 +29,10 @@ Decisions (2026-10-27):
   entities with roles, relations for graph queries, vectors for meaning ("gay vampire movies").
   `examples.sql` shows the queries; `./check.sh` runs them.
 
+Text layer (v9, [`text_layer.sql`](text_layer.sql)): `media_extracts` (derived text with its quality),
+`media_chunks` (searchable spans with a locator) and `media_chunks_fts` (word index), and
+`media_vectors`. Every vector names its model id **and version** (`embeddings.model_version` too);
+a search never mixes them. Daniel's other catalogs (people, records, maps, photos) use the same
+template; see [`docs/daniel_spec.md`](../../docs/daniel_spec.md).
+
 The portable handoff file (one entry, written by Jack, ingested by Daniel) is documented in [`handoff_v1.md`](handoff_v1.md).
