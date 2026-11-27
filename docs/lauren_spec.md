@@ -12,7 +12,8 @@ Lauren is the tagging windup. Drafted Nov 26, 2026 from the repo's existing sour
 - What she writes comes from the database, never a fresh guess (PROFILE success check 1).
 - Embedded art is JPEG (QUESTIONS.md answer 3, Oct 28: MP4 `covr` only allows JPEG/PNG); Kate makes the JPEG (Kate's profile).
 - She acts only on sure decisions and keeps her complete action history (coding_guidelines §1); her own record is written before she touches a file (§4).
-- She uses free, locally installed tools when present and says clearly when one is missing (§3). Jack's old tagger used AtomicParsley or exiftool for MP4 and mkvpropedit/mkvmerge for MKV (`jack/src/tagger.rs` on `main`).
+- **Hard gate (Nov 27, after a wrong write):** she never writes to a file whose entry is unresolved or needs judgment. Only a resolved identity is written, and a test enforces it. Repairing a file an older Jack wrote wrongly: `docs/repair_wrong_tags.md`.
+- She uses free, locally installed tools when present and says clearly when one is missing (§3). Jack's old tagger used AtomicParsley or exiftool for MP4 and mkvpropedit/mkvmerge for MKV (`jack/src/tagger.rs`, in git history before #25).
 
 ## 3. Responses
 Global rules only (windups_base_spec §3-4): say what was written, what was skipped and why.
@@ -30,3 +31,4 @@ Start from Jack's old `tagger.rs` / `art.rs` (in git history), one job per file:
 4. **Other tools**: exiftool is her front end. Does she still use mkvpropedit for MKV (exiftool can't write Matroska), and AtomicParsley at all?
 5. **Formats**: MP4 and MKV only to start?
 6. **Who calls her, and when**: after Daniel stores an entry, by Tammy, or only on a person's request?
+7. **Undo**: restoring a wrong write is wanted when the pre-write state exists (Nov 27). Does she save a file's existing tags (and art) before each write, and where: her own DB, a sidecar, or Daniel? Without that, the only repair is to clear the tags and re-tag from the identity.
