@@ -71,5 +71,13 @@ None yet.
 | Ben | rebuilds windups for new platforms; fetches and installs when Oliver asks | Handy | stub | — | 2026-10-28 |
 | Rover | refines other windups within their profiles; never applies unreviewed | Restless | stub | — | 2026-10-28 |
 | Beth | trains LoRAs from each windup's training phrases and parameters | Empathetic | stub | — | 2026-11-05 |
-| Charles | downloads: obtains material on demand, only with an outstanding warrant, into Daniel first (PROPOSED) | TBD | proposed | — | 2026-11-27 |
-| Olivia | subtitles: timestamped speech-to-text when they are missing (PROPOSED) | TBD | proposed | — | 2026-11-27 |
+
+## Proposed names (no crate yet)
+
+Named but not created. A name moves up to the Registry when its windup is created (coding_guidelines §1, standing rule).
+
+| Name | Role | Personality | Named | Spec or PR |
+| --- | --- | --- | --- | --- |
+| George | backups: owns backups and organizes each windup's checked snapshots outside the windup folders | Wily | 2026-11-20 | #28 (unmerged) |
+| Charles | downloads: obtains material on demand, only with an outstanding warrant, into Daniel first (PROPOSED) | TBD | 2026-11-27 | docs/charles_spec.md |
+| Olivia | subtitles: timestamped speech-to-text when they are missing (PROPOSED) | TBD | 2026-11-27 | docs/olivia_spec.md |

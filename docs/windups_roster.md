@@ -36,11 +36,12 @@ Drafted Nov 20, 2026 by Grok Bot. Every name and role is taken from the repo's n
 | Steve | Searches the database (genres, people, dates, full text, meaning) | Eager | stub | 13 |
 | Sally | Organizes files (rename, move, sort); per her profile, takes over Jack's sorting | Orderly | stub | 14 |
 | Tammy | Super windup: ingests new media by orchestrating the others | Media Buff | stub | 15 |
+| George | Backups: owns backups and checked snapshots, outside the windup folders (#28, unmerged) | Wily | proposed | — |
 | Charles | Downloads material on demand, only with an outstanding warrant; Daniel ingests first (PROPOSED, `docs/charles_spec.md`) | TBD | proposed | — |
 | Olivia | Timestamped subtitles by speech-to-text when missing (PROPOSED, `docs/olivia_spec.md`) | TBD | proposed | — |
 
 ## Counts and TBDs
-- 24 named windups in NAMES.md (Charles and Olivia proposed Nov 27), plus George (the backup windup, named Nov 20, 2026; not yet in NAMES.md) = 23.
-- TBD: George's personality and build position. Categories are a proposal; Steve, Ruth and Tammy could arguably be "data" rather than "media".
+- 22 windups in the NAMES.md Registry, plus 3 under "Proposed names" (George, named Nov 20, personality Wily; Charles and Olivia, Nov 27) = 25.
+- TBD: George's build position (personality Wily, Nov 27). Categories are a proposal; Steve, Ruth and Tammy could arguably be "data" rather than "media".
 - Not windups: Sampy/Dory (a display model). Unnamed ideas (a refusal monitor, a profile-managing windup) stay out until they are named (NAMES.md).
 - All personalities: set Nov 10, "work in progress" (the owner may switch to Inside Out-style emotion names).

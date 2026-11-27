@@ -15,7 +15,13 @@ Olivia is the subtitle windup (name chosen 2026-11-27; not to be confused with O
 - Permanent output follows the quality rule (coding_guidelines §1): a smaller or compressed model's
   transcript is marked `confidence = low` and queued for regeneration.
 
+- **Trigger (PROPOSED):** when Daniel creates a new entry he queues its new-entry task set
+  (daniel_spec §8a), which includes Olivia's task. If subtitles already exist, she only verifies
+  that they exist and are usable; she does not recreate them.
+- **Language (PROPOSED):** indicators first (the video's origin, its metadata, title, and so on),
+  then auto-detection, which is the way for multilingual files.
+- **Resource courtesy:** she never slows the device to a crawl (base spec §5c).
+
 ## 3. Open questions
-1. **Model size**: which Whisper model by default, and on which computers?
-2. **Languages**: detect automatically, or take the language from Jack's metadata?
-3. **Who calls her**: Daniel when an extract is missing, Tom, or only a person?
+1. **Default model (OPEN):** pending research on the smallest-but-best options, ideally with
+   speaker diarization, and mindful of resource use since many windups share a device.
