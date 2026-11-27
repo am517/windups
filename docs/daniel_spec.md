@@ -196,6 +196,9 @@ All of this is **PROPOSED**; nothing is built.
   other windups for their refinements. For a work that is `not_obtained` (or `paywalled`), Larry
   (hashing) and Tom (full-text vectors) are blocked; metadata-level low-confidence vectors (below)
   are fine.
+- **New-entry task set (PROPOSED):** when Daniel creates a new entry he queues a set of tasks for
+  it (for example Jack's metadata, Larry's hash, Olivia's subtitles check, Tom's vectors), in the
+  operational tasks database.
 - All first contact goes to Daniel's database: an item Charles obtains is stored by Daniel first,
   which then triggers Jack and the others (PROPOSED).
 - Obtaining is Charles's job (`docs/charles_spec.md`, PROPOSED), on demand only: an item is fetched only with an outstanding **warrant** (a project, a standing user rule, a direct request, or another windup's project), recorded on the task.

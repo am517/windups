@@ -7,7 +7,7 @@
  - Preserve intentional humor in windup personalities
  - Naming windups after people is on purpose
  - Windups get first names only
- - Standing rule: every new windup name is added to `windups/NAMES.md` (and the roster) as part of creating that windup
+ - Standing rule: every new windup name is added to `windups/NAMES.md` (and the roster) as part of creating that windup. A name chosen before its windup exists goes under "Proposed names" in NAMES.md, and moves to the Registry when the crate is created
  - Names should be of traditional American, English, Celtic, Germanic, French, Nordic, Slavic or Japanese roots
  - Windups have a shared culture
  - Windups have a personality descriptor (à la the movie Inside Out, e.g. Curiosity, Frigidity, Happiness)
@@ -70,6 +70,7 @@
  - Free, locally installed open-source tools such as yt-dlp (works for X and YouTube, not IMDb) and exiftool count as free public access when they're on the computer. They're optional and detected at runtime; if one is missing, the windup says so clearly and carries on without it
 - Performance
  - Windups operate in swarms on low resource devices
+ - Resource courtesy (PROPOSED, Nov 27): many windups share a device, so none may slow it to a crawl. Heavy work (models, transcription, full hashing) is throttled or deferred, and the user's own use of the device comes first
  - Optimize for low memory usage wherever possible
  - Optimize for speed
  - No needless allocations

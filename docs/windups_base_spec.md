@@ -63,6 +63,9 @@ A windup adds its own commands only for its one job (e.g. Jack's `ask`). A real 
 - Backups: the windup makes its own checked snapshots and hands them to George, the backup windup, stored outside the folder.
 - Outside the folder: only backups and the unlock key (see identity_and_security.md).
 
+## 5c. Resource courtesy (PROPOSED, 2026-11-27)
+Many windups share one device. None may slow it to a crawl: heavy work (models, transcription, full hashing) is throttled or deferred, and the user's own use comes first (coding_guidelines §3).
+
 ## 5a. Sammy's part in vectorizing (PROPOSED, 2026-11-27)
 Sammy has no spec yet, so this lives here. Sammy writes a title and summary for each segment and
 for each whole work; Tom vectorizes them alongside the original passages, never instead of them,
