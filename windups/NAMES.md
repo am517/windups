@@ -19,11 +19,11 @@ Every windup follows the society rules in [`CULTURE.md`](CULTURE.md), whatever i
 3. Never reuse or rename a name without a note below.
 4. Build position is the numbered sequence in `WINDUPS.md` / `TODO.md`. A dash
    (`—`) means the windup sits outside that sequence (already working, or later
-   support such as Beth training LoRAs); `TBD` means Adam has not placed it yet.
+   support such as Beth training LoRAs); `TBD` means it is not placed yet.
 
 5. Personality is one trait (a word or short phrase, Inside Out style) that shapes how the windup
    does its job: style and priorities, never an exception to [`CULTURE.md`](CULTURE.md). It also
-   lives in the windup's `PROFILE.toml` (`personality`, `personality_status = "set"|"set (work in progress)"|"proposed"|"undecided"`; `undecided` means `TBD` until Adam picks one);
+   lives in the windup's `PROFILE.toml` (`personality`, `personality_status = "set"|"set (work in progress)"|"proposed"|"undecided"`; `undecided` means `TBD` until one is picked);
    `[core] personality` in its config may override it. The prompt line is built by
    `windups::base::personality::prompt_line`: "Your name is X and you are <Trait>. Your job is Y."
    **(proposed)** marks a draft for Adam to choose. All 22 traits were set by Adam on 2026-11-10
@@ -43,9 +43,9 @@ Every windup follows the society rules in [`CULTURE.md`](CULTURE.md), whatever i
 
 ## Notes (renames and reuse)
 
-- George (added 2026-11-20, Adam): named the backup windup; he replaces the "future backup windup"
+- George (added 2026-11-20): named as the backup windup; he replaces the "future backup windup"
   placeholder. His personality and build position are `TBD` (`personality_status = "undecided"`)
-  until Adam picks them.
+  until they are picked.
 
 ## Registry
 

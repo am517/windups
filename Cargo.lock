@@ -352,6 +352,9 @@ dependencies = [
 [[package]]
 name = "george"
 version = "0.1.0"
+dependencies = [
+ "windups",
+]
 
 [[package]]
 name = "getrandom"

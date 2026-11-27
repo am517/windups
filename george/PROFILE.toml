@@ -3,9 +3,9 @@ role = "backups"
 summary = "George is the backup windup: he receives each windup's checked snapshots and organizes and cares for them outside the windup folders."
 purpose = "Keep every windup's checked snapshots safe, organized and outside the windup folders."
 personality = "TBD"
-personality_status = "undecided"  # Adam has not chosen George's personality yet
+personality_status = "undecided"  # George's personality is not chosen yet
 status = "stub"
-command = "george --capabilities"
+command = "george -h -j"
 
 [[success_checks]]
 check = "the backups George keeps live outside every windup's folder"
