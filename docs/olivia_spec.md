@@ -1,6 +1,5 @@
-# Subtitle windup — functional spec (PROPOSED stub)
-Name: the owner proposed **John**, but John is already the device-group windup (NAMES.md), so the
-name is on hold until the owner chooses. Everything here is **PROPOSED** (2026-11-27); nothing is built.
+# Olivia — functional spec (PROPOSED stub)
+Olivia is the subtitle windup (name chosen 2026-11-27; not to be confused with Oliver, the matchmaker). Everything here is **PROPOSED** (2026-11-27); nothing is built.
 
 ## 1. Purpose
 - Makes timestamped subtitles for a video or recording that has none, using speech-to-text.
@@ -17,7 +16,6 @@ name is on hold until the owner chooses. Everything here is **PROPOSED** (2026-1
   transcript is marked `confidence = low` and queued for regeneration.
 
 ## 3. Open questions
-1. **Name.**
-2. **Model size**: which Whisper model by default, and on which computers?
-3. **Languages**: detect automatically, or take the language from Jack's metadata?
-4. **Who calls it**: Daniel when an extract is missing, Tom, or only a person?
+1. **Model size**: which Whisper model by default, and on which computers?
+2. **Languages**: detect automatically, or take the language from Jack's metadata?
+3. **Who calls her**: Daniel when an extract is missing, Tom, or only a person?

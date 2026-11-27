@@ -43,7 +43,7 @@ All of this is **PROPOSED** (approved to be recorded as proposed; not built).
 - **Efficiency:** Larry's hash means a file is vectorized once, and again only when its content or
   the model id/version changes. Low-confidence vectors from weak devices are redone later (decided,
   coding_guidelines §1).
-- Missing subtitles come from the subtitle windup (`docs/subtitle_windup_spec.md`, PROPOSED).
+- Missing subtitles come from Olivia, the subtitle windup (`docs/olivia_spec.md`, PROPOSED).
 
 ## 3. Open questions
 Questions 1 and 2 are open for discussion in review (direction, Nov 27).

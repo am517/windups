@@ -71,3 +71,5 @@ None yet.
 | Ben | rebuilds windups for new platforms; fetches and installs when Oliver asks | Handy | stub | — | 2026-10-28 |
 | Rover | refines other windups within their profiles; never applies unreviewed | Restless | stub | — | 2026-10-28 |
 | Beth | trains LoRAs from each windup's training phrases and parameters | Empathetic | stub | — | 2026-11-05 |
+| Charles | downloads: obtains material on demand, only with an outstanding warrant, into Daniel first (PROPOSED) | TBD | proposed | — | 2026-11-27 |
+| Olivia | subtitles: timestamped speech-to-text when they are missing (PROPOSED) | TBD | proposed | — | 2026-11-27 |
