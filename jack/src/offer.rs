@@ -51,6 +51,24 @@ pub fn choose(
     picks
 }
 
+/// After Jack chose a match himself: "see the candidates (y/n)?", then the list with the
+/// chosen work's rows marked `*`. Read-only: nothing is picked here.
+pub fn show_chosen(lines: &[String], read: &mut dyn FnMut() -> String) -> bool {
+    if lines.is_empty() {
+        return false;
+    }
+    eprintln!("Would you like to see the candidates I chose from (y/n)?");
+    let _ = std::io::stderr().flush();
+    if !matches!(read().trim().to_ascii_lowercase().as_str(), "y" | "yes") {
+        return false;
+    }
+    for line in lines {
+        eprintln!("{line}");
+    }
+    eprintln!("(* = the sources that agree on my choice)");
+    true
+}
+
 pub fn person_is_here() -> bool {
     std::io::stdin().is_terminal()
 }
@@ -91,5 +109,12 @@ mod tests {
         // the list went to the terminal once; the report only records the picks
         assert!(!shown.contains("The Office"), "{shown}");
         assert!(shown.contains("picked: 1 2"), "{shown}");
+    }
+
+    #[test]
+    fn after_jack_chooses_the_list_is_shown_only_on_yes() {
+        assert!(!show_chosen(&["tmdb:".into()], &mut || "n".into()));
+        assert!(show_chosen(&["tmdb:".into()], &mut || "y".into()));
+        assert!(!show_chosen(&[], &mut || "y".into()));
     }
 }

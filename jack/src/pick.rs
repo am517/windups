@@ -13,6 +13,9 @@ pub struct CandidatesCfg {
     pub per_source: usize,
     /// How many more per source each "more" at the prompt asks for.
     pub more: usize,
+    /// Sources left out of the list: Jack has no id lookup for them yet, so a pick can't be
+    /// fetched in full.
+    pub unpickable: Vec<String>,
 }
 
 impl Default for CandidatesCfg {
@@ -21,6 +24,7 @@ impl Default for CandidatesCfg {
             ask: true,
             per_source: 5,
             more: 5,
+            unpickable: vec!["tvmaze".into(), "itunes".into()],
         }
     }
 }
@@ -74,11 +78,17 @@ pub fn is_empty_row(m: &Meta) -> bool {
     title(m).is_none() && ids(m).is_empty()
 }
 
+#[cfg(test)]
 pub fn list(query_title: &str, found: &[(String, Meta)]) -> List {
+    list_without(query_title, found, &CandidatesCfg::default().unpickable)
+}
+
+/// The list, leaving out the sources in `skip` (quietly: they are not even "not found").
+pub fn list_without(query_title: &str, found: &[(String, Meta)], skip: &[String]) -> List {
     let mut l = List::default();
     let mut n = 0;
     for (index, (source, m)) in found.iter().enumerate() {
-        if source == "embedded" {
+        if source == "embedded" || skip.iter().any(|s| s == base(source)) {
             continue;
         }
         let src = base(source).to_string();
@@ -206,6 +216,27 @@ impl List {
     pub fn is_empty(&self) -> bool {
         self.groups.is_empty()
     }
+    /// The lines with the rows that are the chosen work marked `*` (shared id, or same title
+    /// and year as `chosen`).
+    pub fn marked(&self, found: &[(String, Meta)], chosen: &Meta) -> Vec<String> {
+        let mine = ids(chosen);
+        let mut v = vec![];
+        for (src, rows) in &self.groups {
+            v.push(format!("{src}:"));
+            for r in rows {
+                let m = &found[r.index].1;
+                let same = ids(m).iter().any(|i| mine.contains(i))
+                    || (title(m).is_some()
+                        && title(m) == title(chosen)
+                        && m.get("year") == chosen.get("year"));
+                v.push(format!("  {}{}", r.text, if same { "  *" } else { "" }));
+            }
+        }
+        if !self.not_found.is_empty() {
+            v.push(format!("not found: {}", self.not_found.join(", ")));
+        }
+        v
+    }
     /// The lines to show, once.
     pub fn lines(&self) -> Vec<String> {
         let mut v = vec![];
@@ -306,7 +337,7 @@ mod tests {
                 "tmdb:",
                 "  2. Brokeback Mountain (2005), tmdb_id:142, score 0.44",
                 "  3. Mountain (2017), tmdb_id:462145, score 1.00",
-                "not found: wikidata, itunes",
+                "not found: wikidata",
             ]
         );
     }
@@ -325,5 +356,45 @@ mod tests {
         );
         assert!(l.parse("9").unwrap_err().contains("not in the list"));
         assert!(l.parse("x").unwrap_err().contains("not a number"));
+    }
+
+    #[test]
+    fn unpickable_sources_are_left_out_and_chosen_rows_are_marked() {
+        let mut f = found();
+        f.push((
+            "tvmaze:search".into(),
+            m(&[("title", "Mountain"), ("year", "2017"), ("tvmaze_id", "3")]),
+        ));
+        f.push((
+            "itunes".into(),
+            m(&[("title", "Mountain"), ("year", "2017")]),
+        ));
+        let l = list_without("Mountain", &f, &CandidatesCfg::default().unpickable);
+        let text = l.lines().join("\n");
+        assert!(
+            !text.contains("tvmaze") && !text.contains("itunes"),
+            "{text}"
+        );
+        let chosen = m(&[
+            ("title", "Mountain"),
+            ("year", "2017"),
+            ("tmdb_id", "462145"),
+        ]);
+        let marked = l.marked(&f, &chosen);
+        assert!(
+            marked
+                .iter()
+                .any(|x| x.contains("Mountain (2017), thetvdb_id:27498") && x.ends_with("*"))
+        );
+        assert!(
+            marked
+                .iter()
+                .any(|x| x.contains("tmdb_id:462145") && x.ends_with("*"))
+        );
+        assert!(
+            marked
+                .iter()
+                .any(|x| x.contains("Brokeback") && !x.ends_with("*"))
+        );
     }
 }
