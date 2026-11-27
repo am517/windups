@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn a_named_mp4_with_spaces_is_a_media_file_and_a_missing_path_is_not_silent() {
         let d = tempfile::tempdir().unwrap();
-        let file = d.path().join("Bear Scratch/iVI4/Mountain/Mountain.mp4");
+        let file = d.path().join("Folder With Spaces/sub dir/video.mp4");
         fs::create_dir_all(file.parent().unwrap()).unwrap();
         fs::write(&file, "x").unwrap();
         let s = Settings {
@@ -198,7 +198,7 @@ mod tests {
         let hit = scan(std::slice::from_ref(&file), &s);
         assert_eq!(hit.files, vec![file]);
         assert!(hit.skipped.is_empty(), "{:?}", hit.skipped);
-        let missing = d.path().join("Bear Scratch/nope.mp4");
+        let missing = d.path().join("Folder With Spaces/nope.mp4");
         let miss = scan(std::slice::from_ref(&missing), &s);
         assert!(miss.files.is_empty());
         assert_eq!(miss.skipped[0].error, "not found");

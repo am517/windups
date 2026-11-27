@@ -80,119 +80,117 @@ pub(crate) fn process(
     }
     let label = label;
     let by_site_id = label.is_some();
-    let (mut meta, mut found, mut unresolved) =
-        if let crate::reuse::Plan::Skip { handoff, .. } = &plan {
-            let u = handoff
-                .entry
-                .get("resolution")
-                .is_some_and(|r| r == "unresolved");
-            (handoff.entry.clone(), handoff.candidates.clone(), u)
-        } else {
-            match label {
-                Some(l) => {
-                    let o = match online::fetch(
-                        &l,
-                        &show_flags(s),
-                        cfg,
-                        http,
-                        &crate::resolver::Strict {
-                            threshold: cfg.matching.fuzzy_threshold,
-                        },
-                        out,
-                    ) {
-                        Ok(o) => o,
-                        Err(e) => {
-                            return incomplete(
-                                path,
-                                Step::Lookup,
-                                "source_error",
-                                e,
-                                &own,
-                                s,
-                                cfg,
-                                hk,
-                                out,
-                            );
-                        }
-                    };
-                    (o.meta, o.found, o.unresolved)
-                }
-                None => {
-                    let q = match guessed
-                        .as_ref()
-                        .cloned()
-                        .map(Ok)
-                        .unwrap_or_else(|| query(path, s, cfg))
-                    {
-                        Ok(q) => q,
-                        Err(e) => {
-                            return incomplete(
-                                path,
-                                Step::Parse,
-                                "needs_llm_windup",
-                                e,
-                                &own,
-                                s,
-                                cfg,
-                                hk,
-                                out,
-                            );
-                        }
-                    };
-                    let (seed, only): (&[_], Option<&[String]>) = match &plan {
-                        crate::reuse::Plan::Fill {
-                            handoff, sources, ..
-                        } => (handoff.candidates.as_slice(), Some(sources.as_slice())),
-                        _ => (&[], None),
-                    };
-                    let (m, mut f) = match crate::fetch::fetch_from(&q, cfg, http, out, seed, only)
-                    {
-                        Ok(x) => x,
-                        Err(e) => {
-                            let r = if e.contains("no match") || e.starts_with("skipped") {
-                                "no_match"
-                            } else {
-                                "source_error"
-                            };
-                            return incomplete(path, Step::Lookup, r, e, &own, s, cfg, hk, out);
-                        }
-                    };
-                    let mut m = m;
-                    for (_, candidate) in f.iter_mut() {
-                        let title = candidate
-                            .get("show")
-                            .or(candidate.get("title"))
-                            .map_or("", |value| value.as_str());
-                        let score = crate::similarity::score(&q.title, title);
-                        candidate.insert("match_score".into(), format!("{score:.4}"));
+    let (mut meta, mut found, mut unresolved) = if let crate::reuse::Plan::Skip {
+        handoff, ..
+    } = &plan
+    {
+        let u = handoff
+            .entry
+            .get("resolution")
+            .is_some_and(|r| r == "unresolved");
+        (handoff.entry.clone(), handoff.candidates.clone(), u)
+    } else {
+        match label {
+            Some(l) => {
+                let o = match online::fetch(
+                    &l,
+                    &show_flags(s),
+                    cfg,
+                    http,
+                    &crate::resolver::Strict {
+                        threshold: cfg.matching.fuzzy_threshold,
+                    },
+                    out,
+                ) {
+                    Ok(o) => o,
+                    Err(e) => {
+                        return incomplete(
+                            path,
+                            Step::Lookup,
+                            "source_error",
+                            e,
+                            &own,
+                            s,
+                            cfg,
+                            hk,
+                            out,
+                        );
                     }
-                    let decision = crate::decide::decide(
-                        &q,
-                        s,
-                        &f,
-                        cfg.matching.year_tolerance,
-                        cfg.matching.fuzzy_threshold,
-                    );
-                    let score_text = format!("{:.4}", decision.score());
-                    m.insert("match_score".into(), score_text.clone());
-                    let recorded: Meta = [("match_score".into(), score_text.clone())].into();
-                    crate::escalate::apply(
-                        &mut m,
-                        Step::Match,
-                        "jack",
-                        &recorded,
-                        &format!("similarity {score_text}"),
-                    );
-                    if let crate::decide::Decision::Unresolved { reason, detail, .. } = decision {
-                        m.insert("resolution".into(), "unresolved".into());
-                        m.insert("unresolved_reason".into(), reason.to_string());
-                        m.insert("unresolved_detail".into(), detail);
-                    }
-                    let u = m.contains_key("resolution");
-                    (m, f, u)
-                }
+                };
+                (o.meta, o.found, o.unresolved)
             }
-        };
+            None => {
+                let q = match guessed
+                    .as_ref()
+                    .cloned()
+                    .map(Ok)
+                    .unwrap_or_else(|| query(path, s, cfg))
+                {
+                    Ok(q) => q,
+                    Err(e) => {
+                        return incomplete(
+                            path,
+                            Step::Parse,
+                            "needs_llm_windup",
+                            e,
+                            &own,
+                            s,
+                            cfg,
+                            hk,
+                            out,
+                        );
+                    }
+                };
+                let (seed, only): (&[_], Option<&[String]>) = match &plan {
+                    crate::reuse::Plan::Fill {
+                        handoff, sources, ..
+                    } => (handoff.candidates.as_slice(), Some(sources.as_slice())),
+                    _ => (&[], None),
+                };
+                let (m, mut f) = match crate::fetch::fetch_from(&q, cfg, http, out, seed, only) {
+                    Ok(x) => x,
+                    Err(e) => {
+                        let r = if e.starts_with(crate::providers::ID_NOT_FOUND) {
+                            "id_not_found"
+                        } else if e.contains("no match") || e.starts_with("skipped") {
+                            "no_match"
+                        } else {
+                            "source_error"
+                        };
+                        return incomplete(path, Step::Lookup, r, e, &own, s, cfg, hk, out);
+                    }
+                };
+                let mut m = m;
+                for (_, candidate) in f.iter_mut() {
+                    let title = candidate
+                        .get("show")
+                        .or(candidate.get("title"))
+                        .map_or("", |value| value.as_str());
+                    let score = crate::similarity::score(&q.title, title);
+                    candidate.insert("match_score".into(), format!("{score:.4}"));
+                }
+                let decision =
+                    crate::decide::decide_by(&q, s, &f, &crate::decide::Rules::from(&cfg.matching));
+                let score_text = format!("{:.4}", decision.score());
+                m.insert("match_score".into(), score_text.clone());
+                let recorded: Meta = [("match_score".into(), score_text.clone())].into();
+                crate::escalate::apply(
+                    &mut m,
+                    Step::Match,
+                    "jack",
+                    &recorded,
+                    &format!("similarity {score_text}"),
+                );
+                if let crate::decide::Decision::Unresolved { reason, detail, .. } = decision {
+                    m.insert("resolution".into(), "unresolved".into());
+                    m.insert("unresolved_reason".into(), reason.to_string());
+                    m.insert("unresolved_detail".into(), detail);
+                }
+                let u = m.contains_key("resolution");
+                (m, f, u)
+            }
+        }
+    };
     if unresolved {
         // deterministic rules could not decide: escalate with everything known
         let (r, d) = (
