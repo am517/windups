@@ -7,7 +7,9 @@ Olivia is the subtitle windup (name chosen 2026-11-27; not to be confused with O
 
 ## 2. Rules
 - Candidate engine: whisper.cpp (OpenAI Whisper on ggml; runs on a Mac). It fits the llama.cpp
-  runtime direction (coding_guidelines §3). No Chinese models.
+  runtime direction (coding_guidelines §3). Chinese models (for example a WeSpeaker-based
+  pyannote speaker model for diarization) are OK under coding_guidelines §3: free, no phoning home,
+  clearly better.
 - Output feeds Tom's 30-60 second passage windows and Sammy's segment summaries
   (`docs/tom_spec.md`, "Vectorizing strategy").
 - Existing subtitles are never overwritten. The output is stored through Daniel as an extract
@@ -23,5 +25,5 @@ Olivia is the subtitle windup (name chosen 2026-11-27; not to be confused with O
 - **Resource courtesy:** she never slows the device to a crawl (base spec §5c).
 
 ## 3. Open questions
-1. **Default model (OPEN):** pending research on the smallest-but-best options, ideally with
+1. **Default model (OPEN, research deferred to Dec 3):** pending research on the smallest-but-best options, ideally with
    speaker diarization, and mindful of resource use since many windups share a device.
