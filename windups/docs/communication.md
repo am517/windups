@@ -1,6 +1,6 @@
 # PROPOSAL: how windups talk to each other (not implemented)
 
-Adam's asks: all windups can call all windups; a windup knows who to talk to without being told; no
+The asks: all windups can call all windups; a windup knows who to talk to without being told; no
 piping; efficiency above all; a record (chain of custody) so tasks never get lost.
 
 ## Options

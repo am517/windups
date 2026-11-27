@@ -10,7 +10,7 @@ A windup folder holds three things, together:
   backups/        its checked snapshots (the windup's own copies)
 ```
 
-A windup is responsible only for its own folder (decided by Adam, Nov 10, 2026), so its snapshots
+A windup is responsible only for its own folder (decided Nov 10, 2026), so its snapshots
 live inside it: `[core.snapshots] dir`, default `<folder>/backups/`.
 Copies off the device are not any current windup's job: the `OffDevice` hook stays unassigned, a
 handoff for a future backup windup. Walter only flags stale or missing copies (`walter audit`).

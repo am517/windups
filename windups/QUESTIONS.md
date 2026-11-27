@@ -1,4 +1,4 @@
-# Open questions for Adam
+# Open questions
 
 ## Schema (schema/)
 1. Schema v1 OK as drafted (entities with roles, candidates as real rows, sub-genres, relations)?
@@ -23,7 +23,7 @@
 - 6: The shared crate owns migrations (one rulebook everyone reads). Daniel can call it later.
 - 2: Raw responses in `raw_json` on each row (a person keeps the receipt with the item); large binaries (art) as files under raw_dir.
 
-## Adam's answers (2026-10-28)
+## Answers (2026-10-28)
 - 1: Schema v1 agreed.
 - 3: Embedded art JPEG; raw archive JXL (lossless JPEG recompression).
 - 4: Small local embedding model agreed; keep it swappable behind a module.

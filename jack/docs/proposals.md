@@ -1,6 +1,6 @@
 # Proposals for discussion (answered 2026-10-27)
 
-Adam answered these on 2026-10-27. Decisions, the shared schema and the open questions now live in the
+These were answered on 2026-10-27. Decisions, the shared schema and the open questions now live in the
 main `windups` repo (WINDUPS.md, schema/, docs/, QUESTIONS.md). The text below is kept as history.
 Done in Jack: no sidecars, filename_max 255 (chars on macOS, bytes on Linux), longest description wins.
 
@@ -116,11 +116,11 @@ Record (schema `windups.media/1`):
 
 ```json
 {"schema":"windups.media/1",
- "path":"/Users/adam/Downloads/Evolution.2001.mp4",
+ "path":"/path/to/video.mp4",
  "kind":"movie",
  "ids":{"tmdb":"1234","imdb":"tt0251075"},
  "meta":{"title":"Evolution","year":"2001","genre":"comedy,sci-fi","original_title":"…"},
- "art":{"chosen":"/…/Evolution.2001.mp4.poster.jpg","candidates":[{"provider":"tmdb","kind":"poster","url":"…","lang":"en","w":2000,"h":3000}]},
+ "art":{"chosen":"/…/video.mp4.poster.jpg","candidates":[{"provider":"tmdb","kind":"poster","url":"…","lang":"en","w":2000,"h":3000}]},
  "status":[{"stage":"jack","ok":true}],
  "dry_run":false}
 ```

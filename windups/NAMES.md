@@ -7,7 +7,7 @@ disagree.
 
 `Sampy`/`Dory` is a display model, not a windup, and does not belong here.
 Unnamed ideas (a refusal monitor, a profile-managing windup) stay out until
-Adam gives them a name and a role.
+The owner gives them a name and a role.
 
 Every windup follows the society rules in [`CULTURE.md`](CULTURE.md), whatever its personality.
 
@@ -26,12 +26,12 @@ Every windup follows the society rules in [`CULTURE.md`](CULTURE.md), whatever i
    lives in the windup's `PROFILE.toml` (`personality`, `personality_status = "set"|"set (work in progress)"|"proposed"`);
    `[core] personality` in its config may override it. The prompt line is built by
    `windups::base::personality::prompt_line`: "Your name is X and you are <Trait>. Your job is Y."
-   **(proposed)** marks a draft for Adam to choose. All 22 traits were set by Adam on 2026-11-10
+   **(proposed)** marks a draft to choose. All 22 traits were set on 2026-11-10
    with `personality_status = "set (work in progress)"` (Daniel's Meticulous and Walter's Data Fiend
-   were his first picks). Adam would eventually like Inside Out-style emotion names, so these may
+   were his first picks). The owner would eventually like Inside Out-style emotion names, so these may
    change.
 
-## Roles decided (Adam, 2026-11-10)
+## Roles decided (2026-11-10)
 
 - **Daniel is the record keeper.** He owns the shared catalog (media.db), its schema and all writes
   to it. Windups keep their own records in their own DB and sync them to Daniel (a library call

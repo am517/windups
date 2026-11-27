@@ -18,7 +18,7 @@ upgrades are numbered migration files added next to `media.sql`.
 | ratings | IMDb, Rotten Tomatoes, Metacritic, ... |
 | files | files on disk (path, hash), so moved files are still recognized |
 
-Decisions (Adam, 2026-10-27):
+Decisions (2026-10-27):
 - **No fetches table.** Everything downloaded is a real row: wrong or alternative results are
   `status = 'candidate'` / `'rejected'` with `canonical_id` -> the chosen row; unchosen texts and art
   have `chosen = 0`. Raw responses (`raw_json`) and downloaded files (`art.local_path`) are pruned

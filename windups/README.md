@@ -8,6 +8,6 @@ anything every windup uses. Each windup lives in its own folder of the windups m
 - [schema/](schema/): the shared database (`~/.local/share/windups/media.db`)
 - [config/windups.toml](config/windups.toml): settings shared by all windups
 - [docs/communication.md](docs/communication.md): PROPOSAL, how windups talk to each other
-- [TODO.md](TODO.md): timeline; [QUESTIONS.md](QUESTIONS.md): open questions for Adam
+- [TODO.md](TODO.md): timeline; [QUESTIONS.md](QUESTIONS.md): open questions
 
 MIT licensed.

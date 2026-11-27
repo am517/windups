@@ -2,7 +2,7 @@
 
 ## Origin
 
-The windups come from Adam's view of the mind as a hive of many small selves, each with its own
+The windups come from a view of the mind as a hive of many small selves, each with its own
 identity and drive, negotiating influence and woven together into one.
 
 A windup is a small program that does one job well. Windups call each other; a "super" windup
@@ -135,19 +135,19 @@ Ruth, Ben, Rover and Beth sit outside this numbered sequence (Ruth and the stubs
 - Tests use fakes for the network; integration tests skip when external tools are missing.
 - macOS first, Linux supported, Windows not a goal. File/folder names max 255 (characters on macOS, bytes on Linux).
 
-## Design rules (Adam, 2026-10-28)
+## Design rules (2026-10-28)
 - **Treat each windup like a person.** When the right behavior is unclear, ask what a person would do. Example: like a person keeping their own notebook, Jack writes every record into his own `jack.db` first and keeps it after giving Daniel a copy; with no database reachable nothing is lost and nothing is jotted beside the media.
 - **Modular.** One file does one thing (within reason); small focused modules.
 
-Naming: traditional American English names for now (Adam, 2026-10-28).
+Naming: traditional American English names for now (2026-10-28).
 
-## Core rule: no guessing (Adam, 2026-10-28)
+## Core rule: no guessing (2026-10-28)
 Windups never best-guess or try to be "smart". A windup acts only on sure decisions, when it has enough information
 (e.g. name + year, an id like IMDb/TMDB/TheTVDB, a source URL or yt-dlp info.json, or an unambiguous exact match).
 Otherwise it plainly says "not possible with the available information", keeps everything (all candidates and raw
 data) as unresolved, and changes nothing. Ambiguous cases are for a future LLM windup, through a resolver hook.
 
-## Profiles (Adam, 2026-10-28)
+## Profiles (2026-10-28)
 - Every windup has `PROFILE.toml` in its repo root: the source of truth for who it is and what it does
   (name, role, summary, kinds, sources, reads, writes, never, hands_off, command).
 - `<name> -h` shows that file for people and `<name> -h -j` as JSON (compiled in with `include_str!`; `--capabilities` was merged into `-h`, card #5).
@@ -287,7 +287,7 @@ come back until the entry is truly complete. Every entry that isn't `complete` h
 
 CLI: now Walter's, see below (`walter pending`, `walter patrol`). Jack no longer schedules.
 
-## Round 6 (Adam, 2026-10-28): ids, references, and who does what (schema v7)
+## Round 6 (2026-10-28): ids, references, and who does what (schema v7)
 
 **Ids.** Every entry has one permanent local id (`media.id`), never changed or reused. Every work has
 one permanent `works.id`; its key and reference may improve, the id never changes. Service ids (imdb,
@@ -328,7 +328,7 @@ state (stage, latest reason, `last_checked`, its return) and decides when to cal
   one it was scheduled against; Jack stamps `last_checked` on every save, Walter after each call.
 - Jack's `pending`/`retry` commands are gone; that logic lives in Walter.
 
-## Round 7 (Adam, 2026-10-28): who calls whom
+## Round 7 (2026-10-28): who calls whom
 
 - **No daemon, no timers, portable.** Windups call Walter; he runs on the call, then exits.
 - **Daniel is his own crate** (store code moved from Jack). Jack calls him only through
@@ -342,7 +342,7 @@ state (stage, latest reason, `last_checked`, its return) and decides when to cal
 - **Mary** precedes Tom only; she never blocks Larry.
 - Stubs (profile, README, `--capabilities`): Sammy, Julie, Margaret, Oliver, Ben; and Tom, Mary, Kate.
 
-## Round 8 (Adam, 2026-10-28): Walter the data freak, Daniel the gatekeeper
+## Round 8 (2026-10-28): Walter the data freak, Daniel the gatekeeper
 
 - **Walter patrols the whole database whenever he is called, for any reason**: `patrol`, `note` (the
   same). (Round 9: `pending` no longer patrols.) Each patrol is stamped as `last_patrol` in
@@ -355,7 +355,7 @@ state (stage, latest reason, `last_checked`, its return) and decides when to cal
   Daniel counts that work but never alerts Walter about it.
 - English film references stay provisional until a source gives the original title (confirmed).
 
-## Round 9 (Adam, 2026-10-28): profiles with purpose, Rover, one repo
+## Round 9 (2026-10-28): profiles with purpose, Rover, one repo
 
 - **Every PROFILE.toml has a `purpose`** (one sentence: why the windup exists) and **`success_checks`**
   (a short list of concrete, testable statements, e.g. Jack: every file gets an entry; no guesses; only
@@ -370,14 +370,14 @@ state (stage, latest reason, `last_checked`, its return) and decides when to cal
   capability discovery, no Jack). Walter patrols only when called to patrol (`patrol` or `note`).
 - **One repo**: all windups live in one Cargo workspace (github.com/am517/windups), one folder each.
 
-## Efficiency rule (Adam, 2026-11-01)
+## Efficiency rule (2026-11-01)
 
 Windups will run on phones and small devices. Aim for the most efficient solution at every step:
 tight, fast, low-memory Rust with minimal deps and small binaries (release profile: LTO, opt-level,
 strip, `panic = abort` where sensible). Avoid needless allocations and clones, stream files rather
 than loading them whole, and benchmark hot paths.
 
-## Sammy as a shared thinking service (Adam, 2026-11-01)
+## Sammy as a shared thinking service (2026-11-01)
 
 Sammy is a shared LLM thinking service (local or remote models). Each windup thinks for itself with
 its own LoRA, keeping one LoRA per base model it has seen (keyed by model+version), and falls back
@@ -385,20 +385,20 @@ to the base model plus a system prompt until it has one. A list of available mod
 **Beth** trains LoRAs from each windup's own training phrases and parameters. Beth comes later;
 LoRAs are made manually at first. **Flora**'s personality LoRA matters for how she talks with the user.
 
-## Packaging: one binary, one portable store (Adam, 2026-11-01)
+## Packaging: one binary, one portable store (2026-11-01)
 
 One shared executable with no self-modifying binaries, plus one portable SQLite file per windup
 (e.g. `jack.windup`) holding config, LoRA blobs, training phrases and memory. Every windup gets the
 universal commands `export` (to a readable TOML/JSON folder), `import`, and `show config`.
 
-## A windup is an identity, not a file (Adam, 2026-11-01)
+## A windup is an identity, not a file (2026-11-01)
 
 Copies on paired devices sync their `.windup` data in the style of Syncthing and share a job list.
 Windups move only within the approved private device group and never spread on their own. **John**
 manages the device group (pair, list and remove devices, keys, trust checks). John comes just before
 Walter.
 
-## Jack (Adam, 2026-11-01; supersedes the never-best-guess rule for Jack)
+## Jack (2026-11-01; supersedes the never-best-guess rule for Jack)
 
 Before going online, Jack checks the DB. On an exact match (by id, or by name plus year), he updates
 only what's needed. For a related item (same show, channel or podcast), he reuses its shared details
@@ -414,7 +414,7 @@ belong to other windups.
 (The global "no guessing" rule still applies to every other windup. Jack alone may emit a best-guess
 JSON with explicit flags for Daniel.)
 
-## Daniel tasks table (planned; do not build yet) (Adam, 2026-11-01)
+## Daniel tasks table (planned; do not build yet) (2026-11-01)
 
 Each row: `entry`, `task_type`, `assigned` windup, `status`, `depends_on`, `confidence` (stays open
 until 100%), `resources_used` (don't retry unless new resources exist), `claimed_by`, `claimed_at`
@@ -425,14 +425,14 @@ entry adds a **Suzan** (write-to-file) task, with at most one open Suzan task pe
 config with sane defaults: `max_windups` (global), `max_instances` (per windup, overridable),
 `priority` (nice level) and lease timeout. Daniel counts active rows before calling a windup.
 
-## Daniel schema: canonical entities (Adam, 2026-11-01)
+## Daniel schema: canonical entities (2026-11-01)
 
 Canonical tables for entities (people and orgs), genres and groups, each with an alias table mapping
 alias → canonical entry. Files store only canonical ids. Ambiguous aliases are flagged for the user,
 never mapped automatically. Composite labels are data rules, for example
 `anime = Animation AND Japanese`.
 
-## Shared core, roles and culture (Adam, 2026-11-10)
+## Shared core, roles and culture (2026-11-10)
 
 - **Roles.** Daniel is the record keeper (owns the shared catalog, its schema and all writes).
   Walter is the auditor (reads every windup's DB read-only, finds gaps, unsynced records, stale
@@ -447,9 +447,9 @@ never mapped automatically. Composite labels are data rules, for example
   ([NAMES.md](NAMES.md)) is style and priorities, never an exception.
 
 
-## Answers to the core design questions (Adam, 2026-11-10, 12:21 AM ET)
+## Answers to the core design questions (2026-11-10, 12:21 AM ET)
 
-1. **Personalities** stay proposals (except Daniel and Walter, set by Adam). *Superseded 12:33 AM ET: all 22 set, "work in progress" (NAMES.md).*
+1. **Personalities** stay proposals (except Daniel and Walter, set). *Superseded 12:33 AM ET: all 22 set, "work in progress" (NAMES.md).*
 2. **Packaging:** per-user data folder (`~/Library/Application Support/Windups/<name>` on macOS,
    `~/.local/share/windups/<name>` on Linux) with `~/.local/bin/<name>` a symlink. A .deb can't
    write into home folders, so it ships the binary and the first run (or `jack setup`) makes the
@@ -463,7 +463,7 @@ never mapped automatically. Composite labels are data rules, for example
    [COMMANDS.md](COMMANDS.md)) behind the sync trait, chosen by Jack's `[archive] sync_transport`
    (the library call stays), and `walter audit` on the audit hook (read-only, universal commands).
 
-## Relationships, isolation, and Jack's single match (Adam, 2026-11-15)
+## Relationships, isolation, and Jack's single match (2026-11-15)
 
 - **Relationships live only in config**, never hardcoded. A `[relationships]` table holds optional
   names: `assistant`, `matchmaker`, `database`, `llm` (for example Flora, Oliver, Daniel, Sammy).

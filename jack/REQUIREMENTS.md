@@ -1,6 +1,6 @@
 # Jack — movie & TV metadata tagger and sorter
 
-Owner: Adam Moore. Builder: Coding Bot. Replaces iVI4 Pro (stopped working).
+Builder: Coding Bot. Replaces iVI4 Pro (stopped working).
 Pacing: built in small, independently useful phases over several weeks (token budget ~14%/day).
 
 ## Goal
@@ -22,7 +22,7 @@ build the best composite metadata, write it into the files, and sort them into f
 ## Config
 - Main config (~/.config/windups/jack/config.toml): API keys, provider priority per field, naming templates, output root.
 - Per-file sidecar: `<filename>.config` beside the media file, same options as flags (alternative to flags).
-- Precedence: flags > sidecar > main config. All tweakables live in config, not code (Adam's rule).
+- Precedence: flags > sidecar > main config. All tweakables live in config, not code (owner's rule).
 
 ## Architecture
 - Rust, modular: one module per provider behind a common trait; core (scan, match, merge), writer, sorter.
@@ -47,7 +47,7 @@ build the best composite metadata, write it into the files, and sort them into f
 5. Extra providers, one at a time.
 
 ## Done when
-Phases 1–4 tag and sort a real movie and a real TV season on Adam's Mac correctly, with dry-run first.
+Phases 1–4 tag and sort a real movie and a real TV season on the Mac correctly, with dry-run first.
 
 ## Roadmap
 

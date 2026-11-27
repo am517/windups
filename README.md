@@ -4,7 +4,7 @@ Small programs that each do one job well and call each other. One Cargo workspac
 
 ## Origin
 
-The windups come from Adam's view of the mind as a hive of many small selves, each with its own
+The windups come from a view of the mind as a hive of many small selves, each with its own
 identity and drive, negotiating influence and woven together into one.
 
 A windup is a small program that does one job well. Windups call each other; a "super" windup

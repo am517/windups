@@ -3,7 +3,7 @@ role = "lora-trainer"
 summary = "Beth trains LoRAs from each windup's training phrases and parameters (later; until then LoRAs are made manually)."
 purpose = "Train each windup's LoRA from its own training phrases and parameters."
 personality = "Empathetic"
-personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
+personality_status = "set (work in progress)"  # set = chosen by the owner ("work in progress" while names may change); proposed = a draft
 status = "stub"
 command = "beth -h -j"
 

@@ -3,7 +3,7 @@ role = "directory"
 summary = "Margaret is the directory: she knows every windup and its capabilities (their profiles) and points callers to the right one."
 purpose = "Know every windup and point callers to the right one."
 personality = "Matchmaker"
-personality_status = "set (work in progress)"  # set = chosen by Adam ("work in progress" while names may change); proposed = a draft
+personality_status = "set (work in progress)"  # set = chosen by the owner ("work in progress" while names may change); proposed = a draft
 status = "stub"
 command = "margaret -h -j"
 
