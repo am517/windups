@@ -31,6 +31,16 @@ Ed25519 for identity and X25519 for key exchange are the same choices WireGuard,
 - The phrase is needed only to add a new device or to make new keys after a compromise.
 - A passkey is possible as a convenience unlock (e.g. Touch ID); decide later. It would unlock the cached key, not be the key itself.
 
+## A windup alone (starting point, Nov 27)
+- Every windup works fully in isolation, with reduced function. It makes human-like choices, does only its own task, and never takes on extra tasks just because it is alone.
+- Keys: a windup running without Flora may create a local key for its own records. That key is marked **unregistered**.
+- When Flora exists, the windup enrolls: Flora introduces it and records its public key (see Introductions). Until then it talks to no other windup.
+- Open questions (not decided):
+  1. Which keys the lone windup makes: only the data key and a random master key, or also its identity and talk keys?
+  2. How enrollment brings the local key under the recovery phrase. Is the data key re-wrapped with the phrase-derived master key, or does the windup keep its random one?
+  3. Whether records signed while unregistered are re-signed, or marked as made before enrollment, when they sync to Daniel.
+  4. What the user sees while a windup is unregistered (e.g. in `status`).
+
 ## Protecting the master key
 - OS keychain first.
 - If there's no keychain (e.g. a headless Pi), use an SSH-style key file: a private key file the windup creates once.
