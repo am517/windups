@@ -1,9 +1,10 @@
-# Lauren — functional spec (DRAFT for Adam)
-Lauren is the tagging windup. Drafted Nov 26, 2026 by Coding Bot from the repo's existing sources only; nothing here is new behavior. Every line cites where it comes from. **Open questions** are things the sources don't say: I don't know them, and Adam decides.
+# Lauren — functional spec (DRAFT)
+Lauren is the tagging windup. Drafted Nov 26, 2026 from the repo's existing sources only; updated Nov 27 with review direction. Every line cites where it comes from. **Open questions** are things neither says: I don't know them, and they stay open until decided in review.
 
 ## 1. Purpose
-- Name: Lauren · Personality: Artistic (NAMES.md, set by Adam Nov 10, work in progress)
+- Name: Lauren · Personality: Artistic (NAMES.md, set Nov 10, work in progress)
 - Function: writes tags and embeds art into media files from what the database already knows (PROFILE.toml `purpose`; NAMES.md).
+- **She writes metadata inside files, as a front end to exiftool** (direction, Nov 27). Filesystem writes (rename, move, organize) are Suzan's, so the two are not redundant.
 - She takes over Jack's file-editing code (roster; coding_guidelines §4 "file editing moves to Lauren later", Nov 20).
 - Workspace: her own folder with one binary and one encrypted DB (`lauren.db`), like every windup (coding_guidelines §4).
 
@@ -20,13 +21,12 @@ Global rules only (windups_base_spec §3-4): say what was written, what was skip
 Global flags and plain-word commands only (base spec §1-2). Her own commands: **I don't know** (none are specified).
 
 ## 5. Modules (proposal, not decided)
-Reuse Jack's `tagger.rs` / `art.rs` from `main` as Lauren's starting point, one job per file: `plan` (which tags from which DB fields), `mp4`, `mkv`, `art`.
+Start from Jack's old `tagger.rs` / `art.rs` (in git history), one job per file: `plan` (which tags from which DB fields), `exiftool` (the front end), `art`.
 
-## 6. Open questions for Adam
+## 6. Open questions
 1. **Which database does she read**: Daniel's media.db, Jack's jack.db, or records sent to her over Noise? ("from the database" doesn't say which.)
-2. **Lauren vs Suzan**: Suzan "writes pending changes to the file". Does Lauren decide *what* to write and Suzan do the writing, or does Lauren write tags/art herself?
-3. **Jack's fallback**: her profile says "Jack keeps a fallback" (success check 2), but PR #25 removes all tagging from Jack. Drop that check?
-4. **Which tags**: Jack's old set (title, year, ids, content rating, cover) or a new list?
-5. **External tools vs a Rust crate**: keep calling AtomicParsley/exiftool/mkvpropedit, or write tags in Rust (e.g. `mp4ameta`)? Guidelines prefer few deps and Rust first.
-6. **Formats**: MP4 and MKV only to start?
-7. **Who calls her, and when**: after Daniel stores an entry, by Tammy, or only on a person's request?
+2. **Jack's fallback**: her profile says "Jack keeps a fallback" (success check 2), but PR #25 removes all tagging from Jack. Drop that check?
+3. **Which tags**: Jack's old set (title, year, ids, content rating, cover) or a new list?
+4. **Other tools**: exiftool is her front end. Does she still use mkvpropedit for MKV (exiftool can't write Matroska), and AtomicParsley at all?
+5. **Formats**: MP4 and MKV only to start?
+6. **Who calls her, and when**: after Daniel stores an entry, by Tammy, or only on a person's request?

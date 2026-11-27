@@ -1,9 +1,10 @@
-# Suzan — functional spec (DRAFT for Adam)
-Suzan is the write-to-file windup. Drafted Nov 26, 2026 by Coding Bot from existing sources only. **Open questions** are things the sources don't say; Adam decides.
+# Suzan — functional spec (DRAFT)
+Suzan is the write-to-file windup. Drafted Nov 26, 2026 from existing sources only; updated Nov 27 with review direction. **Open questions** are things neither says; they stay open until decided in review.
 
 ## 1. Purpose
 - Name: Suzan · Personality: Persistent (NAMES.md)
 - Function: writes pending changes to the file, with at most one open Suzan task per entry (PROFILE.toml; NAMES.md).
+- **She does the filesystem writes: rename, move, organize** (direction, Nov 27). Metadata inside files is Lauren's, so the two are not redundant.
 - Workspace: her own folder, one binary, one encrypted DB `suzan.db` (coding_guidelines §4).
 
 ## 2. Rules (from the sources)
@@ -15,9 +16,8 @@ Suzan is the write-to-file windup. Drafted Nov 26, 2026 by Coding Bot from exist
 ## 3. Responses, flags, commands
 Global only (base spec). Her own commands: **I don't know**.
 
-## 4. Open questions for Adam
-1. **Tasks table**: her one-open-task rule lives in Daniel's tasks table, which is "do not build yet". Build it now (Daniel), or give Suzan her own task list in `suzan.db` until then?
-2. **Lauren vs Suzan** (same as Lauren Q2): what exactly does each write? Tags and art (Lauren) vs "pending changes" (Suzan) overlap.
-3. **What is a "pending change"**: tags only, or also renames/moves (Sally organizes files)?
-4. **Failure and retry**: a write fails (file busy, read-only disk). Keep the task open for Walter to send her back?
-5. **Originals**: back up the file (or its tag block) before writing, or rely on George's snapshots (which cover DBs, not media)?
+## 4. Open questions
+1. **Tasks table**: her one-open-task rule lives in Daniel's tasks table, which is "do not build yet". **Waits for Daniel**, who is next after Jack and is finished before anything that depends on him (direction, Nov 27).
+2. **Suzan vs Sally**: NAMES.md and the roster give Sally "organizes files (rename, move, sort)", and she takes over Jack's sorting. With Suzan now doing rename/move/organize, what is left for Sally (for example, deciding *where* things go while Suzan does the writing)?
+3. **Failure and retry**: a write fails (file busy, read-only disk). Keep the task open for Walter to send her back?
+4. **Originals**: back up the file (or its tag block) before writing, or rely on George's snapshots (which cover DBs, not media)?

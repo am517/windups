@@ -1,5 +1,5 @@
-# Kate — functional spec (DRAFT for Adam)
-Kate is the image windup. Drafted Nov 26, 2026 by Coding Bot from existing sources only. **Open questions** are things the sources don't say; Adam decides.
+# Kate — functional spec (DRAFT)
+Kate is the image windup. Drafted Nov 26, 2026 from existing sources only; updated Nov 27 with review direction. **Open questions** are things neither says; they stay open until decided in review.
 
 ## 1. Purpose
 - Name: Kate · Personality: Utilitarian (NAMES.md)
@@ -11,11 +11,11 @@ Kate is the image windup. Drafted Nov 26, 2026 by Coding Bot from existing sourc
 - Archived art is JPEG XL, lossless from JPEG sources (success check 2; QUESTIONS.md answer 3: "lossless JPEG recompression").
 - The original image is never altered or lost (success check 3).
 - She converts Jack's art (TODO.md).
+- **She may link libjxl (C++)** for lossless JPEG → JPEG XL (direction, Nov 27). C/C++ libraries are fine as dependencies when no Rust version exists; all new code is Rust (coding_guidelines §3).
 - Code today: `kate/src/lib.rs` has `Target { EmbedJpeg, ArchiveJxl }`, a `Converter` trait and a refusing stub.
 
-## 3. Open questions for Adam
-1. **Encoder**: lossless JPEG → JPEG XL recompression is only in libjxl (C++; `cjxl`, or the `jpegxl-rs` crate binding it). The pure-Rust crates I know of (`jxl-oxide` decodes; `zune-jpegxl` encodes pixels only) do not do lossless JPEG recompression (not re-checked today). Use the `cjxl` tool when installed (like exiftool/yt-dlp, detected at runtime), or link libjxl? Guidelines allow another language only when there is no choice.
-2. **Non-JPEG sources** (PNG, WebP): JPEG XL lossless from pixels, or lossy at what quality?
-3. **Embed JPEG**: what maximum size/dimensions and quality? PNG sources re-encoded to JPEG, or embedded as PNG (MP4 allows PNG)?
-4. **Where the archive lives**: in Kate's folder, or handed to someone (Daniel's raw_dir, George)? Windups never write outside their own folder.
-5. **Who calls her**: Jack after fetching art, Lauren before embedding, or both?
+## 3. Open questions
+1. **Non-JPEG sources** (PNG, WebP): JPEG XL lossless from pixels, or lossy at what quality?
+2. **Embed JPEG**: what maximum size/dimensions and quality? PNG sources re-encoded to JPEG, or embedded as PNG (MP4 allows PNG)?
+3. **Where the archive lives**: in Kate's folder, or handed to someone (Daniel's raw_dir, George)? Windups never write outside their own folder.
+4. **Who calls her**: Jack after fetching art, Lauren before embedding, or both?
