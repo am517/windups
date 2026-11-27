@@ -60,6 +60,9 @@ Jack is the metadata windup.
 - Candidate picks (Nov 27): picked candidates count as confirming sources; unpicked ones are ignored. The picks then go through the same consensus rule, so picks naming different works settle nothing. `--pick "N ..."` gives the picks without a prompt, using the numbers in the list. Config `[candidates]`: `ask` (default true; asks on a terminal only), `per_source` (search hits kept per source, default 5) and `more` (default 5).
 - Decided (Nov 27): the "Would you like to see candidates (y/n)?" question comes first, before the list.
 - A picked search hit carries only a name, a year and an id. Jack fetches its full record from its own source by that id before consensus. If the fetch fails, or the source has no id lookup, he says so (`pick_fetch_failed`) and accepts nothing.
+- Decided (Nov 27): `more` means one more page per service (a source's search returns one page; Jack doesn't page further).
+- TVmaze and iTunes hits are left out of the list (`[candidates] unpickable`), because Jack has no id lookup for them to fetch a pick in full.
+- When Jack chooses a match himself, a person on a terminal is asked "Would you like to see the candidates I chose from (y/n)?". On yes, the list is shown with the agreeing sources marked `*`. Nothing is picked there.
 - More results: typing `more` at the prompt searches again with `more` extra hits per source and shows the new list. `--limit N` sets the hits per source for one run.
 - `-j` carries the full candidate list for each item (`candidates`: groups by source, with the same numbers; see `windups/schema/handoff_v1.md`), so Sammy or a calling windup can use it. A windup never gets a prompt.
 - In the list, sources whose rows have no title and no id show as one `not found: ...` line, and they count neither way.

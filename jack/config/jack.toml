@@ -441,6 +441,8 @@ ask = true
 # changes it for one run; "more" at the prompt searches again with `more` extra per source.
 per_source = 5
 more = 5
+# Left out of the list: Jack can't look these up by id yet, so a pick couldn't be fetched in full.
+unpickable = ["tvmaze", "itunes"]
 
 [embedded]
 # Read the file's own metadata first; it is the truth for facts (not wording) and always kept as

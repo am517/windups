@@ -369,8 +369,10 @@ pub(crate) fn process(
         .get("show")
         .or(meta.get("title"))
         .map_or("", |t| t.as_str());
-    hk.lists
-        .push((file.clone(), crate::pick::list(title, &found).json(&found)));
+    hk.lists.push((
+        file.clone(),
+        crate::pick::list_without(title, &found, &cfg.candidates.unpickable).json(&found),
+    ));
     if unresolved {
         if crate::escalate::sammy_available() {
             // Sammy rows of the can't-decide table. The live client is a later card.
@@ -397,6 +399,15 @@ pub(crate) fn process(
     let year = meta.get("year").map_or("?", |value| value.as_str());
     let score = meta.get("match_score").map_or("?", |value| value.as_str());
     let _ = writeln!(out, "    identified: {title} ({year}), score {score}");
+    // Jack chose himself: a person may look at the candidates, the chosen ones marked
+    if !cfg.windup && cfg.candidates.ask && crate::offer::person_is_here() {
+        let list = crate::pick::list_without(title, &found, &cfg.candidates.unpickable);
+        crate::offer::show_chosen(&list.marked(&found, &meta), &mut || {
+            let mut line = String::new();
+            let _ = std::io::stdin().read_line(&mut line);
+            line
+        });
+    }
     if print {
         print_meta(path, s, cfg, &meta, pr);
     }
@@ -544,7 +555,7 @@ pub(crate) fn pick(
         .or(meta.get("title"))
         .cloned()
         .unwrap_or_default();
-    let mut list = crate::pick::list(&title, found);
+    let mut list = crate::pick::list_without(&title, found, &cfg.candidates.unpickable);
     let typed = match (&cfg.picks, prompt) {
         (Some(p), _) => {
             for line in list.lines() {
@@ -573,7 +584,11 @@ pub(crate) fn pick(
                                 "    searched again with up to {limit} results per source"
                             );
                             *found = f;
-                            list = crate::pick::list(&title, found);
+                            list = crate::pick::list_without(
+                                &title,
+                                found,
+                                &cfg.candidates.unpickable,
+                            );
                         }
                         Err(e) => {
                             let _ = writeln!(out, "    more: the new search failed: {e}");
