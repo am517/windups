@@ -22,6 +22,19 @@ update = 1              # anything else re-stored
 socket = ""   # empty = daniel.sock in Daniel's data folder; exists only while Daniel is serving
 max_frame_bytes = 16777216                # biggest request accepted (16 MiB)
 
+# Daniel's purpose catalogs (people, records, maps, photos; media/reference is the shared media.db).
+# Empty = <catalog>.db in Daniel's folder. Give several the same path to keep them in one file.
+[catalogs]
+people = ""
+records = ""
+maps = ""
+photos = ""
+
+# Personal records: designed, but nothing is ingested until Daniel is final. The source folder is
+# always read-only.
+[records]
+ingest = false
+
 # The shared core (see windups/CULTURE.md).
 [core]
 # Daniel's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.

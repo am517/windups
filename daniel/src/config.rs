@@ -8,6 +8,25 @@ pub struct Config {
     pub walter: WalterCfg,
     pub importance: Importance,
     pub serve: ServeCfg,
+    pub catalogs: CatalogsCfg,
+    pub records: RecordsCfg,
+}
+
+/// Where each purpose catalog lives; empty = `<catalog>.db` in Daniel's folder.
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(default)]
+pub struct CatalogsCfg {
+    pub people: String,
+    pub records: String,
+    pub maps: String,
+    pub photos: String,
+}
+
+/// Personal records: `ingest` stays false until Daniel is final.
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(default)]
+pub struct RecordsCfg {
+    pub ingest: bool,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]

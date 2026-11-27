@@ -2,6 +2,7 @@
 //! for the file's hash and fingerprint and Ruth for the work reference, stores it all, then tells
 //! Walter. Windups hand entries to Daniel; only Daniel writes them.
 pub mod alert;
+pub mod catalog;
 pub mod config;
 pub mod ingest;
 pub mod receive;
