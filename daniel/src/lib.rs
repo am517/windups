@@ -3,6 +3,7 @@
 //! Walter. Windups hand entries to Daniel; only Daniel writes them.
 pub mod alert;
 pub mod catalog;
+pub mod chunk_vectors;
 pub mod config;
 pub mod connected;
 pub mod connected_cli;
