@@ -12,7 +12,7 @@ Lauren is the tagging windup. Drafted Nov 26, 2026 from the repo's existing sour
 - What she writes comes from the database, never a fresh guess (PROFILE success check 1).
 - Embedded art is JPEG (QUESTIONS.md answer 3, Oct 28: MP4 `covr` only allows JPEG/PNG); Kate makes the JPEG (Kate's profile).
 - She acts only on sure decisions and keeps her complete action history (coding_guidelines §1); her own record is written before she touches a file (§4).
-- **Hard gate (Nov 27, after a wrong write):** she never writes to a file whose entry is unresolved or needs judgment. Only a resolved identity is written, and a test enforces it. Repairing a file an older Jack wrote wrongly: `docs/repair_wrong_tags.md`.
+- **Hard gate (Nov 27, after a wrong write):** she never writes to a file whose entry is unresolved or needs judgment. Only a resolved identity is written, and a regression test must enforce it. Repairing a file an older Jack wrote wrongly: `docs/repair_wrong_tags.md`.
 - She uses free, locally installed tools when present and says clearly when one is missing (§3). Jack's old tagger used AtomicParsley or exiftool for MP4 and mkvpropedit/mkvmerge for MKV (`jack/src/tagger.rs`, in git history before #25).
 
 ## 3. Responses
