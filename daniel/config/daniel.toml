@@ -47,6 +47,13 @@ max_query_words = 200   # words of a chunk used to look those entities up
 limit = 5
 catalogs = ["media", "people", "maps", "photos"]
 
+# `daniel connected NAME`: everything connected to a person, place, thing, idea or topic.
+# Personal records only when named (--catalog records), even if listed here.
+[connected]
+depth = 2
+limit = 5
+catalogs = ["media", "maps", "photos"]
+
 # The shared core (see windups/CULTURE.md).
 [core]
 # Daniel's personality (style and priorities, never an exception to the rules). Empty = PROFILE.toml's.

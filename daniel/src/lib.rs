@@ -4,6 +4,8 @@
 pub mod alert;
 pub mod catalog;
 pub mod config;
+pub mod connected;
+pub mod connected_cli;
 pub mod find;
 pub mod find_cli;
 pub mod ingest;

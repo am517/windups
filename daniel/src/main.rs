@@ -8,6 +8,10 @@ fn main() {
             ),
             ("accept", "same as ingest"),
             (
+                "connected",
+                "everything connected to a person, place, thing, idea or topic (connected [--id N] [--depth N] [-j] NAME)",
+            ),
+            (
                 "find",
                 "word search over the catalogs, a short candidate list (find [--catalog NAME]... [--limit N] [-j] WORDS...)",
             ),
@@ -23,7 +27,7 @@ fn main() {
                 windups::base::help::json(daniel::PROFILE, v, &commands)
             );
         } else {
-            let usage = "daniel ingest|accept [--db PATH] FILE...|- | daniel find [--catalog NAME]... [--limit N] [-j] WORDS... | daniel serve [--socket PATH] [--db PATH] | daniel -h [-j]";
+            let usage = "daniel ingest|accept [--db PATH] FILE...|- | daniel find [--catalog NAME]... [--limit N] [-j] WORDS... | daniel connected [--id N] [--depth N] [-j] NAME | daniel serve [--socket PATH] [--db PATH] | daniel -h [-j]";
             print!(
                 "{}",
                 windups::base::help::human(daniel::PROFILE, v, usage, &commands)
@@ -38,6 +42,13 @@ fn main() {
                 std::process::exit(if e.starts_with("usage:") { 2 } else { 1 });
             }
         }
+        Some("connected") => match daniel::connected_cli::run(&args[1..]) {
+            Ok(s) => print!("{s}"),
+            Err(e) => {
+                eprintln!("daniel: {e}");
+                std::process::exit(if e.contains("usage:") { 2 } else { 1 });
+            }
+        },
         Some("find") => match daniel::find_cli::run(&args[1..]) {
             Ok(s) => print!("{s}"),
             Err(e) => {
