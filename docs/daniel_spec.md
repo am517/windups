@@ -151,6 +151,11 @@ use the best-quality method. So:
   asked for by name (`--catalog records`), never by default.
 - Full details for a picked candidate, more results, vectors and fusion belong to Steve (the
   search windup); `find` is Daniel's thin search for when Steve is absent (Q4).
+- `daniel connected [--id N] [--depth N] [--catalog NAME]... [--limit N] [-j] NAME`: "everything
+  connected to X". The name (or an alias) is resolved to entities; when several match, they are
+  listed for a pick (`--id`) and none is guessed. Relationships are walked both ways up to
+  `[connected] depth` hops (default 2) by a recursive CTE; mentions come from `[connected] catalogs`
+  (records only when named), sure ones first.
 - Japanese and other scripts without spaces: Q5.
 
 ## 8. Vectors

@@ -12,6 +12,16 @@ pub struct Config {
     pub records: RecordsCfg,
     pub mentions: MentionsCfg,
     pub find: FindCfg,
+    pub connected: ConnectedCfg,
+}
+
+/// `daniel connected`: hops walked, entries shown at most, and the catalogs whose mentions count.
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(default)]
+pub struct ConnectedCfg {
+    pub depth: u32,
+    pub limit: usize,
+    pub catalogs: Vec<String>,
 }
 
 /// `daniel find`: candidates shown at most, and the catalogs searched when none is named.

@@ -19,7 +19,12 @@ daniel find --catalog people --limit 10 ada
 daniel find --catalog records -j receipt   # personal records only when named
 ```
 
-`find` only reads: a catalog that doesn't exist yet is reported as skipped, never created.
+```zsh
+daniel connected Ada                      # related entities (2 hops) and mentions
+daniel connected --id 4 --depth 1 -j      # several share a name: pick by id
+```
+
+`find` and `connected` only read: a catalog that doesn't exist yet is reported as skipped, never created.
 
 `ingest` (and `accept`) print one line per file and exit non-zero if any file fails. Re-ingesting the same file updates its entry; it does not duplicate rows. A JSON whose `"v"` is not `1` is rejected.
 
