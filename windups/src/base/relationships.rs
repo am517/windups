@@ -126,10 +126,10 @@ pub fn resolve(mut rels: Relationships, dir: &dyn Directory) -> Resolution {
     let mut notes = Vec::new();
     let mut changed = Vec::new();
 
-    if !Relationships::is_set(&rels.matchmaker) {
-        if let Some(m) = ask(dir, &rels.assistant.clone(), "matchmaker", &mut notes) {
-            fill(&mut rels, "matchmaker", m, &mut changed);
-        }
+    if !Relationships::is_set(&rels.matchmaker)
+        && let Some(m) = ask(dir, &rels.assistant.clone(), "matchmaker", &mut notes)
+    {
+        fill(&mut rels, "matchmaker", m, &mut changed);
     }
 
     for role in ["database", "llm"] {

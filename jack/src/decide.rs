@@ -268,24 +268,25 @@ pub fn decide(
         .copied()
         .filter(|(src, _)| !is_search(src))
         .collect();
-    if !user_id && !hits.is_empty() {
-        if let Some((_src, m)) = chosen.iter().find(|(_, m)| {
+    if !user_id
+        && !hits.is_empty()
+        && let Some((_src, m)) = chosen.iter().find(|(_, m)| {
             m.get("show")
                 .or(m.get("title"))
                 .is_some_and(|t| norm(t) != norm(&q.title))
                 && !is_hit(m)
                 && !hits.iter().any(|(_, h)| share_id(h, m))
-        }) {
-            return Decision::unresolved(
-                "needs_flags",
-                format!(
-                    "a source's details are for {}, not \"{}\"",
-                    label(m),
-                    q.title
-                ),
-                best,
-            );
-        }
+        })
+    {
+        return Decision::unresolved(
+            "needs_flags",
+            format!(
+                "a source's details are for {}, not \"{}\"",
+                label(m),
+                q.title
+            ),
+            best,
+        );
     }
 
     // cluster exact hits (or, when the user gave an id, the fetched details)

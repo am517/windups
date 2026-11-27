@@ -85,10 +85,10 @@ impl Daniel for Store<'_> {
             &fp,
             &self.larry.fingerprint,
         )?;
-        if out.starts_with("database:") {
-            if let Some(n) = self.after_store(h, before.as_ref()) {
-                out += &format!("; {n}");
-            }
+        if out.starts_with("database:")
+            && let Some(n) = self.after_store(h, before.as_ref())
+        {
+            out += &format!("; {n}");
         }
         Ok(out)
     }

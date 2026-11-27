@@ -21,10 +21,9 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
     if let (Some(t), Some(f)) = (
         &cli.kind,
         cli.tv.then_some("tv").or(cli.movie.then_some("movie")),
-    ) {
-        if t != f {
-            return Err(format!("--{f} conflicts with --type {t}"));
-        }
+    ) && t != f
+    {
+        return Err(format!("--{f} conflicts with --type {t}"));
     }
     let mut pre = String::new();
     if cli.set {
@@ -58,12 +57,11 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
             pre.push_str(&format!("{n}\n"));
         }
     }
-    if !found.changed.is_empty() {
-        if let Some(p) = cli.config.as_deref() {
-            if let Err(e) = config::save_relationships(p, &found.changed) {
-                pre.push_str(&format!("warning: relationships: {e}\n"));
-            }
-        }
+    if !found.changed.is_empty()
+        && let Some(p) = cli.config.as_deref()
+        && let Err(e) = config::save_relationships(p, &found.changed)
+    {
+        pre.push_str(&format!("warning: relationships: {e}\n"));
     }
     if let Some(p) = &cli.providers {
         cfg.providers.order = p.clone();

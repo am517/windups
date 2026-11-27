@@ -278,7 +278,11 @@ fn copy_all(from: &Path, to: &Path, entries: &[PathBuf]) -> Result<(), String> {
         } else if is_sqlite(&s) {
             // the online backup API gives a consistent copy even if the windup has it open
             ro(&s)?
-                .backup(rusqlite::DatabaseName::Main, &d, None)
+                .backup(
+                    rusqlite::MAIN_DB,
+                    &d,
+                    None::<fn(rusqlite::backup::Progress)>,
+                )
                 .map_err(|e| err(&e))?;
         } else {
             std::fs::copy(&s, &d).map_err(|e| err(&e))?;

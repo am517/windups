@@ -7,10 +7,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-rusqlite = "0.32"
+rusqlite = "0.43"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-toml = "0.8"
+toml = "1"
 windups.workspace = true
 
 [dev-dependencies]
