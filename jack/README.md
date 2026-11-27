@@ -38,7 +38,7 @@ jack movie.mp4 -p                                    # print the facts; Jack alw
 
 - Main config: `"~/Library/Application Support/Windups/jack/config.toml"` on macOS, `~/.local/share/windups/jack/config.toml` on Linux (old installs: `~/.config/windups/jack/config.toml`) or `--config <path>`; deep-merged over the built-in defaults in `config/jack.toml`, which documents every key. Quote the macOS path; it contains a space.
 - Embedded ids, names and dates count as flags when you give no id. An id you give outranks the file's tags; tags that disagree with it are reported as "file tags look wrong" and not used. `--name` and `--year` only filter.
-- When Jack can't decide, he lists the candidates once, grouped by source. Pick at most one per source by number, at the prompt or with `--pick "1 6"`. Picks count as confirming sources.
+- When Jack can't decide, he lists the candidates once, grouped by source. Pick at most one per source by number, at the prompt or with `--pick "1 6"`. Picks count as confirming sources, and a picked search hit is fetched in full first. Type `more` at the prompt, or use `--limit N`, for more hits per source.
 - A title is accepted only when it is the single result at or above `[matching] fuzzy_threshold` (default 0.90). The score is stored with the decision.
 - When Jack cannot decide and Sammy is not connected, a person is asked `Would you like to see candidates (y/n)?`. A pipe or another windup gets exit code 1 and the reason.
 - Precedence: flags > main config > built-in defaults. `~` is expanded in paths.
@@ -63,7 +63,7 @@ Jack's folder holds three things: the `jack` binary, his own database `jack.db`,
 - `[archive] id`: `content` (default; an identical re-run is the same record) or `per_run`.
 - Universal commands (see `../windups/COMMANDS.md`): `jack status|health|sync|backup|export [-|DIR]|version|config|log [N]|help|talk WORDS...`, plus Jack's own `identify PATH...`, `ask` and `setup`. A real file or folder with one of those names is still treated as a path. `jack export` writes every record (JSONL).
 - Jack's folder: see `../windups/LAYOUT.md` (`--config` > `JACK_HOME` > the binary's folder > the data folder > legacy `~/.config/windups/jack/`). The first run makes the data folder and links `~/.local/bin/jack`; snapshots go in `<folder>/backups/`.
-- `-j` / `--json` prints the run's result as one JSON object on stdout (`{"v":1,"ok":..,"items":[{file, ok, lifecycle, reason, error, metadata}]}`); add `-p` for the facts in `metadata`. No prompts, no commentary. `--emit-json`, `--print-format` and the `-j` sidecar are gone; `jack export [-|DIR]` writes the kept records.
+- `-j` / `--json` prints the run's result as one JSON object on stdout (`{"v":1,"ok":..,"items":[{file, ok, lifecycle, reason, error, metadata, candidates}]}`; `candidates` is documented in `../windups/schema/handoff_v1.md`); add `-p` for the facts in `metadata`. No prompts, no commentary. `--emit-json`, `--print-format` and the `-j` sidecar are gone; `jack export [-|DIR]` writes the kept records.
 
 ## API keys
 

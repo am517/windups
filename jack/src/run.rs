@@ -42,6 +42,9 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
     let mut cfg = config::load(cli.config.as_deref())?;
     cfg.windup = cli.windup;
     cfg.picks = cli.pick.clone();
+    if let Some(n) = cli.limit {
+        cfg.candidates.per_source = n.max(1);
+    }
     // discover relationships (assistant / matchmaker / database / llm); isolation if nobody answers
     let found = windups::base::relationships::resolve(
         cfg.relationships.clone(),
@@ -127,6 +130,7 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
         ex: &ex,
         open: vec![],
         done: vec![],
+        lists: vec![],
     };
     let files = found.files;
     let mut failed = found.skipped.len();
@@ -169,6 +173,7 @@ pub(crate) fn run(cli: &Cli, http: &dyn Http) -> Result<(String, String, usize),
             "reason": m.get("unresolved_reason"),
             "error": if unresolved { serde_json::Value::String(more.into()) } else { serde_json::Value::Null },
             "metadata": printed_facts(&pr.json, file),
+            "candidates": hk.lists.iter().find(|(f, _)| f == file).map(|(_, l)| l.clone()),
         }));
     }
     if cli.windup {
@@ -927,10 +932,41 @@ mod tests {
         assert_eq!(fs::read(&file).unwrap(), b"bytes");
     }
 
-    /// Can't decide: the candidates are listed once, grouped by source, and `--pick` settles it.
-    #[test]
-    fn candidates_are_listed_once_by_source_and_picks_settle_the_match() {
+    fn picks_http() -> providers::fake::FakeHttp {
         use serde_json::json;
+        providers::fake::FakeHttp::new(vec![
+            (
+                "/search/movie",
+                json!({"results":[
+                    {"id":462145,"title":"Mountain","release_date":"2017-09-28"},
+                    {"id":7,"title":"Mountain Men","release_date":"2017-01-01"},
+                    {"id":8,"title":"Mountain Three","release_date":"2017-01-01"}]}),
+            ),
+            (
+                "/movie/462145",
+                json!({"id":462145,"title":"Mountain","release_date":"2017-09-28"}),
+            ),
+            (
+                "/movie/7",
+                json!({"id":7,"title":"Mountain Men","release_date":"2017-01-01","overview":"Full details","imdb_id":"tt7"}),
+            ),
+            ("/movie/8", json!({"__status": 404})),
+            ("/login", json!({"data":{"token":"T"}})),
+            (
+                "/search?type=movie",
+                json!({"data":[{"tvdb_id":"555","name":"Mountain","year":"2005"}]}),
+            ),
+            ("/movies/555/extended", json!({"data":{}})),
+            ("/movies/555/translations", json!({"data":{}})),
+            (
+                "/movies/555",
+                json!({"data":{"id":555,"name":"Mountain","year":"2005"}}),
+            ),
+        ])
+    }
+
+    /// One fresh run (new data folder each time, so jack.db doesn't carry over).
+    fn picks_run(extra: &[&str], h: &providers::fake::FakeHttp) -> (String, String) {
         let d = tempfile::tempdir().unwrap();
         let cfg = d.path().join("c.toml");
         fs::write(
@@ -945,56 +981,114 @@ mod tests {
         .unwrap();
         let file = d.path().join("Mountain.2017.mp4");
         fs::write(&file, "x").unwrap();
-        let http = || {
-            providers::fake::FakeHttp::new(vec![
-                (
-                    "/search/movie",
-                    json!({"results":[
-                        {"id":462145,"title":"Mountain","release_date":"2017-09-28"},
-                        {"id":7,"title":"Mountain Men","release_date":"2017-01-01"},
-                        {"id":8,"title":"Mountain Three","release_date":"2017-01-01"}]}),
-                ),
-                (
-                    "/movie/462145",
-                    json!({"id":462145,"title":"Mountain","release_date":"2017-09-28"}),
-                ),
-                ("/login", json!({"data":{"token":"T"}})),
-                (
-                    "/search?type=movie",
-                    json!({"data":[{"tvdb_id":"555","name":"Mountain","year":"2005"}]}),
-                ),
-                ("/movies/555/extended", json!({"data":{}})),
-                (
-                    "/movies/555",
-                    json!({"data":{"id":555,"name":"Mountain","year":"2005"}}),
-                ),
-                ("/movies/555/translations", json!({"data":{}})),
-            ])
-        };
-        let args = |extra: &[&'static str]| {
-            let mut a = vec![
-                file.to_str().unwrap().to_string(),
-                "--config".into(),
-                cfg.to_str().unwrap().to_string(),
-                "--movie".into(),
-            ];
-            a.extend(extra.iter().map(|s| s.to_string()));
-            a
-        };
-        let a = args(&[]);
-        let refs: Vec<&str> = a.iter().map(String::as_str).collect();
-        let (out, _, _) = run(&cli(&refs), &http()).unwrap();
+        let mut a = vec![
+            file.to_str().unwrap(),
+            "--config",
+            cfg.to_str().unwrap(),
+            "--movie",
+        ];
+        a.extend(extra);
+        let (out, printed, _) = run(&cli(&a), h).unwrap();
+        (out, printed)
+    }
+
+    /// Can't decide: the candidates are listed once, grouped by source, and `--pick` settles it.
+    #[test]
+    fn candidates_are_listed_once_by_source_and_picks_settle_the_match() {
+        let (out, _) = picks_run(&[], &picks_http());
         assert!(out.contains("candidates (pick with --pick"), "{out}");
         assert_eq!(out.matches("tmdb:\n").count(), 1, "listed once: {out}");
         assert!(out.contains("thetvdb:"), "{out}");
         // the search list is capped by [candidates] per_source
         assert!(!out.contains("Mountain Three"), "{out}");
         assert!(!out.contains("identified:"), "{out}");
-        let a = args(&["--pick", "1"]);
-        let refs: Vec<&str> = a.iter().map(String::as_str).collect();
-        let (out, _, _) = run(&cli(&refs), &http()).unwrap();
+        let (out, _) = picks_run(&["--pick", "1"], &picks_http());
         assert!(out.contains("picked: tmdb"), "{out}");
         assert!(out.contains("identified: Mountain (2017)"), "{out}");
+    }
+
+    #[test]
+    fn a_picked_search_hit_is_fetched_in_full_before_it_counts() {
+        let h = picks_http();
+        let (out, _) = picks_run(&["--pick", "2"], &h);
+        assert!(out.contains("identified: Mountain Men (2017)"), "{out}");
+        assert!(out.contains("full details fetched"), "{out}");
+        assert!(h.calls.borrow().iter().any(|c| c.contains("/movie/7?")));
+        // --limit lists more; a pick whose details can't be fetched is reported, nothing guessed
+        let (out, _) = picks_run(&["--limit", "3", "--pick", "3"], &picks_http());
+        assert!(out.contains("Mountain Three"), "{out}");
+        assert!(
+            out.contains("couldn't fetch the details of the tmdb pick")
+                && !out.contains("identified:"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn more_at_the_prompt_searches_again_with_more_results() {
+        let h = picks_http();
+        let mut cfg = config::load(None).unwrap();
+        cfg.providers.order = vec!["tmdb".into(), "thetvdb".into()];
+        cfg.providers.tmdb.read_token = "t".into();
+        cfg.providers.tmdb.base_url = "http://tmdb".into();
+        cfg.providers.thetvdb.api_key = "k".into();
+        cfg.providers.thetvdb.base_url = "http://tvdb".into();
+        cfg.candidates.per_source = 2;
+        let q = providers::Query {
+            title: "Mountain".into(),
+            year: Some("2017".into()),
+            kind: Some("movie".into()),
+            ..Default::default()
+        };
+        let (mut meta, mut found) =
+            crate::fetch::fetch_from(&q, &cfg, &h, &mut String::new(), &[], None).unwrap();
+        assert!(
+            !found
+                .iter()
+                .any(|(_, m)| m.get("title").is_some_and(|t| t == "Mountain Three"))
+        );
+        let mut answers = vec!["2".to_string(), "more".to_string(), "y".to_string()];
+        let mut read = || answers.pop().unwrap();
+        let mut out = String::new();
+        let settled = crate::process::pick(
+            &cfg,
+            &mut meta,
+            &mut found,
+            Some(&q),
+            &h,
+            Some(&mut read),
+            &mut out,
+        );
+        assert!(
+            out.contains("searched again with up to 7 results per source"),
+            "{out}"
+        );
+        assert!(
+            found
+                .iter()
+                .any(|(_, m)| m.get("title").is_some_and(|t| t == "Mountain Three"))
+        );
+        assert!(settled, "{out}");
+        assert_eq!(meta.get("title").map(String::as_str), Some("Mountain Men"));
+    }
+
+    #[test]
+    fn json_output_carries_the_full_candidate_list() {
+        let (_, printed) = picks_run(&["-j"], &picks_http());
+        let j: serde_json::Value = serde_json::from_str(printed.trim()).unwrap();
+        assert_eq!(j["v"], 1);
+        let c = &j["items"][0]["candidates"];
+        let groups = c["groups"].as_array().unwrap();
+        let tmdb = groups.iter().find(|g| g["source"] == "tmdb").unwrap();
+        let rows = tmdb["rows"].as_array().unwrap();
+        assert_eq!(rows[0]["n"], 1);
+        assert_eq!(rows[0]["title"], "Mountain");
+        assert_eq!(rows[0]["ids"]["tmdb_id"], "462145");
+        assert_eq!(rows[1]["from"], "search");
+        assert!(groups.iter().any(|g| g["source"] == "thetvdb"));
+        assert!(c["not_found"].is_array());
+        // another windup gets the list, never a prompt or the text list
+        assert!(!printed.contains("pick with --pick"));
     }
 
     /// Jack identifies only: no program he runs may write to a media file.

@@ -12,6 +12,8 @@ pub struct Hooks<'a> {
     pub open: Vec<Item>,
     /// Every item finished this run, for the optional review pass.
     pub done: Vec<(String, crate::meta::Meta)>,
+    /// Each item's candidate list, for `-j` (file, list JSON).
+    pub lists: Vec<(String, serde_json::Value)>,
 }
 
 impl Hooks<'_> {
@@ -90,6 +92,7 @@ mod tests {
             ex: &ex,
             open: vec![],
             done: vec![],
+            lists: vec![],
         };
         assert!(!h.settle(
             Step::Match,
@@ -111,6 +114,7 @@ mod tests {
             ex: &ex,
             open: vec![],
             done: vec![],
+            lists: vec![],
         };
         let mut m = Meta::new();
         assert!(h.settle(

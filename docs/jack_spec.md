@@ -57,7 +57,11 @@ Jack is the metadata windup.
 | person | no | Ask: "Would you like to see candidates (y/n)?" On yes, list the candidates once, grouped by source and numbered across the list; the person picks at most one per source (numbers separated by spaces, Enter for none). Not on a terminal, the list is printed once with a hint to use `--pick`. |
 | person | yes | Talk like a normal agent (via Sammy). |
 
-- Candidate picks (Nov 27): picked candidates count as confirming sources; unpicked ones are ignored. The picks then go through the same consensus rule, so picks naming different works settle nothing. `--pick "N ..."` gives the picks without a prompt, using the numbers in the list. Config `[candidates]`: `ask` (default true; asks on a terminal only) and `per_source` (search hits kept per source, default 5).
+- Candidate picks (Nov 27): picked candidates count as confirming sources; unpicked ones are ignored. The picks then go through the same consensus rule, so picks naming different works settle nothing. `--pick "N ..."` gives the picks without a prompt, using the numbers in the list. Config `[candidates]`: `ask` (default true; asks on a terminal only), `per_source` (search hits kept per source, default 5) and `more` (default 5).
+- Decided (Nov 27): the "Would you like to see candidates (y/n)?" question comes first, before the list.
+- A picked search hit carries only a name, a year and an id. Jack fetches its full record from its own source by that id before consensus. If the fetch fails, or the source has no id lookup, he says so (`pick_fetch_failed`) and accepts nothing.
+- More results: typing `more` at the prompt searches again with `more` extra hits per source and shows the new list. `--limit N` sets the hits per source for one run.
+- `-j` carries the full candidate list for each item (`candidates`: groups by source, with the same numbers; see `windups/schema/handoff_v1.md`), so Sammy or a calling windup can use it. A windup never gets a prompt.
 - In the list, sources whose rows have no title and no id show as one `not found: ...` line, and they count neither way.
 
 ## 4. Responses
@@ -81,6 +85,7 @@ Global flags and commands are in [windups_base_spec.md](windups_base_spec.md); t
 | `--x` ID\|URL | X (twitter) post: media downloaded from X is identified by its post id. Mostly social media, but keep it. Accepts a bare status id or any `x.com`/`twitter.com/<user or i>/status/<id>` link |
 | `--name`, `--year`, `--type tv\|movie\|auto`, `--tv`, `--movie` | Search filters |
 | `--pick "N ..."` | Candidate picks by list number, at most one per source; no prompt (see §3) |
+| `--limit N` | Search-list hits kept per source for this run (default `[candidates] per_source`, 5) |
 | `--providers a,b,c` | Source order |
 | `--tmdb-key` (alias `--tmdb-token`), `--tvdb-key`, `--tvdb-pin`, `--omdb-key` VALUE | Set keys (value required; several per command; per-key report). `--tmdb-key` takes either TMDB credential (v3 key or read token) |
 | `-p, --print` | Show the results (merged facts). Without it Jack still always says what he did (a status), but not the results |
