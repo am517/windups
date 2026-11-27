@@ -1,5 +1,5 @@
 //! Jack on the shared core: the universal commands (`jack status`, `jack backup`, `jack talk ...`;
-//! see windups/COMMANDS.md) plus his own action, `tag`.
+//! see windups/COMMANDS.md) plus his own action, `identify`.
 use crate::archive::Archive;
 use crate::config::{self, Config};
 use std::io::Write as _;
@@ -14,7 +14,7 @@ pub struct Jack {
     config_arg: Option<PathBuf>,
 }
 
-const ACTIONS: &[&str] = &["tag", "setup", "ask"];
+const ACTIONS: &[&str] = &["identify", "setup", "ask"];
 
 /// `jack <universal command|action> ...`, unless a file or folder of that name is meant.
 pub fn is_command(args: &[String]) -> bool {
@@ -141,9 +141,9 @@ impl Windup for Jack {
     fn actions(&self) -> Vec<Action> {
         vec![
             Action {
-                name: "tag",
-                keywords: &["tag", "label", "identify", "metadata", "fetch"],
-                help: "fetch, verify and tag files (tag PATH...; same as jack PATH...)",
+                name: "identify",
+                keywords: &["identify", "metadata", "fetch", "lookup"],
+                help: "find out what files are (identify PATH...; same as jack PATH...)",
             },
             Action {
                 name: "setup",
@@ -170,11 +170,11 @@ impl Windup for Jack {
             let (kind, filter) = crate::ask::Filter::parse(rest)?;
             return crate::ask::query(&self.archive, kind, &filter);
         }
-        if name != "tag" {
+        if name != "identify" {
             return Err(format!("I don't know how to {name}"));
         }
         if rest.is_empty() {
-            return Err("tag what? give file or folder paths".into());
+            return Err("identify what? give file or folder paths".into());
         }
         let mut argv = vec!["jack".to_string()];
         argv.extend(rest.iter().cloned());
@@ -183,8 +183,7 @@ impl Windup for Jack {
             argv.push(c.to_string_lossy().into_owned());
         }
         use clap::Parser;
-        let mut cli = crate::cli::Cli::try_parse_from(argv).map_err(|e| e.to_string())?;
-        crate::secrets::resolve_secrets(&mut cli, &mut crate::secrets::read_secret)?;
+        let cli = crate::cli::Cli::try_parse_from(argv).map_err(|e| e.to_string())?;
         crate::run::run(&cli, &crate::providers::Ureq).map(|(s, _, _)| s)
     }
 }
@@ -324,11 +323,14 @@ mod tests {
         let e = commands::dispatch(&mut j, Command::Talk("please identify".into()), &H)
             .err()
             .unwrap();
-        assert!(e.contains("tag what?"), "talk found Jack's own action: {e}");
+        assert!(
+            e.contains("identify what?"),
+            "talk found Jack's own action: {e}"
+        );
         assert!(
             run(&mut j, &["log"])
                 .text
-                .contains("\"please identify\" -> tag")
+                .contains("\"please identify\" -> identify")
         );
     }
 

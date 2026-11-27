@@ -58,11 +58,7 @@ pub const DEFAULT_CONFIG: &str = include_str!("../config/jack.toml");
 pub struct Settings {
     pub extensions: Option<Vec<String>>,
     pub recursive: Option<bool>,
-    pub meta_suffix: Option<String>,
-    pub poster_suffix: Option<String>,
-    pub output: Option<PathBuf>,
     pub dry_run: Option<bool>,
-    pub download_only: Option<bool>,
     /// Print composite metadata to stdout.
     pub print: Option<bool>,
     /// "text" or "json".
@@ -72,17 +68,15 @@ pub struct Settings {
     pub tmdb: Option<String>,
     pub youtube: Option<String>,
     pub x: Option<String>,
+    pub wikidata: Option<String>,
+    pub wikipedia: Option<String>,
     /// Title override (narrows the filename guess; used as the search query).
     pub name: Option<String>,
     /// Year override (search filter).
     pub year: Option<String>,
-    /// "poster" or "landscape" (overrides [tagger] art_style).
-    pub art_style: Option<String>,
     /// "tv", "movie" or "auto": forces the matcher and providers.
     #[serde(rename = "type")]
     pub kind: Option<String>,
-    /// iTunes Grouping (MP4 ©grp / MKV GROUPING).
-    pub grouping: Option<String>,
 }
 
 impl Settings {
@@ -92,11 +86,7 @@ impl Settings {
         Settings {
             extensions: self.extensions.or(l.extensions),
             recursive: self.recursive.or(l.recursive),
-            meta_suffix: self.meta_suffix.or(l.meta_suffix),
-            poster_suffix: self.poster_suffix.or(l.poster_suffix),
-            output: self.output.or(l.output),
             dry_run: self.dry_run.or(l.dry_run),
-            download_only: self.download_only.or(l.download_only),
             print: self.print.or(l.print),
             print_format: self.print_format.or(l.print_format),
             imdb: self.imdb.or(l.imdb),
@@ -104,11 +94,11 @@ impl Settings {
             tmdb: self.tmdb.or(l.tmdb),
             youtube: self.youtube.or(l.youtube),
             x: self.x.or(l.x),
+            wikidata: self.wikidata.or(l.wikidata),
+            wikipedia: self.wikipedia.or(l.wikipedia),
             name: self.name.or(l.name),
             year: self.year.or(l.year),
-            art_style: self.art_style.or(l.art_style),
             kind: self.kind.or(l.kind),
-            grouping: self.grouping.or(l.grouping),
         }
     }
     pub fn flag(v: Option<bool>) -> bool {
@@ -118,52 +108,12 @@ impl Settings {
 
 #[derive(Deserialize, Debug, Default, Clone)]
 #[serde(default)]
-pub struct TaggerCfg {
-    pub mp4_tool: String,
-    pub atomicparsley: String,
-    pub exiftool: String,
-    pub mkvpropedit: String,
-    pub mp4_extensions: Vec<String>,
-    pub mkv_extensions: Vec<String>,
-    pub embed_artwork: bool,
-    pub short_description_max: usize,
-    pub mkvextract: String,
-    pub mkvmerge: String,
-    pub tv_poster: Vec<String>,
-    pub art_style: String,
-    pub tv_landscape: Vec<String>,
-    pub art_fallback: std::collections::BTreeMap<String, Vec<String>>,
-    pub mkv_cover_name: String,
-    /// rDNS domain ("mean") for MP4 freeform id atoms.
-    pub id_domain: String,
-    /// Metadata id key -> MP4 freeform atom name.
-    pub mp4_id_tags: std::collections::BTreeMap<String, String>,
-    /// Metadata id key -> MKV simple tag name.
-    pub mkv_id_tags: std::collections::BTreeMap<String, String>,
-    /// Also write `rated` as the iTunes content rating (iTunEXTC) in MP4s.
-    pub mp4_content_rating: bool,
-    /// --ask-art: pick the art interactively from all candidates.
-    pub ask_art: bool,
-    pub ask_art_max: usize,
-    /// macOS: open the candidates folder with ask_art_open_command.
-    /// Unset: true on macOS, false elsewhere.
-    pub ask_art_open_folder: Option<bool>,
-    pub ask_art_open_command: String,
-    /// Keep the candidates folder (always kept with -d).
-    pub ask_art_keep: bool,
-}
-
-#[derive(Deserialize, Debug, Default, Clone)]
-#[serde(default)]
 pub struct Config {
     #[serde(flatten)]
     pub base: Settings,
-    pub tagger: TaggerCfg,
     pub providers: crate::providers::ProvidersCfg,
     pub merge: crate::sorter::MergeCfg,
     pub matching: crate::matcher::MatchCfg,
-    pub sort: crate::sorter::SortCfg,
-    pub naming: crate::sorter::NamingCfg,
     pub store: daniel::StoreCfg,
     /// Jack's own database (his archive); see archive.rs.
     pub archive: crate::archive::ArchiveCfg,
@@ -252,15 +202,6 @@ pub fn load(explicit: Option<&Path>) -> Result<Config, String> {
         }
     }
     let mut c: Config = v.try_into().map_err(|e| format!("config: {e}"))?;
-    for s in [
-        &mut c.tagger.atomicparsley,
-        &mut c.tagger.exiftool,
-        &mut c.tagger.mkvpropedit,
-        &mut c.tagger.mkvextract,
-        &mut c.tagger.mkvmerge,
-    ] {
-        expand_s(s);
-    }
     // tests never touch the real shared media.db (store tests use their own temp DB)
     #[cfg(test)]
     if c.store.database.is_empty() {
@@ -320,17 +261,9 @@ pub fn save_relationships(path: &Path, changed: &[(String, String)]) -> Result<(
     std::fs::write(path, doc.to_string()).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-pub fn suffixed(media: &Path, suffix: &str) -> PathBuf {
-    let mut s = media.as_os_str().to_owned();
-    s.push(suffix);
-    PathBuf::from(s)
-}
-
 /// Effective settings for one file: flags > main config.
 pub fn resolve(flags: &Settings, main: &Settings) -> Settings {
-    let mut s = flags.clone().over(main);
-    s.output = s.output.as_deref().map(expand);
-    s
+    flags.clone().over(main)
 }
 
 pub fn has_ext(p: &Path, exts: &[String]) -> bool {

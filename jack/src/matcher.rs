@@ -17,6 +17,13 @@ pub struct MatchCfg {
     /// Years this far apart still count as agreeing (release dates differ by country). A hint for
     /// matching only: never evidence that two things are the same.
     pub year_tolerance: u32,
+    /// Accept a title only at or above this score (0 to 1). Default 0.90.
+    #[serde(default = "default_threshold")]
+    pub fuzzy_threshold: f64,
+}
+
+fn default_threshold() -> f64 {
+    0.90
 }
 
 fn re(p: &str) -> Result<Regex, String> {

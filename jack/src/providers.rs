@@ -7,7 +7,6 @@ use std::cell::RefCell;
 pub trait Http {
     fn get(&self, url: &str, headers: &[(&str, String)]) -> Result<Value, String>;
     fn post(&self, url: &str, body: &Value) -> Result<Value, String>;
-    fn bytes(&self, url: &str) -> Result<Vec<u8>, String>;
 }
 
 pub struct Ureq;
@@ -45,18 +44,6 @@ impl Http for Ureq {
             .into_json()
             .map_err(|e| e.to_string())
     }
-    fn bytes(&self, url: &str) -> Result<Vec<u8>, String> {
-        let mut v = Vec::new();
-        std::io::Read::read_to_end(
-            &mut ureq::get(url)
-                .call()
-                .map_err(|e| uerr(url, e))?
-                .into_reader(),
-            &mut v,
-        )
-        .map_err(|e| e.to_string())?;
-        Ok(v)
-    }
 }
 
 /// What we know about a file before lookup.
@@ -69,6 +56,8 @@ pub struct Query {
     pub imdb: Option<String>,
     pub tmdb: Option<String>,
     pub thetvdb: Option<String>,
+    pub wikidata: Option<String>,
+    pub wikipedia: Option<String>,
     /// Episode title guessed from the filename (text after SxxExx), a last-resort fallback.
     pub episode_title: Option<String>,
     /// Forced type: Some("tv") / Some("movie"); None = guess.
@@ -382,28 +371,6 @@ pub fn imdb_id(x: &str) -> Option<String> {
     digits_after(x, "tt").map(|d| format!("tt{d}"))
 }
 
-/// An --ask-art candidate image with API metadata (w/h 0 = unknown; lrank: 0 primary, 1 original,
-/// 2 untagged/unknown, 3 other language).
-#[derive(Debug, Clone)]
-pub struct Img {
-    pub provider: String,
-    pub kind: &'static str,
-    pub url: String,
-    pub lang: String,
-    pub lrank: u8,
-    pub w: u64,
-    pub h: u64,
-}
-
-fn lrank(l: &str, primary: &str, orig: &str) -> u8 {
-    match l {
-        "" => 2,
-        l if l == primary => 0,
-        l if l == orig => 1,
-        _ => 3,
-    }
-}
-
 pub struct Tmdb<'a> {
     pub cfg: TmdbCfg,
     pub http: &'a dyn Http,
@@ -422,84 +389,12 @@ impl Tmdb<'_> {
         } else if !self.cfg.api_key.is_empty() {
             url += &format!("&api_key={}", enc(&self.cfg.api_key));
         } else {
-            return Err("no API key; set [providers.tmdb] read_token with --tmdb-token TOKEN --set (or build with JACK_TMDB_TOKEN)".into());
+            return Err("no API key; set [providers.tmdb] with --tmdb-key KEY --set (a 32-character hex key or a read token)".into());
         }
         for (k, v) in params {
             url += &format!("&{k}={}", enc(v));
         }
         self.http.get(&url, &h)
-    }
-    /// All images (--ask-art only): /images for the movie or series, season and episode, in the
-    /// primary + original language and untagged. Failures are skipped.
-    pub fn images(&self, m: &Meta) -> Vec<Img> {
-        let pl = self
-            .cfg
-            .language
-            .split('-')
-            .next()
-            .unwrap_or("")
-            .to_string();
-        let ol = m.get("original_language").cloned().unwrap_or_default();
-        let incl = [(
-            "include_image_language",
-            format!("{pl},{ol},null").replace(",,", ","),
-        )];
-        let tv = m.get("kind").is_some_and(|k| k == "episode") || m.contains_key("tmdb_series_id");
-        let mut paths: Vec<(String, &[(&str, &'static str)])> = vec![];
-        if tv {
-            let Some(id) = m.get("tmdb_series_id") else {
-                return vec![];
-            };
-            paths.push((
-                format!("/tv/{id}/images"),
-                &[("posters", "poster"), ("backdrops", "backdrop")],
-            ));
-            if let Some(se) = m.get("season") {
-                paths.push((
-                    format!("/tv/{id}/season/{se}/images"),
-                    &[("posters", "season")],
-                ));
-                if let Some(ep) = m.get("episode") {
-                    paths.push((
-                        format!("/tv/{id}/season/{se}/episode/{ep}/images"),
-                        &[("stills", "still")],
-                    ));
-                }
-            }
-        } else if let Some(id) = m.get("tmdb_id") {
-            paths.push((
-                format!("/movie/{id}/images"),
-                &[("posters", "poster"), ("backdrops", "backdrop")],
-            ));
-        }
-        let mut v = vec![];
-        for (path, lists) in paths {
-            let Ok(r) = self.get(&path, &incl) else {
-                continue;
-            };
-            for (field, kind) in lists {
-                for a in r[*field].as_array().into_iter().flatten() {
-                    let Some(url) = self.img_sz(&a["file_path"], "original") else {
-                        continue;
-                    };
-                    let lang = s(&a["iso_639_1"]).unwrap_or_default();
-                    let (w, h) = (
-                        a["width"].as_u64().unwrap_or(0),
-                        a["height"].as_u64().unwrap_or(0),
-                    );
-                    v.push(Img {
-                        provider: "tmdb".into(),
-                        kind,
-                        url,
-                        lrank: lrank(&lang, &pl, &ol),
-                        lang,
-                        w,
-                        h,
-                    });
-                }
-            }
-        }
-        v
     }
     fn img(&self, v: &Value) -> Option<String> {
         self.img_sz(v, &self.cfg.poster_size)
@@ -628,7 +523,7 @@ impl Tmdb<'_> {
                 }
             }
         }
-        let trusted = [&q.imdb, &q.tmdb, &q.thetvdb]
+        let trusted = [&q.imdb, &q.tmdb, &q.thetvdb, &q.wikidata, &q.wikipedia]
             .iter()
             .any(|v| v.as_ref().is_some_and(|s| !s.is_empty()));
         if id.is_none() && !q.title.is_empty() && !trusted {
@@ -798,69 +693,6 @@ impl<'a> Tvdb<'a> {
 }
 
 impl Tvdb<'_> {
-    /// `/<kind>/<id>/translations/<language>` (Null if none).
-    /// All artworks (--ask-art only): series/movie extended artworks (poster, background) and the
-    /// season's (poster), with language and size. Failures are skipped.
-    pub fn images(&self, m: &Meta) -> Vec<Img> {
-        let tv =
-            m.get("kind").is_some_and(|k| k == "episode") || m.contains_key("thetvdb_series_id");
-        let id = if tv {
-            m.get("thetvdb_series_id")
-        } else {
-            m.get("thetvdb_id")
-        };
-        let Some(id) = id else { return vec![] };
-        let Ok(x) = self.get(&format!(
-            "/{}/{id}/extended",
-            if tv { "series" } else { "movies" }
-        )) else {
-            return vec![];
-        };
-        let (pl, ol) = (
-            self.cfg.image_language.clone(),
-            s(&x["originalLanguage"]).unwrap_or_default(),
-        );
-        let mut v = vec![];
-        let add = |arts: &Value, v: &mut Vec<Img>| {
-            for a in arts.as_array().into_iter().flatten() {
-                let kind = match a["type"].as_u64() {
-                    Some(2 | 14) => "poster",
-                    Some(3 | 15) => "backdrop",
-                    Some(7) => "season",
-                    _ => continue,
-                };
-                let Some(url) = s(&a["image"]) else { continue };
-                let lang = s(&a["language"]).unwrap_or_default();
-                let (w, h) = (
-                    a["width"].as_u64().unwrap_or(0),
-                    a["height"].as_u64().unwrap_or(0),
-                );
-                v.push(Img {
-                    provider: "thetvdb".into(),
-                    kind,
-                    url,
-                    lrank: lrank(&lang, &pl, &ol),
-                    lang,
-                    w,
-                    h,
-                });
-            }
-        };
-        add(&x["artworks"], &mut v);
-        if let Some(se) = m.get("season").and_then(|x| x.parse::<u64>().ok()) {
-            let ss = x["seasons"].as_array().cloned().unwrap_or_default();
-            let hit = ss.iter().find(|v| {
-                v["number"].as_u64() == Some(se)
-                    && v["type"]["type"].as_str().is_none_or(|t| t == "official")
-            });
-            if let Some(sid) = hit.and_then(|h| s(&h["id"])) {
-                if let Ok(sx) = self.get(&format!("/seasons/{sid}/extended")) {
-                    add(&sx["artwork"], &mut v);
-                }
-            }
-        }
-        v
-    }
     fn translation(&self, kind: &str, id: &str) -> Value {
         self.translation_in(kind, id, &self.cfg.language)
     }
@@ -1238,14 +1070,6 @@ pub mod fake {
         fn post(&self, url: &str, b: &Value) -> Result<Value, String> {
             self.calls.borrow_mut().push(format!("body {b}"));
             self.hit(url)
-        }
-        fn bytes(&self, url: &str) -> Result<Vec<u8>, String> {
-            // a route value "@<path>" serves that file's bytes
-            self.hit(url)
-                .map(|v| match v.as_str().and_then(|p| p.strip_prefix('@')) {
-                    Some(p) => std::fs::read(p).unwrap(),
-                    None => b"JPEG".to_vec(),
-                })
         }
     }
 }
@@ -1850,93 +1674,6 @@ mod tests {
             })
             .unwrap_err()
             .contains("[providers.tmdb]")
-        );
-    }
-
-    #[test]
-    fn full_image_lists() {
-        let m: Meta = [
-            ("kind", "episode"),
-            ("tmdb_series_id", "7"),
-            ("thetvdb_series_id", "9"),
-            ("season", "3"),
-            ("episode", "1"),
-            ("original_language", "ja"),
-        ]
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect();
-        let a = |p: &str, l: Value, w: u64| json!({"file_path": p, "iso_639_1": l, "width": w, "height": w});
-        let h = FakeHttp::new(vec![
-            (
-                "/tv/7/season/3/episode/1/images",
-                json!({"stills":[a("/s.jpg", Value::Null, 1920)]}),
-            ),
-            (
-                "/tv/7/season/3/images",
-                json!({"posters":[a("/sp.jpg", json!("ja"), 1000)]}),
-            ),
-            (
-                "/tv/7/images",
-                json!({"posters":[a("/en.jpg", json!("en"), 500), a("/fr.jpg", json!("fr"), 2000)],"backdrops":[a("/b.jpg", Value::Null, 3840)]}),
-            ),
-        ]);
-        let v = tmdb(&h).images(&m);
-        let got: Vec<_> = v
-            .iter()
-            .map(|i| (i.kind, i.url.as_str(), i.lang.as_str(), i.lrank, i.w))
-            .collect();
-        assert_eq!(
-            got,
-            vec![
-                ("poster", "http://img/original/en.jpg", "en", 0, 500),
-                ("poster", "http://img/original/fr.jpg", "fr", 3, 2000),
-                ("backdrop", "http://img/original/b.jpg", "", 2, 3840),
-                ("season", "http://img/original/sp.jpg", "ja", 1, 1000),
-                ("still", "http://img/original/s.jpg", "", 2, 1920)
-            ]
-        );
-        assert!(
-            h.calls
-                .borrow()
-                .iter()
-                .filter(|c| c.contains("/images"))
-                .all(|c| c.contains("include_image_language=en%2Cja%2Cnull")),
-            "{:?}",
-            h.calls.borrow()
-        );
-        let h = FakeHttp::new(vec![
-            ("/login", json!({"data":{"token":"x"}})),
-            (
-                "/series/9/extended",
-                json!({"data":{"originalLanguage":"jpn","seasons":[{"id":55,"number":3,"type":{"type":"official"}}],"artworks":[{"type":2,"image":"http://a/p.jpg","language":"jpn","width":680,"height":1000},{"type":3,"image":"http://a/bg.jpg","language":null,"width":1920,"height":1080},{"type":1,"image":"http://a/banner.jpg"}]}}),
-            ),
-            (
-                "/seasons/55/extended",
-                json!({"data":{"artwork":[{"type":7,"image":"http://a/s3.jpg","language":"eng","width":680,"height":1000}]}}),
-            ),
-        ]);
-        let v = Tvdb::new(
-            TvdbCfg {
-                api_key: "k".into(),
-                base_url: "http://v".into(),
-                image_language: "eng".into(),
-                ..Default::default()
-            },
-            &h,
-        )
-        .images(&m);
-        let got: Vec<_> = v
-            .iter()
-            .map(|i| (i.kind, i.url.as_str(), i.lrank, i.w, i.h))
-            .collect();
-        assert_eq!(
-            got,
-            vec![
-                ("poster", "http://a/p.jpg", 1, 680, 1000),
-                ("backdrop", "http://a/bg.jpg", 2, 1920, 1080),
-                ("season", "http://a/s3.jpg", 0, 680, 1000)
-            ]
         );
     }
 
