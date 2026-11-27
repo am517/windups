@@ -58,6 +58,7 @@
  - As few dependencies as necessary
  - Only well-made crates that serve a specific purpose and would be hard to reimplement (e.g. SQLite, TLS/HTTP, TOML parsing, fuzzy matching).
  - Never add a dependency just to make code shorter.
+ - A C or C++ library is allowed as a dependency when no Rust version exists (e.g. libjxl for lossless JPEG to JPEG XL); all new code is Rust.
  - Always use the latest versions of dependencies and tools where possible; always install Rust with rustup (latest stable); check for updates now and then
  - Only use free sources for any integrations: free to use; a paid tier is fine as long as a publicly accessible free version exists
  - Free, locally installed open-source tools such as yt-dlp (works for X and YouTube, not IMDb) and exiftool count as free public access when they're on the computer. They're optional and detected at runtime; if one is missing, the windup says so clearly and carries on without it
@@ -71,7 +72,7 @@
  - Never use the easiest solution without evaluation
 - Language
  - Windups are Rust first
- - Other languages are only permitted when there is no choice, such as when a necessary dependency is only available in another language
+ - Other languages are only permitted when there is no choice, such as when a necessary dependency is only available in another language (see Dependencies: C/C++ libraries are fine to link; our own code stays Rust)
 
 ## 4. Config, data and relationships
 - Relationships
@@ -154,6 +155,7 @@
  - Applies to all workspace (box) and Mac data that isn't in GitHub, including our programming files that aren't in GitHub.
  - Windups themselves don't use `.old`
  - New version → rename the old folder to `<name>.old` (replacing any older .old), plain name for the new one, no version numbers in file names. Purpose: no build-up of relic files, while keeping exactly one backup.
+- GitHub wording: PR titles and bodies, issues, comments, project cards, repo docs and commit messages never use the owner's name ("The four Jack failures", not "<name>'s four Jack failures") and never name specific media files (`jack --thetvdb 27498 <video.mp4>`, not the real file name). Already-pushed `main` history is not rewritten.
 - Name mix-ups (e.g. "Walter" for Daniel) are slips, not design changes - always refer to GitHub for correct names
 
 ## 9. Common rules
