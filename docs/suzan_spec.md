@@ -18,7 +18,7 @@ Suzan is the write-to-file windup. Drafted Nov 26, 2026 from existing sources on
 Global only (base spec). Her own commands: **I don't know**.
 
 ## 4. Open questions
-1. **Tasks table**: her one-open-task rule lives in Daniel's tasks table, which is "do not build yet". Daniel's catalogs are now built (#42-#48), but `docs/daniel_spec.md` has no tasks table. Should it be a media.db migration in Daniel, or does each open task live in `suzan.db` with Daniel told?
+1. **Tasks**: **DECIDED (2026-11-27), the flow:** Daniel records the planned action as pending; Suzan acts and logs it; she reports back; Daniel settles it or marks it failed. **PROPOSED (agreed):** tasks live in a separate operational database, apart from the catalogs. `--dry-run` is recorded on the task (base spec §1).
 2. **Suzan vs Sally**: NAMES.md and the roster give Sally "organizes files (rename, move, sort)", and she takes over Jack's sorting. With Suzan now doing rename/move/organize, what is left for Sally (for example, deciding *where* things go while Suzan does the writing)?
 3. **Failure and retry**: a write fails (file busy, read-only disk). Keep the task open for Walter to send her back?
 4. **Originals**: back up the file (or its tag block) before writing, or rely on George's snapshots (which cover DBs, not media)?

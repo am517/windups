@@ -174,8 +174,13 @@ vector for a model and version, or whose text changed since. `store` refuses a v
 model id and version, or one made from text that has since changed (`chunk_changed`). `search`
 ranks within one model and version.
 
-Tom's model: **leaning toward `BAAI/bge-m3`** (1024 dimensions, multilingual, long input). Not
-final; see Q7.
+Tom's model: not chosen. bge-m3 is **no longer the lean**: it comes from BAAI (China), which
+conflicts with the no-Chinese-software rule (coding_guidelines §3). See `docs/tom_spec.md` for the
+proposed bake-off.
+
+Low-confidence vectors (coding_guidelines §1): a vector made by a compressed copy of the chosen
+model is stored with `confidence = low` and queued for regeneration on a capable computer. A
+different, smaller model never stands in.
 
 ## 9. Personal records
 
@@ -201,33 +206,37 @@ Alone, Daniel still ingests, stores, runs `find` and the "connected to X" query,
 is missing: no hash yet (`hash_pending`), no vectors (`not_embedded`), no review. He does not
 embed, guess metadata, extract mentions or merge entities.
 
-## 12. Open questions
+## 12. Answers (2026-11-27) and open questions
 
-1. **One file or several?** The guidelines say one database per windup; the draft recommends a
-   file per catalog (privacy of personal records, growth of maps and photos). The code supports
-   both through config. Which should be the default?
-2. **Who settles an `undecided` purpose?** The owner only, or Sammy with Julie's review and the
-   owner told?
-3. **media.db `entities` versus the people catalog.** Should cast and crew from online sources
-   move into the people catalog (one entity layer), or stay in media.db with a link?
-4. **How far does Daniel's `find` go once Steve exists?** Keep it as the isolated fallback only,
-   or remove it?
-5. **Japanese and similar text in FTS.** Add a trigram index beside the word index, or wait for a
-   proper tokenizer?
-6. **Licence for very large corpora** (encyclopedia dumps, public-domain libraries): the same rule
-   as the Bible reference database (licence per copy, blank if unknown, no silent public-domain
-   claim)?
-7. **Tom's model.** bge-m3 is the lean. Confirm, or compare first with the 384-dimension models
-   the existing databases use?
-8. **When SQLite vectors stop being enough:** stay until it hurts, plan shards now, or evaluate an
-   embedded vector library?
-9. **Map geometry:** is GeoJSON text enough, or is a binary format wanted for large layers?
-10. **Who extracts mentions while Sammy is missing?** As decided, nobody writes; confirm that
-    mentions simply wait (marked `mentions_pending`) until Sammy's extractor exists.
-11. **Photos ingest: who reads a photo's EXIF** (time taken, coordinates)? Lauren is the exiftool
-    front end, but for writing. Does she also read for Daniel, does Larry, or does Daniel call
-    exiftool himself? Storage is ready (`daniel/src/photos.rs`); finding and reading photos is not
-    built.
-12. **Dangling links between catalogs** (§4): should Walter's patrol cover Daniel's other catalogs
-    (for example a photo's `place_feature_id` with no map feature), and how does Walter learn
-    their paths: from Daniel, or from his own config?
+Answers are marked DECIDED or PROPOSED as given; a PROPOSED answer is not built until confirmed.
+
+1. **One file or several?** **PROPOSED (2026-11-27):** a **shared encrypted archive database** (media,
+   people, maps) that Walter and other windups read, and a **separate personal encrypted
+   database** (records, family photos) with its own key. Keys live in the OS keychain
+   ([identity_and_security.md](identity_and_security.md)). The files live in a global windups data
+   folder in the platform's standard app-data location (not the home folder). Daniel is the only
+   writer. The owner leans toward one file; this needs a final yes. Today's code supports any
+   layout through `[catalogs]`. Still open: does this replace the "one database per windup" rule
+   for Daniel's catalogs (coding_guidelines §4)?
+2. **Who settles an `undecided` purpose?** Open. (Julie is the judge, see Q12; does that cover
+   purpose?)
+3. **Cast and crew.** **DECIDED (2026-11-27):** cast and crew are **links from media to people, with a role**.
+   Person details live only in the people catalog. Open: how today's media.db `entities` rows
+   move over (a Dec 3 task).
+4. **How far does Daniel's `find` go once Steve exists?** Open.
+5. **Japanese and similar text in FTS.** Open.
+6. **Licence for very large corpora.** Open.
+7. **Tom's model.** See `docs/tom_spec.md`: bge-m3 is dropped (no-Chinese-software rule). **PROPOSED (2026-11-27):**
+   a bake-off on real data of multilingual-e5-large, EmbeddingGemma and arctic-embed-l-v2.0.
+8. **When SQLite vectors stop being enough.** Open.
+9. **Map geometry.** Open.
+10. **Mentions while Sammy is missing.** Open: confirm that chunks simply stay `mentions = 'pending'`.
+11. **Who reads photo EXIF.** **PROPOSED (2026-11-27):** (agreed) **Jack reads** photo EXIF and other in-file
+    metadata; **Lauren only writes** it.
+12. **Links between catalogs.** **DECIDED (2026-11-27):** **Walter checks cross-catalog links**: he flags
+    dangling ones and suggests new ones. **PROPOSED (2026-11-27):** Walter suggests, **Julie accepts or rejects**.
+    Still open: how Walter learns the catalogs' paths (follows from Q1).
+13. **Julie.** **DECIDED (2026-11-27):** Julie is the judge: she runs the best model, can query other windups and
+    sees the whole picture. Daniel still does all writing, and windups still work without her.
+14. **Tasks.** **PROPOSED (2026-11-27):** (agreed) tasks (planned actions such as Suzan's) live in a **separate
+    operational database**, apart from the catalogs. See `docs/suzan_spec.md` for the flow.

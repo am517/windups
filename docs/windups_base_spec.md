@@ -11,7 +11,7 @@ The syntax is the same on every windup. Each windup implements it compatibly, an
 | `-V, --version` | Version |
 | `-j, --json` | Result as JSON on stdout, for people and scripts (replaces `--emit-json` and `--print-format json`) |
 | `--set` | Save the other flags given as defaults in the windup's settings (each windup decides what that means; e.g. Jack saves ids, keys, defaults) |
-| `--dry-run` | Change nothing; say what would happen |
+| `--dry-run` | Change nothing; say what would happen. Decided (Nov 27): every windup has it, and the dry run is recorded on the task |
 | `--no-X` | Off form of every on/off flag; last one wins |
 
 Removed: `-w/--windup` (windups talk to each other directly over Noise, never through the command line), `--caller` (Noise identifies the caller), `--config PATH` (settings live encrypted in the windup's DB).

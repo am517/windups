@@ -5,6 +5,7 @@ Lauren is the tagging windup. Drafted Nov 26, 2026 from the repo's existing sour
 - Name: Lauren · Personality: Artistic (NAMES.md, set Nov 10, work in progress)
 - Function: writes tags and embeds art into media files from what the database already knows (PROFILE.toml `purpose`; NAMES.md).
 - **She writes metadata inside files, as a front end to exiftool** (direction, Nov 27). Filesystem writes (rename, move, organize) are Suzan's, so the two are not redundant.
+- **PROPOSED (2026-11-27, agreed):** she only writes in-file metadata; Jack reads it (EXIF included).
 - She takes over Jack's file-editing code (roster; coding_guidelines §4 "file editing moves to Lauren later", Nov 20).
 - Workspace: her own folder with one binary and one encrypted DB (`lauren.db`), like every windup (coding_guidelines §4).
 
