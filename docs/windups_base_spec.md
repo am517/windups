@@ -69,5 +69,10 @@ for each whole work; Tom vectorizes them alongside the original passages, never 
 and never vectorizes a Sammy rewrite of the text itself. A vision model (through Sammy) writes
 photo and video-frame descriptions. Details: `docs/tom_spec.md`, "Vectorizing strategy".
 
+## 5b. Mention flow (PROPOSED, 2026-11-27)
+A mention goes to Jack (metadata only, regardless of ownership) → Jack returns results to Daniel →
+Daniel activates the other windups for refinements. For works not obtained or paywalled, Larry and
+Tom wait; Charles obtains on demand. Details: daniel_spec §8a.
+
 ## 6. Base modules (today, `windups/src/base/`)
 `layout`, `install`, `schema`, `events`, `snapshot`, `records`, `sync`, `sync_records`, `sync_socket`, `audit`, `commands`, `talk`, `migrate`, `relocate`, `config`, `relationships`, `personality`, `flags`, `help`, `wire`. To add: identity/keys, recovery phrase, Noise transport, encrypted settings, backup hand-off, multi-device (later). Function-level detail (inputs, outputs, errors, tests) comes next.

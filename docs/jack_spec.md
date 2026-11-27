@@ -62,6 +62,7 @@ Jack is the metadata windup.
 - A picked search hit carries only a name, a year and an id. Jack fetches its full record from its own source by that id before consensus. If the fetch fails, or the source has no id lookup, he says so (`pick_fetch_failed`) and accepts nothing.
 - Decided (Nov 27): `more` means one more page per service (a source's search returns one page; Jack doesn't page further).
 - TVmaze and iTunes hits are left out of the list (`[candidates] unpickable`), because Jack has no id lookup for them to fetch a pick in full. **DECIDED (2026-11-27):** their id lookups come later. Amazon is a maybe: first check whether a usable API exists.
+- **PROPOSED (2026-11-27), mention flow:** Daniel sends Jack a mention; Jack only fetches metadata (for papers, references resolved by DOI first) and returns the results to Daniel. He neither knows nor cares whether the item is owned. Daniel then activates the other windups. See daniel_spec §8a.
 - **PROPOSED (2026-11-27, agreed):** Jack also reads photo EXIF and other in-file metadata (for Daniel's photos catalog); Lauren only writes it.
 - When Jack chooses a match himself, a person on a terminal is asked "Would you like to see the candidates I chose from (y/n)?". On yes, the list is shown with the agreeing sources marked `*`. Nothing is picked there.
 - More results: typing `more` at the prompt searches again with `more` extra hits per source and shows the new list. `--limit N` sets the hits per source for one run.
