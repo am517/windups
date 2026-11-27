@@ -167,6 +167,8 @@ pub(crate) fn fetch_from(
                 // the whole search list, from the same call
                 cands.extend(c.into_iter().map(|m| (crate::candidates::source(name), m)));
             }
+            // a user-supplied id that no kind of this source has: stop here, never search by title
+            Err(e) if e.starts_with(providers::ID_NOT_FOUND) => return Err(e),
             Err(e) => errs.push(format!("{}: {e}", p.name())),
         }
     }

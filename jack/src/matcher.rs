@@ -17,6 +17,12 @@ pub struct MatchCfg {
     /// Years this far apart still count as agreeing (release dates differ by country). A hint for
     /// matching only: never evidence that two things are the same.
     pub year_tolerance: u32,
+    /// A fetched record more than this many years from the user's --year is a different work
+    /// and blocks the match. Default 1 (a release can be a year apart in different countries).
+    pub user_year_tolerance: u32,
+    /// Found sources that must confirm a match; any found source naming a different work
+    /// blocks it, and sources that found nothing don't count. Default 1.
+    pub min_confirming: usize,
     /// Accept a title only at or above this score (0 to 1). Default 0.90.
     #[serde(default = "default_threshold")]
     pub fuzzy_threshold: f64,

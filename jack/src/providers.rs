@@ -78,8 +78,107 @@ impl Query {
             return k == "tv";
         }
         self.season.is_some()
-            || self.thetvdb.is_some()
             || self.tmdb.as_deref().is_some_and(|t| t.contains("/tv/"))
+            || self
+                .thetvdb
+                .as_deref()
+                .is_some_and(|t| t.contains("/series/"))
+    }
+    /// A TheTVDB id or URL was given: TheTVDB looks that up and never searches by title.
+    pub fn has_tvdb_id(&self) -> bool {
+        self.thetvdb.as_deref().is_some_and(|x| !x.is_empty())
+    }
+    /// A kind the user or the filename made clear (forced type, or a season/episode).
+    pub fn kind_hint(&self) -> Option<IdKind> {
+        match self.kind.as_deref() {
+            Some("tv") => Some(IdKind::Tv),
+            Some("movie") => Some(IdKind::Movie),
+            _ if self.season.is_some() || self.episode.is_some() => Some(IdKind::Tv),
+            _ if self
+                .thetvdb
+                .as_deref()
+                .is_some_and(|t| t.contains("/movies/")) =>
+            {
+                Some(IdKind::Movie)
+            }
+            _ => None,
+        }
+    }
+}
+
+/// The kinds of record a source keeps under separate lookups (TMDB `/movie` and `/tv`,
+/// TheTVDB `/movies` and `/series`). Each source lists the kinds it has in its definition
+/// ([`Provider::id_kinds`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IdKind {
+    Movie,
+    Tv,
+}
+
+impl IdKind {
+    pub fn word(self) -> &'static str {
+        match self {
+            IdKind::Movie => "a movie",
+            IdKind::Tv => "a TV series",
+        }
+    }
+}
+
+/// Start of the error when a user-supplied id is missing under every kind its source has.
+/// `fetch` stops on it: a given id anchors identity and is never swapped for a title search.
+pub const ID_NOT_FOUND: &str = "id not found";
+
+/// True when a source error means the record does not exist (HTTP 404).
+pub fn is_not_found(e: &str) -> bool {
+    e.contains("HTTP 404")
+}
+
+/// The kinds to try for a user-supplied id: a forced type alone; otherwise the hinted kind
+/// first, then every other kind the source has.
+pub fn kinds_to_try(q: &Query, supported: &[IdKind]) -> Vec<IdKind> {
+    if let Some(k) = q.kind.as_deref().and_then(|k| match k {
+        "tv" => Some(IdKind::Tv),
+        "movie" => Some(IdKind::Movie),
+        _ => None,
+    }) {
+        return supported.iter().copied().filter(|x| *x == k).collect();
+    }
+    let mut v: Vec<IdKind> = supported.to_vec();
+    if let Some(h) = q.kind_hint() {
+        v.sort_by_key(|k| *k != h);
+    }
+    v
+}
+
+/// Looks a user-supplied id up under each kind in `kinds`, in order, moving on only when a
+/// kind answers 404. The first record found wins. A clear [`ID_NOT_FOUND`] error comes back
+/// only when every kind is a 404; any other error is returned as it is.
+pub fn lookup_id_kinds<T>(
+    source: &str,
+    id: &str,
+    kinds: &[IdKind],
+    mut fetch: impl FnMut(IdKind) -> Result<T, String>,
+) -> Result<(IdKind, T), String> {
+    let mut hits: Vec<(IdKind, T)> = vec![];
+    for &k in kinds {
+        match fetch(k) {
+            Ok(v) => {
+                hits.push((k, v));
+                break;
+            }
+            Err(e) if is_not_found(&e) => {}
+            Err(e) => return Err(e),
+        }
+    }
+    match hits.pop() {
+        Some(x) => Ok(x),
+        None => {
+            let list: Vec<&str> = kinds.iter().map(|k| k.word()).collect();
+            Err(format!(
+                "{ID_NOT_FOUND}: {source} has no id {id} as {} (HTTP 404 for each); a given id is not replaced by a title search",
+                list.join(" or ")
+            ))
+        }
     }
 }
 
@@ -95,6 +194,11 @@ pub trait Provider {
     /// False: this provider does not cover this kind of query (e.g. TV-only for a movie); skipped silently.
     fn handles(&self, _q: &Query) -> bool {
         true
+    }
+    /// The kinds this source looks ids up under separately (empty: one lookup for every kind).
+    /// A user-supplied id is tried under each before it counts as not found.
+    fn id_kinds(&self) -> &'static [IdKind] {
+        &[]
     }
 }
 
@@ -479,6 +583,9 @@ impl Provider for Tmdb<'_> {
     fn name(&self) -> &'static str {
         "tmdb"
     }
+    fn id_kinds(&self) -> &'static [IdKind] {
+        &[IdKind::Movie, IdKind::Tv]
+    }
     fn lookup_all(&self, q: &Query) -> Result<(Option<Meta>, Vec<Meta>), String> {
         let mut c = vec![];
         Ok((self.find(q, &mut c)?, c))
@@ -543,16 +650,32 @@ impl Tmdb<'_> {
             cands.extend(crate::candidates::tmdb(&r, tv));
         }
         let Some(id) = id else { return Ok(None) };
-        let d = self.get(
-            &format!("/{}/{id}", if tv { "tv" } else { "movie" }),
-            &[
-                ("append_to_response", "external_ids,images".into()),
-                (
-                    "include_image_language",
-                    format!("{},null", self.cfg.image_language),
-                ),
-            ],
-        )?;
+        let detail = |tv: bool| {
+            self.get(
+                &format!("/{}/{id}", if tv { "tv" } else { "movie" }),
+                &[
+                    ("append_to_response", "external_ids,images".into()),
+                    (
+                        "include_image_language",
+                        format!("{},null", self.cfg.image_language),
+                    ),
+                ],
+            )
+        };
+        // a bare number from the user names no kind: try every kind TMDB has
+        let bare = q
+            .tmdb
+            .as_deref()
+            .is_some_and(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_digit()));
+        let d = if bare {
+            let (k, d) = lookup_id_kinds("TMDB", &id, &kinds_to_try(q, self.id_kinds()), |k| {
+                detail(k == IdKind::Tv)
+            })?;
+            tv = k == IdKind::Tv;
+            d
+        } else {
+            detail(tv)?
+        };
         let mut m = Meta::new();
         let name = s(&d[if tv { "name" } else { "title" }]);
         put_original(
@@ -745,13 +868,8 @@ impl Tvdb<'_> {
     }
     /// Movie search (only when the type is forced to movie).
     fn movie(&self, q: &Query, cands: &mut Vec<Meta>) -> Result<Option<Meta>, String> {
-        let id = match q
-            .thetvdb
-            .as_deref()
-            .filter(|x| x.chars().all(|c| c.is_ascii_digit()))
-        {
-            Some(x) => x.to_string(),
-            None if !q.title.is_empty() => {
+        let id = match () {
+            _ if !q.title.is_empty() && !q.has_tvdb_id() => {
                 let yr = q
                     .year
                     .as_ref()
@@ -764,9 +882,13 @@ impl Tvdb<'_> {
                 };
                 id
             }
-            None => return Ok(None),
+            _ => return Ok(None),
         };
         let d = self.get(&format!("/movies/{id}"))?;
+        Ok(Some(self.movie_record(&id, &d)))
+    }
+    fn movie_record(&self, id: &str, d: &Value) -> Meta {
+        let id = id.to_string();
         let mut m = Meta::new();
         m.insert("kind".into(), "movie".into());
         let orig = s(&d["name"]).map(|n| strip_year_suffix(&n));
@@ -789,14 +911,25 @@ impl Tvdb<'_> {
         );
         put(&mut m, "year", s(&d["year"]));
         put(&mut m, "poster_url", s(&d["image"]));
+        // the extended record carries the other sources' ids; optional
+        if let Ok(x) = self.get(&format!("/movies/{id}/extended")) {
+            remote_ids(&mut m, &x);
+            put(&mut m, "genre", join_names(&x["genres"]));
+        }
+        remote_ids(&mut m, d);
+        m.remove("tmdb_series_id");
         put(&mut m, "thetvdb_id", Some(id));
-        Ok(Some(m))
+        m
     }
 }
 
 impl Provider for Tvdb<'_> {
     fn name(&self) -> &'static str {
         "thetvdb"
+    }
+    fn id_kinds(&self) -> &'static [IdKind] {
+        // without a hint a bare TheTVDB number is taken as a series first, as before
+        &[IdKind::Tv, IdKind::Movie]
     }
     fn lookup_all(&self, q: &Query) -> Result<(Option<Meta>, Vec<Meta>), String> {
         let mut c = vec![];
@@ -806,6 +939,43 @@ impl Provider for Tvdb<'_> {
 
 impl Tvdb<'_> {
     fn find(&self, q: &Query, cands: &mut Vec<Meta>) -> Result<Option<Meta>, String> {
+        // a user-supplied number: TheTVDB keeps movies and series apart, so ask both
+        if let Some(x) = q
+            .thetvdb
+            .as_deref()
+            .filter(|x| !x.is_empty() && x.chars().all(|c| c.is_ascii_digit()))
+        {
+            let (k, d) = lookup_id_kinds("TheTVDB", x, &kinds_to_try(q, self.id_kinds()), |k| {
+                self.get(&format!(
+                    "/{}/{x}",
+                    if k == IdKind::Tv { "series" } else { "movies" }
+                ))
+            })?;
+            return match k {
+                IdKind::Movie => Ok(Some(self.movie_record(x, &d))),
+                IdKind::Tv => self.series_record(q, d),
+            };
+        }
+        if let Some(slug) = q
+            .thetvdb
+            .as_deref()
+            .and_then(|x| x.split("/movies/").nth(1))
+        {
+            let slug = slug.split(['/', '?', '#']).next().unwrap_or("");
+            let d = self
+                .get(&format!("/movies/slug/{}", enc(slug)))
+                .map_err(|e| {
+                    if is_not_found(&e) {
+                        format!("{ID_NOT_FOUND}: TheTVDB has no movie {slug} (HTTP 404); a given id is not replaced by a title search")
+                    } else {
+                        e
+                    }
+                })?;
+            let Some(id) = s(&d["id"]) else {
+                return Ok(None);
+            };
+            return Ok(Some(self.movie_record(&id, &d)));
+        }
         if q.kind.as_deref() == Some("movie") {
             return self.movie(q, cands);
         }
@@ -813,9 +983,6 @@ impl Tvdb<'_> {
             return Ok(None);
         }
         let series = match q.thetvdb.as_deref() {
-            Some(x) if x.chars().all(|c| c.is_ascii_digit()) => {
-                self.get(&format!("/series/{x}"))?
-            }
             Some(x) if x.contains("/series/") => {
                 let slug = x
                     .split("/series/")
@@ -826,7 +993,7 @@ impl Tvdb<'_> {
                     .unwrap_or("");
                 self.get(&format!("/series/slug/{}", enc(slug)))?
             }
-            _ if !q.title.is_empty() => {
+            _ if !q.title.is_empty() && !q.has_tvdb_id() => {
                 let yr = q
                     .year
                     .as_ref()
@@ -841,6 +1008,9 @@ impl Tvdb<'_> {
             }
             _ => return Ok(None),
         };
+        self.series_record(q, series)
+    }
+    fn series_record(&self, q: &Query, series: Value) -> Result<Option<Meta>, String> {
         let Some(id) = s(&series["id"]) else {
             return Ok(None);
         };
@@ -1062,11 +1232,20 @@ pub mod fake {
         }
         fn hit(&self, url: &str) -> Result<Value, String> {
             self.calls.borrow_mut().push(url.into());
-            self.routes
+            let v = self
+                .routes
                 .iter()
                 .find(|(k, _)| url.contains(k))
                 .map(|r| r.1.clone())
-                .ok_or(format!("unrouted {url}"))
+                .ok_or(format!("unrouted {url}"))?;
+            // a route whose value is {"__status": N} answers with that HTTP error
+            match v["__status"].as_u64() {
+                Some(n) => Err(format!(
+                    "{}: HTTP {n} ",
+                    url.split('?').next().unwrap_or(url)
+                )),
+                None => Ok(v),
+            }
         }
     }
     impl Http for FakeHttp {
@@ -1718,5 +1897,152 @@ mod tests {
             "a trusted id is not a title search: {:?}",
             h.calls.borrow()
         );
+    }
+
+    /// Mountain (2017 documentary): TheTVDB movies id 27498, TMDB 462145, IMDb tt6203570.
+    fn mountain_tvdb() -> FakeHttp {
+        FakeHttp::new(vec![
+            ("/login", json!({"data":{"token":"T"}})),
+            ("/series/27498", json!({"__status": 404})),
+            (
+                "/movies/27498/extended",
+                json!({"data":{"remoteIds":[{"sourceName":"IMDB","id":"tt6203570"},{"sourceName":"TheMovieDB.com","id":"462145"}],"genres":[{"name":"Documentary"}]}}),
+            ),
+            (
+                "/movies/27498",
+                json!({"data":{"id":27498,"name":"Mountain","year":"2017","overview":"A film about mountains"}}),
+            ),
+        ])
+    }
+
+    fn tvdb_cfg() -> TvdbCfg {
+        TvdbCfg {
+            api_key: "k".into(),
+            base_url: "http://v".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn sources_with_separate_movie_and_tv_lookups_list_both_kinds() {
+        let h = FakeHttp::new(vec![]);
+        let both = [IdKind::Movie, IdKind::Tv];
+        for p in [&tmdb(&h) as &dyn Provider, &Tvdb::new(tvdb_cfg(), &h)] {
+            let mut k = p.id_kinds().to_vec();
+            k.sort_by_key(|k| *k == IdKind::Tv);
+            assert_eq!(k, both, "{}", p.name());
+        }
+        // a forced type is the only kind tried; a season puts TV first
+        let mut q = Query {
+            kind: Some("movie".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            kinds_to_try(&q, &[IdKind::Tv, IdKind::Movie]),
+            [IdKind::Movie]
+        );
+        q.kind = None;
+        q.season = Some(1);
+        assert_eq!(
+            kinds_to_try(&q, &[IdKind::Movie, IdKind::Tv]),
+            [IdKind::Tv, IdKind::Movie]
+        );
+    }
+
+    #[test]
+    fn a_user_id_is_tried_under_every_kind_and_fails_only_when_all_404() {
+        let mut asked = vec![];
+        let r = lookup_id_kinds("X", "7", &[IdKind::Tv, IdKind::Movie], |k| {
+            asked.push(k);
+            if k == IdKind::Tv {
+                Err("u: HTTP 404 ".to_string())
+            } else {
+                Ok(1)
+            }
+        });
+        assert_eq!(r, Ok((IdKind::Movie, 1)));
+        assert_eq!(asked, [IdKind::Tv, IdKind::Movie]);
+        let e = lookup_id_kinds::<u8>("X", "7", &[IdKind::Tv, IdKind::Movie], |_| {
+            Err("u: HTTP 404 ".into())
+        })
+        .unwrap_err();
+        assert!(e.starts_with(ID_NOT_FOUND), "{e}");
+        assert!(
+            e.contains("a TV series or a movie") && e.contains("7"),
+            "{e}"
+        );
+        // any other failure is not "not found": it is reported as it is, without trying on
+        let e = lookup_id_kinds::<u8>("X", "7", &[IdKind::Tv, IdKind::Movie], |_| {
+            Err("u: HTTP 500 ".into())
+        })
+        .unwrap_err();
+        assert!(
+            e.contains("HTTP 500") && !e.starts_with(ID_NOT_FOUND),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn thetvdb_movie_id_uses_the_movies_endpoint_after_a_series_404() {
+        let h = mountain_tvdb();
+        let t = Tvdb::new(tvdb_cfg(), &h);
+        let q = Query {
+            title: "Mountain".into(),
+            thetvdb: Some("27498".into()),
+            year: Some("2017".into()),
+            ..Default::default()
+        };
+        let m = t.lookup(&q).unwrap().unwrap();
+        assert_eq!(m["kind"], "movie");
+        assert_eq!(m["title"], "Mountain");
+        assert_eq!(m["year"], "2017");
+        assert_eq!(m["thetvdb_id"], "27498");
+        assert_eq!(m["imdb_id"], "tt6203570");
+        assert_eq!(m["tmdb_id"], "462145");
+        assert!(!m.contains_key("tmdb_series_id"));
+        assert!(!h.calls.borrow().iter().any(|c| c.contains("/search")));
+    }
+
+    #[test]
+    fn a_thetvdb_id_missing_as_movie_and_series_is_reported_not_searched() {
+        let h = FakeHttp::new(vec![
+            ("/login", json!({"data":{"token":"T"}})),
+            ("/series/27498", json!({"__status": 404})),
+            ("/movies/27498", json!({"__status": 404})),
+            (
+                "/search",
+                json!({"data":[{"tvdb_id":"1","name":"Brokeback Mountain","year":"2005"}]}),
+            ),
+        ]);
+        let t = Tvdb::new(tvdb_cfg(), &h);
+        let q = Query {
+            title: "Mountain".into(),
+            thetvdb: Some("27498".into()),
+            ..Default::default()
+        };
+        let e = t.lookup(&q).unwrap_err();
+        assert!(e.starts_with(ID_NOT_FOUND) && e.contains("TheTVDB"), "{e}");
+        assert!(!h.calls.borrow().iter().any(|c| c.contains("/search")));
+    }
+
+    #[test]
+    fn a_bare_tmdb_id_falls_back_to_the_other_kind_on_404() {
+        let h = FakeHttp::new(vec![
+            ("/tv/462145", json!({"__status": 404})),
+            (
+                "/movie/462145",
+                json!({"id":462145,"title":"Mountain","release_date":"2017-09-28","imdb_id":"tt6203570"}),
+            ),
+        ]);
+        // a season hint puts TV first; the 404 there moves on to the movie
+        let q = Query {
+            title: "Mountain".into(),
+            tmdb: Some("462145".into()),
+            season: Some(1),
+            ..Default::default()
+        };
+        let m = tmdb(&h).lookup(&q).unwrap().unwrap();
+        assert_eq!((m["kind"].as_str(), m["year"].as_str()), ("movie", "2017"));
+        assert_eq!(m["imdb_id"], "tt6203570");
     }
 }

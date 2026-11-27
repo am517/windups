@@ -716,6 +716,144 @@ mod tests {
         );
     }
 
+    /// The Mountain (2017) regression: `--thetvdb 27498 --year 2017` on a file whose own year
+    /// says 2018. An unresolved result must leave the file exactly as it was.
+    fn mountain_run(
+        routes: Vec<(&'static str, serde_json::Value)>,
+    ) -> (String, Vec<String>, Vec<u8>) {
+        let d = tempfile::tempdir().unwrap();
+        let cfg = d.path().join("c.toml");
+        fs::write(
+            &cfg,
+            "[store]\nenabled = false\n[archive]\nsync_target = \"none\"\n\
+             [providers]\norder = [\"tmdb\", \"thetvdb\", \"tvmaze\"]\n\
+             [providers.tmdb]\nread_token = \"t\"\nbase_url = \"http://tmdb\"\n\
+             [providers.thetvdb]\napi_key = \"k\"\nbase_url = \"http://tvdb\"\n\
+             [providers.tvmaze]\nbase_url = \"http://maze\"\n",
+        )
+        .unwrap();
+        let file = d.path().join("Folder With Spaces/video.mp4");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        let bytes = b"original bytes, year 2018".to_vec();
+        fs::write(&file, &bytes).unwrap();
+        let h = providers::fake::FakeHttp::new(routes);
+        let c = cli(&[
+            file.to_str().unwrap(),
+            "--config",
+            cfg.to_str().unwrap(),
+            "--name",
+            "Mountain",
+            "--thetvdb",
+            "27498",
+            "--year",
+            "2017",
+        ]);
+        let (out, _, _) = run(&c, &h).unwrap();
+        assert_eq!(fs::read(&file).unwrap(), bytes, "the file changed: {out}");
+        let calls = h.calls.borrow().clone();
+        (out, calls, bytes)
+    }
+
+    #[test]
+    fn an_unresolved_result_never_writes_to_the_file() {
+        use serde_json::json;
+        // TMDB maps the id to the wrong movie (Brokeback Mountain, 2005): blocked by --year
+        let (out, calls, _) = mountain_run(vec![
+            (
+                "/find/27498",
+                json!({"tv_results":[],"movie_results":[{"id":142}]}),
+            ),
+            (
+                "/movie/142",
+                json!({"id":142,"title":"Brokeback Mountain","release_date":"2005-09-10","imdb_id":"tt0388795"}),
+            ),
+            ("/login", json!({"data":{"token":"T"}})),
+            ("/series/27498", json!({"__status": 404})),
+            (
+                "/movies/27498/extended",
+                json!({"data":{"remoteIds":[{"sourceName":"IMDB","id":"tt6203570"}]}}),
+            ),
+            (
+                "/movies/27498",
+                json!({"data":{"id":27498,"name":"Mountain","year":"2017"}}),
+            ),
+        ]);
+        assert!(out.contains("2005") && out.contains("--year 2017"), "{out}");
+        assert!(!out.contains("identified: Brokeback"), "{out}");
+        assert!(
+            calls.iter().any(|c| c.contains("/movies/27498")),
+            "{calls:?}"
+        );
+    }
+
+    #[test]
+    fn a_user_id_missing_everywhere_is_reported_and_never_searched() {
+        use serde_json::json;
+        let (out, calls, _) = mountain_run(vec![
+            ("/find/27498", json!({"tv_results":[],"movie_results":[]})),
+            ("/login", json!({"data":{"token":"T"}})),
+            ("/series/27498", json!({"__status": 404})),
+            ("/movies/27498", json!({"__status": 404})),
+            (
+                "/search",
+                json!({"results":[{"id":142,"title":"Brokeback Mountain","release_date":"2005-09-10"}]}),
+            ),
+        ]);
+        assert!(
+            out.contains("TheTVDB has no id 27498 as a TV series or a movie"),
+            "{out}"
+        );
+        assert!(!calls.iter().any(|c| c.contains("/search")), "{calls:?}");
+    }
+
+    #[test]
+    fn mountain_is_identified_by_consensus() {
+        use serde_json::json;
+        let (out, _, _) = mountain_run(vec![
+            (
+                "/find/27498",
+                json!({"tv_results":[],"movie_results":[{"id":462145}]}),
+            ),
+            (
+                "/movie/462145",
+                json!({"id":462145,"title":"Mountain","release_date":"2017-09-28","imdb_id":"tt6203570"}),
+            ),
+            ("/login", json!({"data":{"token":"T"}})),
+            ("/series/27498", json!({"__status": 404})),
+            (
+                "/movies/27498/extended",
+                json!({"data":{"remoteIds":[{"sourceName":"IMDB","id":"tt6203570"},{"sourceName":"TheMovieDB.com","id":"462145"}]}}),
+            ),
+            (
+                "/movies/27498",
+                json!({"data":{"id":27498,"name":"Mountain","year":"2017"}}),
+            ),
+        ]);
+        assert!(out.contains("identified: Mountain (2017)"), "{out}");
+    }
+
+    /// Jack identifies only: no program he runs may write to a media file.
+    #[test]
+    fn jack_has_no_way_to_write_to_a_media_file() {
+        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let banned = [
+            "AtomicParsley",
+            "mkvpropedit",
+            "-overwrite_original",
+            "--overWrite",
+            "\"-tagsfromfile\"",
+        ];
+        for e in walkdir::WalkDir::new(&src).into_iter().flatten() {
+            let p = e.path();
+            if p.extension().is_some_and(|x| x == "rs") && !p.ends_with("run.rs") {
+                let text = fs::read_to_string(p).unwrap();
+                for b in banned {
+                    assert!(!text.contains(b), "{} uses {b}", p.display());
+                }
+            }
+        }
+    }
+
     #[test]
     fn a_single_file_with_spaces_is_reported_and_an_id_still_checks_other_sources() {
         use serde_json::json;
@@ -730,7 +868,7 @@ mod tests {
              [providers.tvmaze]\nbase_url = \"http://maze\"\n",
         )
         .unwrap();
-        let file = d.path().join("Bear Scratch/iVI4/Mountain/Mountain.mp4");
+        let file = d.path().join("Folder With Spaces/sub dir/video.mp4");
         fs::create_dir_all(file.parent().unwrap()).unwrap();
         fs::write(&file, "x").unwrap();
         let path = file.to_str().unwrap();
@@ -775,7 +913,7 @@ mod tests {
             );
             let both = format!("{out}\n{printed}");
             assert!(
-                both.contains("Bear Scratch") && both.contains("Mountain.mp4"),
+                both.contains("Folder With Spaces") && both.contains("video.mp4"),
                 "path with spaces missing for {extra:?}: {both}"
             );
             assert!(
@@ -788,7 +926,7 @@ mod tests {
         fs::write(&calls_cfg, fs::read_to_string(&cfg).unwrap()).unwrap();
         let calls_file = calls_dir
             .path()
-            .join("Bear Scratch/iVI4/Mountain/Mountain.mp4");
+            .join("Folder With Spaces/sub dir/video.mp4");
         fs::create_dir_all(calls_file.parent().unwrap()).unwrap();
         fs::write(&calls_file, "x").unwrap();
         let h = http();
@@ -833,7 +971,7 @@ mod tests {
                 json!({"title":"Mountain","release_date":"2019-04-01","overview":"A film"}),
             ),
         ]);
-        let named = d.path().join("Bear Scratch/Other/Mountain.mp4");
+        let named = d.path().join("Folder With Spaces/Other/video.mp4");
         fs::create_dir_all(named.parent().unwrap()).unwrap();
         fs::write(&named, "x").unwrap();
         let named_cfg = d.path().join("name.toml");
@@ -864,7 +1002,7 @@ mod tests {
         assert!(out.contains("identified: Mountain (2019)"), "{out}");
         assert!(out.contains("score"), "{out}");
 
-        let missing = d.path().join("Bear Scratch/missing.mp4");
+        let missing = d.path().join("Folder With Spaces/missing.mp4");
         let (out, _, failed) = run(
             &cli(&[missing.to_str().unwrap(), "--config", cs, "--dry-run"]),
             &providers::fake::FakeHttp::new(vec![]),
@@ -873,7 +1011,7 @@ mod tests {
         assert!(failed >= 1, "{out}");
         assert!(out.contains("nothing processed"), "{out}");
         assert!(out.contains("not found"), "{out}");
-        assert!(out.contains("Bear Scratch"), "{out}");
+        assert!(out.contains("Folder With Spaces"), "{out}");
         assert!(!out.trim().is_empty());
     }
 

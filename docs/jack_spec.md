@@ -24,7 +24,11 @@ Jack is the metadata windup.
  - Saved in jack.db and synced with Daniel
  - Must be agreed upon by all sources
  - Flags such as `--name` and `--year` only filter the results but do not determine facts on their own.
- - An id flag (`--tmdb`, `--thetvdb`/`--tvdb`, `--imdb`, `--wikidata`, `--wikipedia`) is trusted alone; Jack still looks the work up on the other sources to fill in ids and facts.
+ - An id flag (`--tmdb`, `--thetvdb`/`--tvdb`, `--imdb`, `--wikidata`, `--wikipedia`) anchors identity; Jack still looks the work up on the other sources to fill in ids and facts.
+ - Id kinds: when a source keeps movies and TV under separate lookups (TMDB `/movie` and `/tv`; TheTVDB `/movies` and `/series`), the source lists them in its definition (`Provider::id_kinds`). Jack tries a user-supplied id under each kind before treating it as a failure. The order is: a forced `--type` alone; otherwise the hinted kind first (a season or episode means TV); otherwise the source's own order (TheTVDB: series, then movies; TMDB: movie, then TV). He moves on only on a 404. When every kind is a 404, he reports it clearly (`id_not_found`) and does not fall back to a title search on any source.
+ - `--year` from the user: a found record more than `[matching] user_year_tolerance` years away (default 1; 0 = exact) is a different work, and the file stays unresolved (`year_mismatch`). Search lists are only candidates; a wrong year there is dropped, not counted as dissent.
+ - Consensus: a match is accepted when at least `[matching] min_confirming` found sources (default 1) confirm it and no found source dissents, i.e. names a different work (`sources_disagree`). Sources that found nothing don't count either way. This holds with a user id too.
+ - Jack never writes to a media file. Writing tags is Lauren's job. She may write only an entry Jack marked resolved, never one that is `unresolved` or needs judgment. To repair a file an older build tagged wrongly, see [repair_wrong_tags.md](repair_wrong_tags.md).
 - Truth
  - Can vary between sources (summaries, images, etc.)
  - Saved in jack.db but not synced with Daniel

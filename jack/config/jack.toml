@@ -283,6 +283,14 @@ year_tolerance = 1
 # Accept a title only when it is the single result at or above this score (0 to 1).
 fuzzy_threshold = 0.90
 
+# A found record more than this many years from your --year is a different work, and the file
+# is left unresolved (0 = the exact year). 1 allows a release a year apart in another country.
+user_year_tolerance = 1
+
+# Consensus: accept a match when at least this many found sources confirm it and no found
+# source names a different work. Sources that found nothing count neither way.
+min_confirming = 1
+
 # How titles are read from file names (regular expressions).
 separators = '[._]+'
 
@@ -484,6 +492,10 @@ needs_flags = "I couldn't figure it out: I don't have enough to be sure of a sin
 needs_judgment = "Sources agree this is the same work, but their names or dates differ. I need the LLM windup (if configured) or an id. Left incomplete."
 source_error = "A source failed: {detail}. Jack will retry on a later run (network or quota)."
 conflict = "Sources disagree: {detail}. Kept the file's own values; recorded for review."
+id_not_found = "The id you gave was not found: {detail}. Check the id (and --type movie or --type tv); I did not search by title instead."
+year_mismatch = "A source found a different year than the one you gave: {detail}. Nothing was accepted; check --year or give the id of the right work."
+sources_disagree = "Sources found different works: {detail}. Nothing was accepted; give the id of the right work."
+too_few_sources = "Not enough sources confirm it: {detail}."
 needs_llm_windup = "Needs judgement. Kept for the LLM windup (if configured) or for you to decide with an id (--imdb, --tmdb, or --thetvdb)."
 
 [review]

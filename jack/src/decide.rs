@@ -174,6 +174,41 @@ fn cluster<'a>(
     clusters
 }
 
+/// Distinct sources among `rows` ("tmdb" and "tmdb:search" are one source).
+fn confirming(rows: &[&(String, Meta)]) -> usize {
+    rows.iter()
+        .map(|(src, _)| src.split(':').next().unwrap_or(src))
+        .collect::<std::collections::BTreeSet<_>>()
+        .len()
+}
+
+/// A user's id: sure when the found sources agree on one work and enough of them found it.
+fn anchored(fetched: &[&(String, Meta)], r: &Rules) -> Decision {
+    let split = dissent(fetched, r.year_tolerance);
+    if !split.is_empty() {
+        return Decision::unresolved(
+            "sources_disagree",
+            format!(
+                "the given id is one work, but found sources name different works: {}",
+                split.join(" | ")
+            ),
+            1.0,
+        );
+    }
+    if !fetched.is_empty() && confirming(fetched) < r.min_confirming {
+        return Decision::unresolved(
+            "too_few_sources",
+            format!(
+                "{} found source(s) confirm the given id; [matching] min_confirming is {}",
+                confirming(fetched),
+                r.min_confirming
+            ),
+            1.0,
+        );
+    }
+    Decision::sure(1.0)
+}
+
 fn year_spread(years: &[String]) -> i64 {
     let nums: Vec<i64> = years.iter().filter_map(|y| y.parse().ok()).collect();
     nums.iter()
@@ -204,6 +239,29 @@ fn variations(hits: &[&(String, Meta)], year_tolerance: u32) -> Option<String> {
     Some(list.join(", "))
 }
 
+/// The [matching] settings the decision uses.
+#[derive(Clone, Copy, Debug)]
+pub struct Rules {
+    pub year_tolerance: u32,
+    pub threshold: f64,
+    /// A record more than this many years from the user's `--year` is a different work.
+    pub user_year_tolerance: u32,
+    /// Found sources that must confirm the work (sources that found nothing don't count).
+    pub min_confirming: usize,
+}
+
+impl From<&crate::matcher::MatchCfg> for Rules {
+    fn from(c: &crate::matcher::MatchCfg) -> Self {
+        Rules {
+            year_tolerance: c.year_tolerance,
+            threshold: c.fuzzy_threshold,
+            user_year_tolerance: c.user_year_tolerance,
+            min_confirming: c.min_confirming.max(1),
+        }
+    }
+}
+
+#[cfg(test)]
 pub fn decide(
     q: &Query,
     s: &Settings,
@@ -211,7 +269,43 @@ pub fn decide(
     year_tolerance: u32,
     threshold: f64,
 ) -> Decision {
-    let threshold = crate::similarity::threshold(threshold);
+    decide_by(
+        q,
+        s,
+        found,
+        &Rules {
+            year_tolerance,
+            threshold,
+            user_year_tolerance: 1,
+            min_confirming: 1,
+        },
+    )
+}
+
+/// Records from different works among `rows` (fetched details, not search lists), as
+/// "source: Title (year)" groups; empty when they all agree.
+fn dissent(rows: &[&(String, Meta)], year_tolerance: u32) -> Vec<String> {
+    let groups = cluster(rows, year_tolerance);
+    if groups.len() < 2 {
+        return vec![];
+    }
+    groups
+        .iter()
+        .map(|g| {
+            g.iter()
+                .map(|(src, m)| format!("{src}: {}", label(m)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .collect()
+}
+
+/// Consensus: a match is accepted when at least `min_confirming` found sources confirm it
+/// and no found source dissents. Sources that found nothing count neither way. A user's id
+/// anchors the work; a user's `--year` rules out records from another year.
+pub fn decide_by(q: &Query, s: &Settings, found: &[(String, Meta)], r: &Rules) -> Decision {
+    let year_tolerance = r.year_tolerance;
+    let threshold = crate::similarity::threshold(r.threshold);
     let set = |o: &Option<String>| o.as_ref().is_some_and(|v| !v.is_empty());
     // only an id (a flag, or the same kind of id read from the file) is trusted alone
     let user_id = set(&q.imdb)
@@ -243,6 +337,35 @@ pub fn decide(
         .map(|(_, meta)| scored(meta))
         .fold(0.0_f64, f64::max);
     let hits: Vec<&(String, Meta)> = found.iter().copied().filter(|(_, m)| is_hit(m)).collect();
+    let fetched: Vec<&(String, Meta)> = found
+        .iter()
+        .copied()
+        .filter(|(src, _)| !is_search(src))
+        .collect();
+
+    // the user's --year rules out a fetched record from another year
+    if let Some(want) = s.year.as_deref().filter(|y| !y.is_empty()) {
+        let want: String = want.chars().take(4).collect();
+        let off: Vec<String> = fetched
+            .iter()
+            .filter(|(_, m)| {
+                year(m)
+                    .is_some_and(|y| year_spread(&[y, want.clone()]) > r.user_year_tolerance as i64)
+            })
+            .map(|(src, m)| format!("{src}: {}", label(m)))
+            .collect();
+        if !off.is_empty() {
+            return Decision::unresolved(
+                "year_mismatch",
+                format!(
+                    "you gave --year {want} (tolerance {}); found {}",
+                    r.user_year_tolerance,
+                    off.join(", ")
+                ),
+                best,
+            );
+        }
+    }
 
     // one source listing several exact matches: they are different works
     let mut srcs: Vec<&str> = hits
@@ -300,7 +423,7 @@ pub fn decide(
     if members.is_empty() {
         if user_id {
             // the id identifies the work; other sources may still have been queried and found nothing
-            return Decision::sure(1.0);
+            return anchored(&fetched, r);
         }
         return Decision::unresolved(
             "no_match",
@@ -314,9 +437,9 @@ pub fn decide(
 
     let clusters = cluster(&members, year_tolerance);
 
-    // an id flag identifies the work; other sources were still queried to fill ids/facts
+    // an id flag anchors the work; every found source must agree with it
     if user_id {
-        return Decision::sure(1.0);
+        return anchored(&fetched, r);
     }
 
     if clusters.len() > 1 {
@@ -353,6 +476,34 @@ pub fn decide(
 
     if let Some(d) = variations(hits, year_tolerance) {
         return Decision::unresolved("needs_judgment", d, accepted);
+    }
+
+    // a found source whose details are some other work dissents
+    let mut rows: Vec<&(String, Meta)> = hits.clone();
+    rows.extend(fetched.iter().copied().filter(|row| {
+        !hits.iter().any(|h| std::ptr::eq(*h, *row))
+            && !hits
+                .iter()
+                .any(|(_, h)| same_work(h, &row.1, year_tolerance))
+    }));
+    let split = dissent(&rows, year_tolerance);
+    if !split.is_empty() {
+        return Decision::unresolved(
+            "sources_disagree",
+            format!("found sources name different works: {}", split.join(" | ")),
+            best,
+        );
+    }
+    if confirming(hits) < r.min_confirming {
+        return Decision::unresolved(
+            "too_few_sources",
+            format!(
+                "{} found source(s) confirm it; [matching] min_confirming is {}",
+                confirming(hits),
+                r.min_confirming
+            ),
+            accepted,
+        );
     }
 
     // one work at or above the threshold is enough, from one source or several
@@ -442,17 +593,22 @@ mod tests {
             Some("no_match"),
             "--name/--year do not invent a match"
         );
+        let named99 = Settings {
+            name: Some("The Matrix".into()),
+            year: Some("1999".into()),
+            ..Default::default()
+        };
         assert!(
             sure(&d0(
                 &q("The Matrix", Some("1999")),
-                &named,
+                &named99,
                 &[m("tmdb", "The Matrix", "1999")]
             )),
             "one result above the threshold is enough; --name/--year only filtered"
         );
         assert!(sure(&d0(
             &q("The Matrix", Some("1999")),
-            &named,
+            &named99,
             &[
                 m("tmdb", "The Matrix", "1999"),
                 m("thetvdb", "The Matrix", "1999"),
@@ -597,6 +753,154 @@ mod tests {
         assert_eq!(
             d0(&q("The Matrix", Some("1999")), &none, &f).reason(),
             Some("needs_judgment")
+        );
+    }
+
+    fn ids(src: &str, t: &str, y: &str, pairs: &[(&str, &str)]) -> (String, Meta) {
+        let (s, mut meta) = m(src, t, y);
+        for (k, v) in pairs {
+            meta.insert(k.to_string(), v.to_string());
+        }
+        (s, meta)
+    }
+
+    fn mountain_flags() -> Settings {
+        Settings {
+            thetvdb: Some("27498".into()),
+            year: Some("2017".into()),
+            ..Default::default()
+        }
+    }
+
+    fn mountain_q() -> Query {
+        Query {
+            title: "Mountain".into(),
+            year: Some("2017".into()),
+            thetvdb: Some("27498".into()),
+            ..Default::default()
+        }
+    }
+
+    /// Ground truth: Mountain (2017 documentary), TMDB 462145, IMDb tt6203570, TheTVDB
+    /// movies id 27498. The file's own year (2018) is not a source.
+    fn mountain_found() -> Vec<(String, Meta)> {
+        vec![
+            ids(
+                "thetvdb",
+                "Mountain",
+                "2017",
+                &[
+                    ("thetvdb_id", "27498"),
+                    ("imdb_id", "tt6203570"),
+                    ("tmdb_id", "462145"),
+                ],
+            ),
+            ids(
+                "tmdb",
+                "Mountain",
+                "2017",
+                &[("tmdb_id", "462145"), ("imdb_id", "tt6203570")],
+            ),
+            ids("embedded", "Mountain", "2018", &[]),
+        ]
+    }
+
+    #[test]
+    fn consensus_accepts_confirmed_work_and_ignores_sources_that_found_nothing() {
+        // TVmaze found nothing, so it is not in the list and counts neither way
+        let d = d0(&mountain_q(), &mountain_flags(), &mountain_found());
+        assert!(sure(&d), "{d:?}");
+    }
+
+    #[test]
+    fn a_user_year_blocks_a_record_from_another_year() {
+        let mut f = mountain_found();
+        f.push(ids(
+            "omdb",
+            "Brokeback Mountain",
+            "2005",
+            &[("imdb_id", "tt0388795"), ("tmdb_id", "142")],
+        ));
+        let d = d0(&mountain_q(), &mountain_flags(), &f);
+        assert_eq!(d.reason(), Some("year_mismatch"), "{d:?}");
+        // a search list entry from another year is only a candidate, not a dissent
+        let mut f = mountain_found();
+        f.push(m("tmdb:search", "Brokeback Mountain", "2005"));
+        assert!(sure(&d0(&mountain_q(), &mountain_flags(), &f)));
+        // the tolerance comes from [matching] user_year_tolerance
+        let mut f = mountain_found();
+        f[1].1.insert("year".into(), "2018".into());
+        let strict = Rules {
+            year_tolerance: 1,
+            threshold: 0.90,
+            user_year_tolerance: 0,
+            min_confirming: 1,
+        };
+        let s = mountain_flags();
+        assert_eq!(
+            decide_by(&mountain_q(), &s, &f, &strict).reason(),
+            Some("year_mismatch")
+        );
+        assert!(
+            decide_by(
+                &mountain_q(),
+                &s,
+                &f,
+                &Rules {
+                    user_year_tolerance: 1,
+                    ..strict
+                }
+            )
+            .is_sure()
+        );
+    }
+
+    #[test]
+    fn a_found_source_naming_another_work_dissents_even_with_a_user_id() {
+        let mut f = mountain_found();
+        f.push(ids(
+            "omdb",
+            "Brokeback Mountain",
+            "2017",
+            &[("imdb_id", "tt0388795")],
+        ));
+        let no_year = Settings {
+            thetvdb: Some("27498".into()),
+            ..Default::default()
+        };
+        let d = d0(&mountain_q(), &no_year, &f);
+        assert_eq!(d.reason(), Some("sources_disagree"), "{d:?}");
+        // without an id: one confirming source and a dissenting one is not a match
+        let q = q("Mountain", Some("2017"));
+        let f = vec![
+            m("tmdb", "Mountain", "2017"),
+            ids("thetvdb", "Mountain", "2005", &[("thetvdb_id", "9")]),
+        ];
+        assert!(!sure(&d0(&q, &Settings::default(), &f)));
+    }
+
+    #[test]
+    fn min_confirming_is_read_from_config() {
+        let r = Rules {
+            year_tolerance: 1,
+            threshold: 0.90,
+            user_year_tolerance: 1,
+            min_confirming: 2,
+        };
+        let one = vec![mountain_found()[0].clone()];
+        assert_eq!(
+            decide_by(&mountain_q(), &mountain_flags(), &one, &r).reason(),
+            Some("too_few_sources")
+        );
+        assert!(decide_by(&mountain_q(), &mountain_flags(), &mountain_found(), &r).is_sure());
+        let c = crate::matcher::MatchCfg {
+            min_confirming: 0,
+            ..Default::default()
+        };
+        assert_eq!(
+            Rules::from(&c).min_confirming,
+            1,
+            "at least one source confirms"
         );
     }
 }
