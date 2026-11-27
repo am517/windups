@@ -19,11 +19,11 @@ Every windup follows the society rules in [`CULTURE.md`](CULTURE.md), whatever i
 3. Never reuse or rename a name without a note below.
 4. Build position is the numbered sequence in `WINDUPS.md` / `TODO.md`. A dash
    (`—`) means the windup sits outside that sequence (already working, or later
-   support such as Beth training LoRAs).
+   support such as Beth training LoRAs); `TBD` means Adam has not placed it yet.
 
 5. Personality is one trait (a word or short phrase, Inside Out style) that shapes how the windup
    does its job: style and priorities, never an exception to [`CULTURE.md`](CULTURE.md). It also
-   lives in the windup's `PROFILE.toml` (`personality`, `personality_status = "set"|"set (work in progress)"|"proposed"`);
+   lives in the windup's `PROFILE.toml` (`personality`, `personality_status = "set"|"set (work in progress)"|"proposed"|"undecided"`; `undecided` means `TBD` until Adam picks one);
    `[core] personality` in its config may override it. The prompt line is built by
    `windups::base::personality::prompt_line`: "Your name is X and you are <Trait>. Your job is Y."
    **(proposed)** marks a draft for Adam to choose. All 22 traits were set by Adam on 2026-11-10
@@ -43,7 +43,9 @@ Every windup follows the society rules in [`CULTURE.md`](CULTURE.md), whatever i
 
 ## Notes (renames and reuse)
 
-None yet.
+- George (added 2026-11-20, Adam): named the backup windup; he replaces the "future backup windup"
+  placeholder. His personality and build position are `TBD` (`personality_status = "undecided"`)
+  until Adam picks them.
 
 ## Registry
 
@@ -71,3 +73,4 @@ None yet.
 | Ben | rebuilds windups for new platforms; fetches and installs when Oliver asks | Handy | stub | — | 2026-10-28 |
 | Rover | refines other windups within their profiles; never applies unreviewed | Restless | stub | — | 2026-10-28 |
 | Beth | trains LoRAs from each windup's training phrases and parameters | Empathetic | stub | — | 2026-11-05 |
+| George | backup windup: receives each windup's checked snapshots and organizes and cares for them outside the windup folders | TBD | stub | TBD | 2026-11-20 |

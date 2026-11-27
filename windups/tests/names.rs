@@ -113,8 +113,8 @@ fn crate_folders_match_the_name_registry() {
             "{name}: added date {added} is not YYYY-MM-DD"
         );
         assert!(
-            pos == "-" || pos.parse::<u32>().is_ok(),
-            "{name}: position {pos} is not a number or —"
+            pos == "-" || pos == "TBD" || pos.parse::<u32>().is_ok(),
+            "{name}: position {pos} is not a number, — or TBD"
         );
         let key = name.to_lowercase();
         assert!(
@@ -191,7 +191,7 @@ fn every_windup_has_a_personality_matching_its_profile() {
         assert!(
             matches!(
                 status.as_str(),
-                "set" | "set (work in progress)" | "proposed"
+                "set" | "set (work in progress)" | "proposed" | "undecided"
             ),
             "{name}: {status}"
         );

@@ -1,0 +1,9 @@
+[package]
+name = "george"
+version = "0.1.0"
+edition = "2024"
+description = "George: the backup windup (stub)"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
